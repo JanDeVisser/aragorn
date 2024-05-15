@@ -1,0 +1,201 @@
+/*
+ * Copyright (c) 2021, Jan de Visser <jan@finiandarcy.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#pragma once
+
+#include <cstring>
+#include <format>
+#include <map>
+#include <mutex>
+#include <string>
+
+namespace LibCore {
+
+#define ENUMERATE_LOG_LEVELS(S) \
+    S(None, 0)                  \
+    S(Trace, 1)                 \
+    S(Info, 2)                  \
+    S(Warning, 3)               \
+    S(Error, 4)                 \
+    S(Fatal, 5)
+
+enum class LogLevel {
+#undef S
+#define S(level, cardinal) level = cardinal,
+    ENUMERATE_LOG_LEVELS(S)
+#undef S
+};
+
+std::string_view        LogLevel_name(LogLevel);
+std::optional<LogLevel> LogLevel_by_name(std::string_view const &);
+
+class Logger;
+class LogCategory;
+
+struct LogMessage {
+    std::string_view file;
+    size_t           line;
+    std::string_view function;
+    std::string_view category;
+    LogLevel         level;
+    std::string      message;
+};
+
+extern std::mutex g_logging_mutex;
+
+class Logger {
+public:
+    template<typename... Args>
+    void logmsg(LogMessage const &msg, Args const &...args)
+    {
+        std::lock_guard<std::mutex> const lock(g_logging_mutex);
+        if (!msg.category.empty() && !m_categories.contains(msg.category) && m_all_enabled) {
+            return;
+        }
+        if (!m_destination) {
+            if (!m_logfile.empty()) {
+                m_destination = fopen(m_logfile.c_str(), "w");
+                if (!m_destination) {
+                    fprintf(stderr, "Could not open logfile '%s': %s\n", m_logfile.c_str(), strerror(errno));
+                    fprintf(stderr, "Falling back to stderr\n");
+                }
+            }
+            if (!m_destination) {
+                m_destination = stderr;
+            }
+        }
+        if (msg.level >= m_level) {
+            std::string_view f(msg.file);
+            if (f.front() == '/') {
+                auto ix = f.find_last_of('/');
+                if (ix != std::string_view::npos) {
+                    f = f.substr(ix + 1);
+                }
+            }
+            auto file_line = std::format("{:s}:{:d}", f, msg.line);
+            auto prefix = std::format("{:<24}:{:<20}:{:<5}:", file_line, msg.function, LogLevel_name(msg.level));
+            fprintf(m_destination, "%s", prefix.c_str());
+            auto message = std::vformat(msg.message, std::make_format_args(args...));
+            fprintf(m_destination, "%s\n", message.c_str());
+            if (m_destination != stderr)
+                fflush(m_destination);
+        }
+    }
+
+    template<typename... Args>
+    void error_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    {
+        logmsg({ file, line, function, "", LogLevel::Error, message }, std::forward<Args>(args)...);
+        exit(1);
+    }
+
+    template<typename... Args>
+    [[noreturn]] void fatal_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args const &...args)
+    {
+        logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
+        abort();
+    }
+
+    template<typename... Args>
+    void assert_msg(std::string_view const &file, size_t line, std::string_view const &function, bool condition, char const *message, Args const &...args)
+    {
+        if (condition)
+            return;
+        logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
+        abort();
+    }
+    static Logger &get_logger();
+
+private:
+    Logger();
+
+    std::map<std::string_view, LogCategory> m_categories {};
+    LogLevel                                    m_level { LogLevel::Trace };
+    FILE                                       *m_destination { stderr };
+    std::string                                 m_logfile {};
+    bool                                        m_all_enabled { false };
+};
+
+struct LogCategory {
+public:
+    std::string name {};
+
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "google-explicit-constructor"
+    LogCategory(std::string_view name) noexcept;
+#pragma clang diagnostic pop
+    LogCategory(LogCategory const &) = default;
+
+    template<typename... Args>
+    void logmsg(LogMessage const &msg, Args &&...args)
+    {
+        Logger::get_logger().logmsg(msg, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void trace_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    {
+        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Trace, message }, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void info_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    {
+        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Info, message }, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void warning_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    {
+        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Warning, message }, std::forward<Args>(args)...);
+    }
+
+    template<typename... Args>
+    void error_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    {
+        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Error, message }, std::forward<Args>(args)...);
+    }
+
+    static std::clock_t start();
+
+    template<typename... Args>
+    void log_duration(std::clock_t clock_start, std::string_view const &file, size_t line, std::string_view const &caller, char const *msg, Args &&...args)
+    {
+        auto clock_end = std::clock();
+        auto duration_ms = (unsigned long) (1000.0 * ((float) clock_end - (float) clock_start) / CLOCKS_PER_SEC);
+
+        auto       msg_with_timing = std::string(msg).append(" {d}.{03d} sec");
+        LogMessage log_message {
+            file,
+            line,
+            caller,
+            name,
+            LogLevel::Trace,
+            msg_with_timing,
+        };
+        logmsg(log_message, std::forward<Args>(args)..., duration_ms / 1000, duration_ms % 1000);
+    }
+};
+
+#define trace(module, fmt, args...) LibCore::LogCategory(#module).trace_msg(__FILE__, __LINE__, __func__, fmt, ##args)
+#define info(module, fmt, args...) LibCore::LogCategory(#module).info_msg(__FILE__, __LINE__, __func__, fmt, ##args)
+#define warning(module, fmt, args...) LibCore::LogCategory(#module).warning_msg(__FILE__, __LINE__, __func__, fmt, ##args)
+#define log_timestamp_start(module) (LibCore::LogCategory(#module).start())
+#define log_timestamp_end(module, ts, fmt, ...) LibCore::LogCategory(#module).log_duration(ts, __FILE__, __LINE__, __func__, fmt, ##args)
+
+#define log_error(fmt, args...) LibCore::Logger::get_logger().error_msg(__FILE__, __LINE__, __func__, fmt, ##args)
+#define fatal(fmt, args...) LibCore::Logger::get_logger().fatal_msg( \
+    __FILE__, __LINE__, __func__,                                    \
+    fmt, ##args)
+#ifdef assert
+#undef assert
+#endif
+#define assert(condition) LibCore::Logger::get_logger().assert_msg(__FILE__, __LINE__, __func__, condition, "Assertion error: {}", #condition)
+#define assert_with_msg(condition, fmt, args...) LibCore::Logger::get_logger().assert_msg(__FILE__, __LINE__, __func__, condition, "Assertion error: " #condition ": " fmt, ##args)
+
+#define UNREACHABLE() fatal("Unreachable")
+
+}

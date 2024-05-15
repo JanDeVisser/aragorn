@@ -1,0 +1,106 @@
+/*
+ * Copyright (c) 2024, Jan de Visser <jan@finiandarcy.com>
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#pragma once
+
+#include <deque>
+
+#include <raylib.h>
+
+#include <App/Widget.h>
+#include <LibCore/Options.h>
+
+namespace Eddy {
+
+using namespace LibCore;
+
+extern std::shared_ptr<struct App> app;
+
+struct App : public Layout {
+    using Draw = std::function<void(pWidget const &target)>;
+    struct DrawFloating {
+        pWidget target;
+        Draw    draw;
+
+        DrawFloating(pWidget target, Draw draw)
+            : target(std::move(target))
+            , draw(std::move(draw))
+        {
+        }
+    };
+
+    std::deque<std::string>   arguments;
+    int                       monitor;
+    Font                      font;
+    std::string               font_path;
+    int                       font_size;
+    pWidget                   focus { nullptr };
+    Vector2                   cell;
+    std::deque<int>           queue {};
+    std::string               last_key;
+    bool                      quit;
+    double                    time;
+    std::vector<pWidget>      modals {};
+    std::mutex                commands_mutex {};
+    size_t                    frame_count;
+    std::vector<DrawFloating> floatings;
+    std::string               title_string { "Eddy" };
+    std::string               icon_file { "eddy.png" };
+
+    virtual void        on_start() {};
+    virtual void        on_terminate() {};
+    virtual char const *window_title() const
+    {
+        return title_string.c_str();
+    }
+
+    void start();
+    void draw() override;
+    void process_input() override;
+    void on_resize() override;
+    void on_process_input() override;
+    void draw_floating(pWidget const &target, Draw const &draw);
+    void set_font(std::string_view const &path, int font_size);
+    void handle_characters(pWidget const &focus);
+    void            push_modal(pWidget const& modal);
+    void            pop_modal();
+    void            change_font_size(int increment);
+
+
+    virtual bool query_close()
+    {
+        return true;
+    }
+
+    App();
+
+    template<class AppClass>
+        requires std::derived_from<AppClass, App>
+    static std::shared_ptr<AppClass> create(int argc, char const **argv)
+    {
+        auto app_args = LibCore::parse_options(argc, argv);
+        app = Widget::make<AppClass>();
+        for (auto ix = app_args; ix < argc; ++ix) {
+            app->arguments.emplace_back(argv[ix]);
+        }
+
+        //        SetTraceLogLevel(LOG_FATAL);
+        InitWindow(static_cast<int>(app->viewport.width), static_cast<int>(app->viewport.height), app->window_title());
+        app->viewport.width = static_cast<float>(GetScreenWidth());
+        app->viewport.height = static_cast<float>(GetScreenHeight());
+        SetWindowMonitor(app->monitor);
+        SetWindowState(FLAG_WINDOW_RESIZABLE | FLAG_WINDOW_MAXIMIZED | FLAG_VSYNC_HINT);
+        Image icon = LoadImage(app->icon_file.c_str());
+        SetWindowIcon(icon);
+        SetMouseCursor(MOUSE_CURSOR_IBEAM);
+        SetExitKey(KEY_NULL);
+        SetTargetFPS(60);
+        MaximizeWindow();
+        return dynamic_pointer_cast<AppClass>(app->self());
+    }
+};
+
+}
