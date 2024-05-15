@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include <App/Eddy.h>
 #include <App/Widget.h>
 
@@ -61,7 +63,7 @@ struct Modal : public Widget {
     }
 };
 
-template<typename Payload, bool Search = true, bool Sort = true, bool Shrink = false, typename ToString = nullptr_t>
+template<typename Payload, bool Search = true, bool Sort = true, bool Shrink = false, typename ToString = std::nullptr_t>
 struct ListBox : public Modal {
     using pListBox = std::shared_ptr<ListBox>;
     struct ListBoxEntry {
@@ -107,7 +109,7 @@ struct ListBox : public Modal {
                 text_color = DARKGRAY; // colour_to_color(Eddy::the()->theme.selection.fg);
             }
             std::string_view sv;
-            if constexpr (!std::is_same<ToString, nullptr_t>::value) {
+            if constexpr (!std::is_same<ToString, std::nullptr_t>::value) {
                 assert(to_string_fnc != nullptr);
                 sv = to_string_fnc(e.text, e.payload);
             } else if constexpr (std::is_convertible<Payload, std::string>()) {
@@ -281,7 +283,7 @@ struct ListBox : public Modal {
     }
 };
 
-template <typename C, typename Submit, typename Dismiss = nullptr_t>
+template <typename C, typename Submit, typename Dismiss = std::nullptr_t>
 void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit fnc, std::string_view const& def = "", Dismiss dismiss = nullptr)
 {
     using pC = std::shared_ptr<C>;
@@ -310,7 +312,7 @@ void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
 
         void dismiss() override
         {
-            if constexpr (!std::is_same<Dismiss, nullptr_t>::value) {
+            if constexpr (!std::is_same<Dismiss, std::nullptr_t>::value) {
                 dismiss(target);
             }
         }

@@ -25,14 +25,6 @@
 #cmakedefine IS_LINUX                          1
 #cmakedefine IS_WINDOWS                        1
 
-#ifdef HAVE_LEGACY_ATTRIBUTE_NORETURN
-#define noreturn __attribute__((noreturn))
-#elif defined(HAVE_C23_ATTRIBUTE_NORETURN)
-#define noreturn [[noreturn]]
-#else
-#define noreturn
-#endif
-
 #ifdef HAVE_ATTRIBUTE_FORMAT
 #define format_args(fmt,args) __attribute__((format(printf,fmt,args)))
 #else

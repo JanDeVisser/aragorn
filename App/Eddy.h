@@ -53,6 +53,20 @@ public:
     }
 
     std::variant<LibCError, LibCore::JSONValue::ParseError, SettingsError> error;
+
+    std::string to_string() const
+    {
+        switch (error.index()) {
+        case 0:
+            return std::format("I/O Error: {}", get<LibCError>(error).to_string());
+        case 1:
+            return std::format("JSON Parse Error", get<LibCError>(error).to_string());
+        case 2:
+            return std::format("Settings error", get<SettingsError>(error).error);
+        default:
+            UNREACHABLE();
+        }
+    }
 };
 
 using EError = Error<EddyError>;
@@ -60,21 +74,20 @@ using EError = Error<EddyError>;
 using pProject = std::shared_ptr<class Project>;
 using pEddy = std::shared_ptr<struct Eddy>;
 
-class Project : public std::enable_shared_from_this<Project> {
+class Project : public Widget {
 public:
     struct CMake {
         std::string cmakelists { "CMakeLists.txt" };
         std::string build_dir { "build" };
     };
+
+    Project() = default;
     std::string project_dir {};
     StringList  source_dirs {};
     CMake       cmake {};
 
-    static Result<pProject, EError> open(pEddy const& eddy, std::string_view const &dir);
-    void close(pEddy const& eddy);
-
-private:
-    Project() = default;
+    static Result<pProject, EddyError> open(pEddy const &eddy, std::string_view const &dir);
+    void                               close(pEddy const &eddy) const;
 };
 
 struct Eddy : public App {
@@ -86,11 +99,12 @@ struct Eddy : public App {
 
     Eddy();
     static pEddy the();
+    static void  set_message(std::string_view const &text);
 
+    void on_start() override;
     pBuffer         new_buffer();
     Result<pBuffer> open_buffer(std::string_view const &file);
     void            close_buffer(int buffer_num);
-    void            set_message(std::string_view const &text);
     EError          read_settings();
     void            load_font();
     StringList      get_font_dirs();
@@ -101,9 +115,6 @@ struct Eddy : public App {
         assert(buffer_num >= 0 && buffer_num < buffers.size());
         return buffers[buffer_num];
     }
-
-private:
-    static pEddy s_the;
 };
 
 }

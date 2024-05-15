@@ -17,8 +17,6 @@ namespace Eddy {
 
 using namespace LibCore;
 
-extern std::shared_ptr<struct App> app;
-
 struct App : public Layout {
     using Draw = std::function<void(pWidget const &target)>;
     struct DrawFloating {
@@ -65,10 +63,9 @@ struct App : public Layout {
     void draw_floating(pWidget const &target, Draw const &draw);
     void set_font(std::string_view const &path, int font_size);
     void handle_characters(pWidget const &focus);
-    void            push_modal(pWidget const& modal);
-    void            pop_modal();
-    void            change_font_size(int increment);
-
+    void push_modal(pWidget const &modal);
+    void pop_modal();
+    void change_font_size(int increment);
 
     virtual bool query_close()
     {
@@ -81,8 +78,8 @@ struct App : public Layout {
         requires std::derived_from<AppClass, App>
     static std::shared_ptr<AppClass> create(int argc, char const **argv)
     {
-        auto app_args = LibCore::parse_options(argc, argv);
-        app = Widget::make<AppClass>();
+        auto                 app_args = LibCore::parse_options(argc, argv);
+        std::shared_ptr<App> app = Widget::make<AppClass>();
         for (auto ix = app_args; ix < argc; ++ix) {
             app->arguments.emplace_back(argv[ix]);
         }
@@ -99,8 +96,18 @@ struct App : public Layout {
         SetExitKey(KEY_NULL);
         SetTargetFPS(60);
         MaximizeWindow();
-        return dynamic_pointer_cast<AppClass>(app->self());
+        s_app = app;
+        return dynamic_pointer_cast<AppClass>(s_app);
     }
+
+    static std::shared_ptr<App> the()
+    {
+        assert(s_app != nullptr);
+        return s_app;
+    }
+
+private:
+    static std::shared_ptr<App> s_app;
 };
 
 }

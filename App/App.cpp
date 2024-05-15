@@ -16,7 +16,7 @@ namespace Eddy {
 
 using namespace LibCore;
 
-std::shared_ptr<App> app = nullptr;
+std::shared_ptr<App> App::s_app { nullptr };
 
 void App::draw_floating(pWidget const &target, App::Draw const &draw)
 {
@@ -27,12 +27,12 @@ void App::draw_floating(pWidget const &target, App::Draw const &draw)
 
 void App::draw()
 {
-    app->floatings.clear();
+    floatings.clear();
     Layout::draw();
-    for (auto &floating : app->floatings) {
+    for (auto &floating : floatings) {
         floating.draw(floating.target);
     }
-    for (auto &modal : app->modals) {
+    for (auto &modal : modals) {
         modal->draw();
     }
 }
@@ -58,7 +58,7 @@ void App::set_font(std::string_view const &path, int sz)
 
 void App::on_resize()
 {
-    auto measurements = MeasureTextEx(app->font, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", font_size, 2);
+    auto measurements = MeasureTextEx(font, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", font_size, 2);
     cell.x = measurements.x / 52.0f;
     auto rows = static_cast<int>(((viewport.height - 10) / measurements.y));
     cell.y = static_cast<float>((viewport.height - 10) / static_cast<float>(rows));
@@ -133,11 +133,11 @@ void App::process_input()
         modal->process_input();
         return;
     }
-    pWidget f = app->focus;
+    pWidget f = focus;
     if (!f) {
         f = self();
     }
-    KeyboardModifiers modifier = modifier_current();
+    KeyboardModifier modifier = modifier_current();
     if (!f->find_and_run_shortcut(modifier)) {
         handle_characters(f);
         Layout::process_input();

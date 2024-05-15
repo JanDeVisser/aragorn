@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cmath>
+
 #include <App/Eddy.h>
 #include <App/Widget.h>
 
@@ -13,8 +15,8 @@ namespace Eddy {
 
 struct MiniBuffer : public Widget {
     std::string message {};
-    double time {0.0};
-    pWidget current_query { nullptr };
+    double      time { 0.0 };
+    pWidget     current_query { nullptr };
 
     MiniBuffer()
         : Widget(SizePolicy::Characters, 1.0f)
@@ -48,16 +50,22 @@ struct MiniBuffer : public Widget {
         }
     }
 
-    template <typename ...Args>
-    void display(char const *fmt, Args&& ...args)
+    template<typename... Args>
+    void display(char const *fmt, Args &&...args)
     {
         message = std::vformat(fmt, std::make_format_args(args)...);
         time = Eddy::the()->time;
     }
 
-    void display(char const *msg)
+    void display(char const *text)
     {
-        message = msg;
+        message = text;
+        time = Eddy::the()->time;
+    }
+
+    void display(std::string_view const &text)
+    {
+        message = text;
         time = Eddy::the()->time;
     }
 
@@ -66,33 +74,40 @@ struct MiniBuffer : public Widget {
         message.clear();
     }
 
-    template <typename ...Args>
-    static void set_message(char const *fmt, Args&& ...args)
+    template<typename... Args>
+    static void set_message(char const *fmt, Args &&...args)
     {
-        auto const& minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         minibuffer->display(fmt, std::format<Args>(args)...);
     }
 
+    static void set_message(std::string_view const &text)
+    {
+        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        assert(minibuffer != nullptr);
+        minibuffer->display(text);
+    }
+
     static void clear_message()
     {
-        auto const& minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         minibuffer->clear();
     }
 
     template<class C, typename Query>
-    static void query(std::shared_ptr<C> const& target, std::string_view const& prompt, Query fnc)
+    static void query(std::shared_ptr<C> const &target, std::string_view const &prompt, Query fnc)
     {
         struct MiniBufferQuery : public Widget {
-            std::string prompt {};
-            std::shared_ptr<C> target { nullptr };
-            std::string text {};
-            size_t cursor {0};
-            Query query { nullptr };
+            std::string                 prompt {};
+            std::shared_ptr<C>          target { nullptr };
+            std::string                 text {};
+            size_t                      cursor { 0 };
+            Query                       query { nullptr };
             std::shared_ptr<MiniBuffer> minibuffer { nullptr };
 
-            MiniBufferQuery(Query query, std::string_view const& prompt, std::shared_ptr<C> target)
+            MiniBufferQuery(Query query, std::string_view const &prompt, std::shared_ptr<C> target)
                 : Widget(SizePolicy::Characters, 1.0f)
                 , query(std::move(query))
                 , prompt(prompt)
@@ -152,7 +167,7 @@ struct MiniBuffer : public Widget {
             }
         };
 
-        auto const& minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         assert(fnc != NULL);
         if (minibuffer->current_query != nullptr) {
@@ -160,7 +175,7 @@ struct MiniBuffer : public Widget {
             return;
         }
         minibuffer->clear();
-        auto const &q  = Widget::make<MiniBufferQuery>(fnc, prompt, target);
+        auto const &q = Widget::make<MiniBufferQuery>(fnc, prompt, target);
         q->minibuffer = minibuffer;
         minibuffer->current_query = q;
         Eddy::the()->push_modal(minibuffer->current_query);

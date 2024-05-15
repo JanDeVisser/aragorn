@@ -79,7 +79,7 @@ struct Buffer : public Widget {
 
 private:
     std::string m_uri {};
-} Buffer;
+};
 
 // extern void          lsp_on_open(Buffer *buffer);
 // extern void          lsp_did_save(Buffer *buffer);

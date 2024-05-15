@@ -392,7 +392,7 @@ void Buffer::add_listener(BufferEventListener const& listener)
 std::string const& Buffer::uri()
 {
     if (m_uri.empty() && !name.empty()) {
-        m_uri = std::format("file://{}/{}", Eddy::the()->project_dir, name);
+        m_uri = std::format("file://{}/{}", Eddy::the()->project->project_dir, name);
     }
     return m_uri;
 }

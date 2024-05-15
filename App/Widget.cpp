@@ -30,39 +30,39 @@ char const *SizePolicy_name(SizePolicy policy)
     }
 }
 
-KeyboardModifiers modifier_current()
+KeyboardModifier modifier_current()
 {
-    auto current_modifier = static_cast<KeyboardModifiers>(KeyboardModifier::None);
+    auto current_modifier = KModNone;
     if (IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_RIGHT_SHIFT)) {
-        current_modifier |= (KeyboardModifiers) KeyboardModifier::Shift;
+        current_modifier = static_cast<KeyboardModifier>(current_modifier | KModShift);
     }
     if (IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL)) {
-        current_modifier |= (KeyboardModifiers) KeyboardModifier::Control;
+        current_modifier = static_cast<KeyboardModifier>(current_modifier | KModControl);
     }
     if (IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER)) {
-        current_modifier |= (KeyboardModifiers) KeyboardModifier::Super;
+        current_modifier = static_cast<KeyboardModifier>(current_modifier | KModSuper);
     }
     if (IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) {
-        current_modifier |= (KeyboardModifiers) KeyboardModifier::Alt;
+        current_modifier = static_cast<KeyboardModifier>(current_modifier | KModAlt);
     }
     return current_modifier;
 }
 
 bool is_modifier_down(KeyboardModifier modifier)
 {
-    KeyboardModifiers current_modifier = modifier_current();
-    if (modifier == KeyboardModifier::None) {
-        return current_modifier == (KeyboardModifiers) KeyboardModifier::None;
+    KeyboardModifier current_modifier = modifier_current();
+    if (modifier == KModNone) {
+        return current_modifier == KModNone;
     }
-    return ((KeyboardModifiers) current_modifier & (KeyboardModifiers) modifier) == (uint8_t) modifier;
+    return (current_modifier & modifier) == modifier;
 }
 
-std::string modifier_string(KeyboardModifiers modifier)
+std::string modifier_string(KeyboardModifier modifier)
 {
     std::string ret {};
 #undef S
 #define S(mod, ord, str)                                                                                       \
-    if (((KeyboardModifiers) KeyboardModifier::mod & modifier) == (KeyboardModifiers) KeyboardModifier::mod) { \
+    if ((KMod##mod & modifier) == KMod##mod) { \
         ret += (str);                                                                                          \
     }
     KEYBOARDMODIFIERS(S)
@@ -175,13 +175,13 @@ void Widget::draw_hover_panel(float x, float y, std::vector<std::string> text, C
             longest_line = ix;
         }
     }
-    auto text_size = MeasureTextEx(app->font, text.at(longest_line).c_str(), app->font.baseSize, 2);
+    auto text_size = MeasureTextEx(App::the()->font, text.at(longest_line).c_str(), App::the()->font.baseSize, 2);
     auto width = static_cast<float>(text_size.x + 12);
-    auto height = static_cast<float>(app->cell.y + 2) * text.size() + 12;
+    auto height = static_cast<float>(App::the()->cell.y + 2) * text.size() + 12;
     draw_rectangle_no_normalize(x, y, width, height, bgcolor);
     draw_outline_no_normalize(x + 2, y + 2, width - 4, height - 4, textcolor);
     for (size_t ix = 0; ix < text.size(); ++ix) {
-        render_text(x + 6, y + (app->cell.y + 2) * ix + 6, text[ix], app->font, textcolor);
+        render_text(x + 6, y + (App::the()->cell.y + 2) * ix + 6, text[ix], App::the()->font, textcolor);
     }
 }
 
@@ -199,7 +199,7 @@ std::optional<Vec<int>> Widget::coordinates(Vector2 world_coordinates) const
     return ret;
 }
 
-bool Widget::find_and_run_shortcut(KeyboardModifiers modifier)
+bool Widget::find_and_run_shortcut(KeyboardModifier modifier)
 {
     for (pWidget w = self(); w; w = w->parent) {
         for (auto const &[name, cmd] : w->commands) {
@@ -208,7 +208,7 @@ bool Widget::find_and_run_shortcut(KeyboardModifiers modifier)
                 if ((IsKeyPressed(key) || IsKeyPressedRepeat(key)) && binding.modifier == modifier) {
                     JSONValue key_combo = JSONValue::object();
                     set(key_combo, "key", key);
-                    set(key_combo, "modifier", static_cast<int>(modifier));
+                    set(key_combo, "modifier", modifier);
                     w->submit(name, key_combo);
                     return true;
                 }
@@ -242,7 +242,7 @@ Label::Label(std::string_view const &text, Color color)
 void Label::draw()
 {
     if (!text.empty()) {
-        render_text(0, 0, text, app->font, color);
+        render_text(0, 0, text, App::the()->font, color);
     }
 }
 }

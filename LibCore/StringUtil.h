@@ -7,14 +7,16 @@
 #pragma once
 
 #include <algorithm>
-//#include <assert.h>
-//#include <cxxabi.h>
+#include <cxxabi.h>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
+
+#include <LibCore/Logging.h>
 
 namespace LibCore {
 

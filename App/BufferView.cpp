@@ -861,7 +861,7 @@ void BufferView::draw()
     }
 #endif
 
-    double time = app->time - cursor_flash;
+    double time = Eddy::the()->time - cursor_flash;
     if (time - floor(time) < 0.5) {
         int x = cursor_pos.x - left_column;
         int y = cursor_pos.y - top_line;

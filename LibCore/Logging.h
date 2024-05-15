@@ -12,6 +12,8 @@
 #include <mutex>
 #include <string>
 
+#include <config.h>
+
 namespace LibCore {
 
 #define ENUMERATE_LOG_LEVELS(S) \

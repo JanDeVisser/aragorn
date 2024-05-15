@@ -6,15 +6,16 @@
 
 #include <filesystem>
 #include <pwd.h>
-#include <system_error>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+#include <system_error>
 #include <unistd.h>
 
 #include <LibCore/IO.h>
 #include <config.h>
 
 #include <App/Eddy.h>
+#include <App/MiniBuffer.h>
 
 namespace Eddy {
 
@@ -50,24 +51,32 @@ void AppState::write()
 
 pEddy Eddy::the()
 {
-    return s_the;
+    return std::dynamic_pointer_cast<Eddy>(App::the());
 }
 
 Eddy::Eddy()
     : App()
 {
-    assert(s_the == nullptr);
     app_state.read();
     monitor = app_state.state[static_cast<int>(AppStateItem::Monitor)];
-    if (!arguments.empty()) {
-        project_dir = arguments.front();
-        arguments.pop_front();
-    }
 
     if (FT_Init_FreeType(&ft_library)) {
         fatal("Could not initialize freetype");
     }
-    s_the = std::dynamic_pointer_cast<Eddy>(shared_from_this());
+}
+
+void Eddy::on_start()
+{
+    std::string project_dir { "." };
+    if (!arguments.empty()) {
+        project_dir = arguments.front();
+        arguments.pop_front();
+    }
+    auto project_maybe = Project::open(self<Eddy>(), project_dir);
+    if (project_maybe.is_error()) {
+        fatal("Could not open project directory '{}': {}", project_dir, project_maybe.error().to_string());
+    }
+    project = project_maybe.value();
 }
 
 pBuffer Eddy::new_buffer()
@@ -96,6 +105,14 @@ Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
     return b;
 }
 
+void Eddy::close_buffer(int buffer_num)
+{
+    assert(buffer_num > 0 && buffer_num < buffers.size());
+    pBuffer buffer = buffers[buffer_num];
+    buffer->close();
+    buffers.erase(buffers.begin() + buffer_num);
+}
+
 EError Eddy::read_settings()
 {
     if (!settings.is_null()) {
@@ -104,7 +121,7 @@ EError Eddy::read_settings()
     settings = JSONValue::object();
     settings["appearance"] = JSONValue::object();
 
-    auto merge_settings = [this](fs::path const& dir) -> EError {
+    auto merge_settings = [this](fs::path const &dir) -> EError {
         fs::create_directory(dir);
         auto settings_file = dir / "settings.json";
         if (fs::exists(settings_file)) {
@@ -121,14 +138,14 @@ EError Eddy::read_settings()
         return {};
     };
 
-    if (auto const& e = merge_settings(EDDY_DATADIR); e.is_error()) {
+    if (auto const &e = merge_settings(EDDY_DATADIR); e.is_error()) {
         return e;
     }
     struct passwd *pw = getpwuid(getuid());
-    if (auto const& e = merge_settings(fs::path { pw->pw_dir} / ".eddy"); e.is_error()) {
+    if (auto const &e = merge_settings(fs::path { pw->pw_dir } / ".eddy"); e.is_error()) {
         return e;
     }
-    if (auto const& e = merge_settings(".eddy"); e.is_error()) {
+    if (auto const &e = merge_settings(".eddy"); e.is_error()) {
         return e;
     }
 #ifdef THEME
@@ -146,11 +163,11 @@ StringList Eddy::get_font_dirs()
     if (s_font_dirs.empty()) {
         s_font_dirs.push_back(fs::canonical(EDDY_DATADIR "/fonts"));
 
-        auto& appearance = settings["appearance"];
-        auto& directories = appearance["font_directories"];
+        auto &appearance = settings["appearance"];
+        auto &directories = appearance["font_directories"];
 
         struct passwd *pw = getpwuid(getuid());
-        auto append_dir = [pw](std::string_view const &dir) -> void {
+        auto           append_dir = [pw](std::string_view const &dir) -> void {
             std::string d { dir };
             replace_all(d, "${HOME}", pw->pw_dir);
             replace_all(d, "${EDDY_DATADIR}", EDDY_DATADIR);
@@ -164,7 +181,7 @@ StringList Eddy::get_font_dirs()
         } else if (directories.is_array()) {
             StringList dirs {};
             if (auto const e = decode_value(directories, dirs); !e.is_error()) {
-                for (auto const& dir : dirs) {
+                for (auto const &dir : dirs) {
                     append_dir(dir);
                 }
             }
@@ -175,22 +192,22 @@ StringList Eddy::get_font_dirs()
 
 void Eddy::load_font()
 {
-    auto      appearance = settings["appearance"];
+    auto        appearance = settings["appearance"];
     std::string default_font { "VictorMono-Medium.ttf" };
-    auto font_name = default_font;
-    auto const font_maybe = appearance.try_get<std::string>("font");
+    auto        font_name = default_font;
+    auto const  font_maybe = appearance.try_get<std::string>("font");
     if (font_maybe.has_value()) {
         font_name = font_maybe.value();
     }
-    int font_size = 20;
+    int        font_size = 20;
     auto const font_size_maybe = appearance.try_get<int>("font_size");
     if (font_size_maybe.has_value()) {
         font_size = font_size_maybe.value();
     }
 
     StringList font_dirs = get_font_dirs();
-    auto find_font = [this, &font_dirs, font_size](auto const& font) -> bool {
-        for (auto const& dir : font_dirs) {
+    auto       find_font = [this, &font_dirs, font_size](auto const &font) -> bool {
+        for (auto const &dir : font_dirs) {
             auto const path = std::format("{}/{}", dir, font);
             if (fs::exists(path) && !fs::is_directory(path)) {
                 set_font(path, font_size);
@@ -205,7 +222,7 @@ void Eddy::load_font()
     }
 }
 
-EError Eddy::open_dir(std::string_view const& dir)
+EError Eddy::open_dir(std::string_view const &dir)
 {
     assert(buffers.empty());
     auto project_maybe = Project::open(self<Eddy>(), dir);
@@ -215,7 +232,10 @@ EError Eddy::open_dir(std::string_view const& dir)
     return {};
 }
 
-pEddy Eddy::s_the { nullptr };
+void Eddy::set_message(std::string_view const &text)
+{
+    MiniBuffer::set_message(text);
+}
 
 }
 

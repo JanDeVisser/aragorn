@@ -40,8 +40,9 @@ else()
 endif()
 
 include(CheckCSourceCompiles)
+include(CheckCXXSourceCompiles)
 
-check_c_source_compiles("
+check_cxx_source_compiles("
    [[noreturn]] void testFunc()
    {}
 

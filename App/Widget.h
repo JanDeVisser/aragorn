@@ -7,6 +7,7 @@
 #pragma once
 
 #include <algorithm>
+#include <deque>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -28,15 +29,13 @@ using namespace LibCore;
     S(Alt, 4, "M-")          \
     S(Super, 8, "U-")
 
-enum KeyboardModifier : uint8_t {
+using KeyboardModifier = uint8_t;
+
 #undef KEYBOARDMODIFIER
-#define KEYBOARDMODIFIER(mod, ord, str) KMod##mod = (ord),
+#define KEYBOARDMODIFIER(mod, ord, str) constexpr KeyboardModifier KMod##mod = (ord);
     KEYBOARDMODIFIERS(KEYBOARDMODIFIER)
 #undef KEYBOARDMODIFIER
-        KModCount = 16,
-};
-
-using KeyboardModifiers = uint8_t;
+constexpr KeyboardModifier KModCount = 16;
 
 enum class ContainerOrientation {
     Horizontal = 0,
@@ -141,8 +140,8 @@ union Rect {
 struct App;
 
 struct KeyCombo {
-    int               key;
-    KeyboardModifiers modifier;
+    int              key;
+    KeyboardModifier modifier;
 };
 
 constexpr auto ZeroPadding = Rect<float> { 0.0 };
@@ -150,7 +149,12 @@ constexpr auto DefaultPadding = Rect<float> { 5.0 };
 
 using pWidget = std::shared_ptr<struct Widget>;
 
-struct Widget : public std::enable_shared_from_this<Widget> {
+class Widget : public std::enable_shared_from_this<Widget> {
+private:
+    struct Private {
+    };
+
+public:
     using Handler = std::function<void(pWidget const &, JSONValue const &)>;
     struct WidgetCommand {
         WidgetCommand(std::string name, pWidget owner, Handler handler)
@@ -167,14 +171,14 @@ struct Widget : public std::enable_shared_from_this<Widget> {
         Handler               handler;
         std::vector<KeyCombo> bindings {};
 
-        WidgetCommand& bind(KeyCombo combo)
+        WidgetCommand &bind(KeyCombo combo)
         {
             bindings.push_back(combo);
             return *this;
         }
 
         template<typename... Args>
-        WidgetCommand& bind(KeyCombo combo, Args... args)
+        WidgetCommand &bind(KeyCombo combo, Args... args)
         {
             bindings.push_back(combo);
             return bind(std::forward<Args>(args)...);
@@ -197,14 +201,14 @@ struct Widget : public std::enable_shared_from_this<Widget> {
         }
     };
 
-    Rect<float> viewport { 0.0 };
-    Rect<float> padding { ZeroPadding };
-    Color       background { BLACK };
-    SizePolicy  policy { SizePolicy::Absolute };
-    float       policy_size { 0 };
-    pWidget     parent { nullptr };
-    pWidget     delegate { nullptr };
-    pWidget     memo { nullptr };
+    Rect<float>                          viewport { 0.0 };
+    Rect<float>                          padding { ZeroPadding };
+    Color                                background { BLACK };
+    SizePolicy                           policy { SizePolicy::Absolute };
+    float                                policy_size { 0 };
+    pWidget                              parent { nullptr };
+    pWidget                              delegate { nullptr };
+    pWidget                              memo { nullptr };
     std::map<std::string, WidgetCommand> commands;
     std::deque<PendingCommand>           pending_commands;
     std::mutex                           commands_mutex {};
@@ -222,19 +226,21 @@ struct Widget : public std::enable_shared_from_this<Widget> {
     void draw_line(float x0, float y0, float x1, float y1, Color color) const;
     void draw_hover_panel(float x, float y, std::vector<std::string> text, Color bgcolor, Color textcolor) const;
 
-    template<class W, typename... Args>
-    static std::shared_ptr<W> make(Args &&...args)
+    template<class C, typename... Args>
+    requires std::derived_from<C, Widget>
+    static std::shared_ptr<C> make(Args &&...args)
     {
-        return std::make_shared<W>(std::forward<Args>(args)...);
+        return std::make_shared<C>(std::forward<Args>(args)...);
     }
 
-    template <class C=Widget>
+    template<class C = Widget>
+    requires std::derived_from<C, Widget>
     std::shared_ptr<C> self()
     {
         return std::dynamic_pointer_cast<C>(shared_from_this());
     }
 
-    WidgetCommand&  bind(std::string_view const &command, KeyCombo combo)
+    WidgetCommand &bind(std::string_view const &command, KeyCombo combo)
     {
         auto command_name = std::string { command };
         assert(commands.contains(command_name));
@@ -244,19 +250,18 @@ struct Widget : public std::enable_shared_from_this<Widget> {
     }
 
     template<typename... Args>
-    WidgetCommand& bind(std::string_view const &command, KeyCombo combo, Args... args)
+    WidgetCommand &bind(std::string_view const &command, KeyCombo combo, Args... args)
     {
         auto &cmd = bind(command, combo);
         cmd.bind(std::forward<Args>(args)...);
         return cmd;
     }
 
-    template <typename C>
-    WidgetCommand& add_command(std::string_view const &command, std::function<void(std::shared_ptr<C> const&, JSONValue const&)> handler)
+    template<typename C>
+    WidgetCommand &add_command(std::string_view const &command, std::function<void(std::shared_ptr<C> const &, JSONValue const &)> handler)
     {
-        auto wrapper = [handler](pWidget const& target, JSONValue const& args) -> void
-        {
-            auto const& t = std::dynamic_pointer_cast<C>(target);
+        auto wrapper = [handler](pWidget const &target, JSONValue const &args) -> void {
+            auto const &t = std::dynamic_pointer_cast<C>(target);
             assert(t != nullptr);
             handler(t, args);
         };
@@ -318,7 +323,7 @@ struct Widget : public std::enable_shared_from_this<Widget> {
 
     [[nodiscard]] bool                    contains(Vector2 world_coordinates) const;
     [[nodiscard]] std::optional<Vec<int>> coordinates(Vector2 world_coordinates) const;
-    bool                                  find_and_run_shortcut(KeyboardModifiers modifier);
+    bool                                  find_and_run_shortcut(KeyboardModifier modifier);
 
     void draw_rectangle_no_normalize(float x, float y, float width, float height, Color color) const;
     void draw_outline_no_normalize(float x, float y, float width, float height, Color color) const;
@@ -416,9 +421,9 @@ struct Label : public Widget {
     void draw() override;
 };
 
-extern char const       *SizePolicy_name(SizePolicy policy);
-extern bool              is_modifier_down(KeyboardModifier modifier);
-extern std::string       modifier_string(KeyboardModifiers modifiers);
-extern KeyboardModifiers modifier_current();
+extern char const      *SizePolicy_name(SizePolicy policy);
+extern bool             is_modifier_down(KeyboardModifier modifier);
+extern std::string      modifier_string(KeyboardModifier modifiers);
+extern KeyboardModifier modifier_current();
 
 }

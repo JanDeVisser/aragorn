@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <cmath>
+
 #include <App/App.h>
 
 namespace Eddy {
@@ -40,7 +42,7 @@ void Layout::resize()
             sz = (total * w->policy_size) / 100.0f;
         } break;
         case SizePolicy::Characters: {
-            sz = ceilf(1.2 * w->policy_size * ((orientation == ContainerOrientation::Vertical) ? app->cell.y : app->cell.x));
+            sz = ceilf(1.2 * w->policy_size * ((orientation == ContainerOrientation::Vertical) ? App::the()->cell.y : App::the()->cell.x));
         } break;
         case SizePolicy::Calculated: {
             fatal("SP_CALCULATED not yet supported");

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <cmath>
+
 #include <App/Buffer.h>
 #include <App/Editor.h>
 #include <App/StatusBar.h>
@@ -33,7 +35,7 @@ struct FileName : public Label {
         auto const& view = editor->current_view();
         auto const& buffer = view->buffer();
         if (buffer->name.empty()) {
-            text = std::format("untitled-{}{}", view->buffer_num, buffer->saved_version < buffer->version ? '*' : ' ');
+            text = std::format("untitled-{}{}", view->buffer()->buffer_ix, buffer->saved_version < buffer->version ? '*' : ' ');
         } else {
             text = std::format("%{}%{}", buffer->name, buffer->saved_version < buffer->version ? '*' : ' ');
         }

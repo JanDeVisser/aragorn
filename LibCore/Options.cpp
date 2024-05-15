@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <cstring>
+
 #include <LibCore/Options.h>
 
 namespace LibCore {

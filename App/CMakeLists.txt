@@ -24,6 +24,7 @@ target_link_libraries(
         LibCore
         ${raylib_LIBRARIES}
         ${FREETYPE_LIBRARIES}
+        m
 )
 
 include_directories(.)
