@@ -61,7 +61,7 @@ Eddy::Eddy()
     : App()
 {
     app_state.read();
-    monitor = app_state.state[static_cast<int>(AppStateItem::Monitor)];
+    monitor = app_state.monitor();
 
     if (FT_Init_FreeType(&ft_library)) {
         fatal("Could not initialize freetype");
@@ -72,6 +72,25 @@ bool Eddy::query_close()
 {
     submit("eddy-quit", JSONValue {});
     return false;
+}
+
+void Eddy::on_start()
+{
+    monitor = GetCurrentMonitor();
+    load_font();
+}
+
+void Eddy::process_input()
+{
+    if (monitor != app_state.monitor()) {
+        app_state.monitor(monitor);
+    }
+    App::process_input();
+}
+
+void Eddy::on_terminate()
+{
+    UnloadFont(font);
 }
 
 void Eddy::terminate()
@@ -152,7 +171,6 @@ void Eddy::initialize()
     if (res.is_error()) {
         fatal("Error reading settings: {}", res.error().to_string());
     }
-    load_font();
     auto editor_pane = Widget::make<Layout>(ContainerOrientation::Horizontal);
     editor_pane->parent = self();
     editor_pane->policy = SizePolicy::Stretch;
@@ -174,15 +192,28 @@ void Eddy::initialize()
 
     std::string project_dir { "." };
     if (!arguments.empty()) {
-        project_dir = arguments.front();
-        arguments.pop_front();
+        auto project_dir_maybe = arguments.front();
+        if (fs::is_directory(project_dir_maybe)) {
+            project_dir = project_dir_maybe;
+            arguments.pop_front();
+        }
     }
     auto project_maybe = Project::open(self<Eddy>(), project_dir);
     if (project_maybe.is_error()) {
         fatal("Could not open project directory '{}': {}", project_dir, project_maybe.error().to_string());
     }
     project = project_maybe.value();
-    new_buffer();
+    while (!arguments.empty()) {
+        auto &fname = arguments.front();
+        arguments.pop_front();
+        auto open_res = open_buffer(fname);
+        if (open_res.is_error()) {
+            set_message(std::format("Could not open '{}': {}", fname, open_res.error().to_string()));
+        }
+    }
+    if (buffers.empty()) {
+        new_buffer();
+    }
 }
 
 pBuffer Eddy::new_buffer()

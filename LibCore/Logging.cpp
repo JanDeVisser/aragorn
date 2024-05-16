@@ -14,7 +14,7 @@ namespace LibCore {
 
 std::mutex g_logging_mutex;
 
-std::string_view LogLevel_name(LogLevel level)
+char const* LogLevel_name(LogLevel level)
 {
     switch (level) {
 #undef S

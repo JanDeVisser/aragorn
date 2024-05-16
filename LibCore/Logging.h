@@ -8,6 +8,7 @@
 
 #include <cstring>
 #include <format>
+#include <iostream>
 #include <map>
 #include <mutex>
 #include <string>
@@ -31,7 +32,7 @@ enum class LogLevel {
 #undef S
 };
 
-std::string_view        LogLevel_name(LogLevel);
+char const             *LogLevel_name(LogLevel);
 std::optional<LogLevel> LogLevel_by_name(std::string_view const &);
 
 class Logger;
@@ -57,33 +58,25 @@ public:
         if (!msg.category.empty() && !m_categories.contains(msg.category) && m_all_enabled) {
             return;
         }
-        if (!m_destination) {
-            if (!m_logfile.empty()) {
-                m_destination = fopen(m_logfile.c_str(), "w");
-                if (!m_destination) {
-                    fprintf(stderr, "Could not open logfile '%s': %s\n", m_logfile.c_str(), strerror(errno));
-                    fprintf(stderr, "Falling back to stderr\n");
-                }
-            }
-            if (!m_destination) {
-                m_destination = stderr;
-            }
-        }
         if (msg.level >= m_level) {
             std::string_view f(msg.file);
             if (f.front() == '/') {
                 auto ix = f.find_last_of('/');
                 if (ix != std::string_view::npos) {
-                    f = f.substr(ix + 1);
+                    auto len = f.length() - ix - 1;
+                    if (len > 19) {
+                        len = 19;
+                    }
+                    f = f.substr(ix + 1, len);
                 }
             }
-            auto file_line = std::format("{:s}:{:d}", f, msg.line);
-            auto prefix = std::format("{:<24}:{:<20}:{:<5}:", file_line, msg.function, LogLevel_name(msg.level));
-            fprintf(m_destination, "%s", prefix.c_str());
+//            auto file_line = std::format("{}:{}", f, msg.line);
+//            auto prefix = std::format("{:<20}:{:<5}:", msg.function, LogLevel_name(msg.level));
+//            auto prefix = std::format("{:<24}:{:<20}:{:<5}:", file_line, msg.function, LogLevel_name(msg.level));
+            std::cerr << f << ":" << msg.line << ":" << msg.function << ":" << LogLevel_name(msg.level) << ":";
             auto message = std::vformat(msg.message, std::make_format_args(args...));
-            fprintf(m_destination, "%s\n", message.c_str());
-            if (m_destination != stderr)
-                fflush(m_destination);
+            std::cerr << message << std::endl;
+            std::cerr.flush();
         }
     }
 
@@ -115,10 +108,9 @@ private:
     Logger();
 
     std::map<std::string_view, LogCategory> m_categories {};
-    LogLevel                                    m_level { LogLevel::Trace };
-    FILE                                       *m_destination { stderr };
-    std::string                                 m_logfile {};
-    bool                                        m_all_enabled { false };
+    LogLevel                                m_level { LogLevel::Trace };
+    std::string                             m_logfile {};
+    bool                                    m_all_enabled { false };
 };
 
 struct LogCategory {

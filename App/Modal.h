@@ -105,11 +105,12 @@ struct ListBox : public Modal {
 
     void draw_entries(size_t y_offset)
     {
-        size_t maxlen = (viewport.width - 28) / (Eddy::the()->cell.x * textsize);
-        auto   draw_entry = [this, &y_offset, maxlen](ListBoxEntry const &e) -> void {
+        auto const& cell = Eddy::the()->cell;
+        size_t maxlen = (viewport.width - 28) / (cell.x * textsize);
+        auto   draw_entry = [this, &y_offset, maxlen, &cell](ListBoxEntry const &e) -> void {
             auto text_color = RAYWHITE; // colour_to_color(Eddy::the()->theme.editor.fg);
             if (e.index == selection) {
-                draw_rectangle(8, y_offset - 1, -8, Eddy::the()->cell.y * textsize + 1, DARKGRAY /*colour_to_color(Eddy::the()->theme.selection.bg)*/);
+                draw_rectangle(8, y_offset - 1, -8, cell.y * textsize + 1, RAYWHITE /*colour_to_color(Eddy::the()->theme.selection.bg)*/);
                 text_color = DARKGRAY; // colour_to_color(Eddy::the()->theme.selection.fg);
             }
             std::string_view sv;
@@ -125,7 +126,7 @@ struct ListBox : public Modal {
                 sv = sv.substr(0, maxlen);
             }
             render_sized_text(10, y_offset, sv, Eddy::the()->font, textsize, text_color);
-            y_offset += (Eddy::the()->cell.y * textsize) + 2;
+            y_offset += (cell.y * textsize) + 2;
         };
 
         if constexpr (Search) {
@@ -159,20 +160,22 @@ struct ListBox : public Modal {
 
     void resize() override
     {
-        viewport.x = Eddy::the()->viewport.width / 4;
-        viewport.y = Eddy::the()->viewport.height / 4;
-        viewport.width = Eddy::the()->viewport.width / 2;
-        viewport.height = Eddy::the()->viewport.height / 2;
-        lines = (viewport.height - 19 + Eddy::the()->cell.y) / (Eddy::the()->cell.y + 2);
+        auto const& screen = Eddy::the()->viewport;
+        auto const& cell = Eddy::the()->cell;
+        viewport.x = screen.width / 4;
+        viewport.y =screen.height / 4;
+        viewport.width = screen.width / 2;
+        viewport.height = screen.height / 2;
+        lines = (viewport.height - 19 + cell.y) / (cell.y + 2);
         if constexpr (Shrink && !Search) {
-            lines = clamp(lines, 0, entries.size() < lines);
+            lines = clamp(lines, 0, entries.size());
         }
         Vector2 m = MeasureTextEx(Eddy::the()->font, prompt.c_str(), Eddy::the()->font.baseSize, 2);
         if (m.x > viewport.width - 16) {
             viewport.width = m.x + 16;
-            viewport.x = (Eddy::the()->viewport.width - m.x) / 2;
+            viewport.x = (screen.width - m.x) / 2;
         }
-        viewport.height = 19 + Eddy::the()->cell.y + lines * (Eddy::the()->cell.y + 2);
+        viewport.height = 19 + cell.y + lines * (cell.y + 2);
     }
 
     bool character(int ch) override

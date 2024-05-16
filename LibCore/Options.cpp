@@ -23,7 +23,7 @@ void set_option(std::string_view option, std::string_view value)
 int parse_options(int argc, char const **argv)
 {
     auto ix = 1;
-    while (ix < argc && strlen(argv[ix]) > 2 && strcmp(argv[ix], "--") == 0) {
+    while (ix < argc && strlen(argv[ix]) > 2 && strncmp(argv[ix], "--", 2) == 0) {
         std::string_view option = argv[ix] + 2;
         std::string_view value = "true";
         char const      *equals = strchr(argv[ix] + 2, '=');

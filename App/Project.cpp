@@ -102,9 +102,10 @@ Result<pProject, EddyError> Project::open(pEddy const &eddy, std::string_view co
 void Project::close(pEddy const &eddy) const
 {
     StringList buffer_names {};
-    for (auto const &b : eddy->buffers)
-    {
-        buffer_names.push_back(b->name);
+    for (auto const &b : eddy->buffers) {
+        if (!b->name.empty()) {
+            buffer_names.push_back(b->name);
+        }
     }
     while (!eddy->buffers.empty()) {
         eddy->close_buffer(0);

@@ -95,8 +95,7 @@ void Buffer::build_indices()
     lexer.push_source(text, name);
     Index &current { lines.emplace_back(0, text) };
     size_t lineno { 0 };
-    trace(EDIT, "Buffer size: %zu", text.length());
-    std::string trc { std::format("{:5}: ", lineno) };
+    trace(EDIT, "Buffer size: {}", text.length());
     current.first_diagnostic = 0;
     current.num_diagnostics = 0;
     //    auto dix = 0;
@@ -109,17 +108,18 @@ void Buffer::build_indices()
     //    }
     while (true) {
         auto t = lexer.lex();
-        if (t.matches(TokenKind::EndOfLine) || t.matches(TokenKind::EndOfFile)) {
+        if (t.matches(TokenKind::EndOfFile)) {
+            trace(EDIT, "[EOF]");
+            break;
+        }
+        if (t.matches(TokenKind::EndOfLine)) {
             if (current.num_tokens == 0) {
                 trace(EDIT, "[EOL]");
             } else {
-                trace(EDIT, "{} [EOL] {}..{}", trc, current.first_token, current.first_token + current.num_tokens - 1);
+                trace(EDIT, "[EOL] {}..{}", current.first_token, current.first_token + current.num_tokens - 1);
             }
-            trc.clear();
+            assert(t.location.index <= text.length());
             current.line = current.line.substr(0, t.location.index - current.index_of);
-            if (t.matches(TokenKind::EndOfFile)) {
-                break;
-            }
             ++lineno;
             current = lines.emplace_back(t.location.index + 1, std::string_view { text.begin() + t.location.index + 1, text.end() }, 0, 0);
             current.first_diagnostic = 0;
@@ -131,7 +131,6 @@ void Buffer::build_indices()
             //                    ++dix;
             //                }
             //            }
-            trc = std::format("{:5}: ", lineno);
             continue;
         }
         //        OptionalColours colours = theme_token_colours(&eddy.theme, t);
@@ -146,11 +145,10 @@ void Buffer::build_indices()
         if (current.num_tokens == 0) {
             current.first_token = tokens.size();
         }
+        trace(EDIT, "[{}] {}", TokenKind_name(t.kind), t.text);
         ++current.num_tokens;
         tokens.emplace_back(t.location.index, t.text.length(), lineno, /*colour_to_color(colour) */ RAYWHITE);
     }
-    trace(EDIT, "{}", trc);
-    trace(EDIT, "[EOF]");
     trace(EDIT, "=====================");
     indexed_version = version;
     BufferEvent event;

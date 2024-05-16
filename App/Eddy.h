@@ -18,13 +18,13 @@
 
 namespace Eddy {
 
-enum class AppStateItem {
-    Monitor = 0,
-    Count,
+enum AppStateItem {
+    ASMonitor = 0,
+    ASCount,
 };
 
 struct AppState {
-    int state[static_cast<int>(AppStateItem::Count)] = { 0 };
+    int state[ASCount] = { 0 };
 
     AppState()
     {
@@ -33,6 +33,16 @@ struct AppState {
 
     void read();
     void write();
+    int monitor() const
+    {
+        return state[ASMonitor];
+    }
+
+    void monitor(int the_monitor)
+    {
+        state[ASMonitor] = the_monitor;
+        write();
+    }
 };
 
 struct SettingsError {
@@ -108,6 +118,9 @@ struct Eddy : public App {
 
     void            initialize() override;
     bool            query_close() override;
+    void            on_start() override;
+    void            process_input() override;
+    void            on_terminate() override;
     pBuffer         new_buffer();
     Result<pBuffer> open_buffer(std::string_view const &file);
     void            close_buffer(int buffer_num);

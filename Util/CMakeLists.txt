@@ -11,6 +11,8 @@ target_link_libraries(
 
 include_directories(.)
 
+add_compile_options("-fno-inline-functions")
+
 install(TARGETS json
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin

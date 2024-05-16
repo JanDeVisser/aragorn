@@ -279,7 +279,7 @@ Token Lexer::next()
 {
     Token token {};
     while (!m_sources.empty()) {
-        for (token = peek(); token == TokenKind::EndOfFile; token = peek()) {
+        for (token = peek(); !token.matches(TokenKind::EndOfFile); token = peek()) {
             // clang-format off
             if ((whitespace_significant && (token == TokenKind::Whitespace || token == TokenKind::EndOfLine)) ||
                 (include_comments && token == TokenKind::Comment) ||

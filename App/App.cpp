@@ -40,8 +40,9 @@ void App::draw()
 void App::set_font(std::string_view const &path, int sz)
 {
     sz = clamp(sz, 4, 48);
-    info(App, "Loading font '{:}', size {:}", path, sz);
-    auto f = LoadFontEx(path.data(), sz, nullptr, 0);
+    std::string p { path };
+    info(App, "Loading font '{:}', size {:}", p, sz);
+    auto f = LoadFontEx(p.c_str(), sz, nullptr, 0);
     if (f.baseSize == 0) {
         return;
     }
