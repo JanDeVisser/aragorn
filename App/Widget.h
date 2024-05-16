@@ -164,10 +164,9 @@ public:
         {
         }
         WidgetCommand(WidgetCommand const &) = default;
-        WidgetCommand(WidgetCommand &&) = default;
 
-        pWidget               owner;
         std::string           command;
+        pWidget               owner;
         Handler               handler;
         std::vector<KeyCombo> bindings {};
 
@@ -187,6 +186,11 @@ public:
         void execute(JSONValue const &args) const
         {
             handler(owner, args);
+        }
+
+        auto operator <=> (WidgetCommand const& other) const
+        {
+            return command <=> other.command;
         }
     };
 

@@ -427,12 +427,12 @@ void query_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
     qbox->show();
 }
 
-inline static void message_box(std::string_view const& prompt)
+inline static void message_box(std::string_view const& prompt, QueryOption options = QueryOptionOK)
 {
     auto dummy = [](auto const&, auto) {
     };
     pWidget p { nullptr };
-    query_box<Widget>(p, prompt, dummy, QueryOptionOK);
+    query_box<Widget>(p, prompt, dummy, options);
 }
 
 }

@@ -16,6 +16,7 @@
 
 #include <App/Eddy.h>
 #include <App/Editor.h>
+#include <App/Modal.h>
 #include <App/MiniBuffer.h>
 #include <App/StatusBar.h>
 
@@ -67,6 +68,84 @@ Eddy::Eddy()
     }
 }
 
+bool Eddy::query_close()
+{
+    submit("eddy-quit", JSONValue {});
+    return false;
+}
+
+void Eddy::terminate()
+{
+    project->close(self<Eddy>());
+    quit = true;
+}
+
+void cmd_force_quit(pEddy const& eddy, JSONValue const&)
+{
+    eddy->terminate();
+}
+
+void cmd_quit(pEddy const& eddy, JSONValue const&)
+{
+    if (!eddy->modals.empty()) {
+        // User probably clicked the close window button twice
+        return;
+    }
+    bool has_modified_buffers = false;
+    for (auto const& buffer : eddy->buffers) {
+        if (buffer->saved_version < buffer->version) {
+            has_modified_buffers = true;
+            break;
+        }
+    }
+
+    int        selection = 0;
+    auto const* prompt = "Are you sure you want to quit?";
+    if (has_modified_buffers) {
+        selection = 1;
+        prompt = "There are modified files. Are you sure you want to quit?";
+    }
+
+    auto are_you_sure = [](pEddy const& eddy, QueryOption selection){
+        if (selection == QueryOptionYes) {
+            eddy->terminate();
+        }
+    };
+    query_box(eddy, prompt, are_you_sure, QueryOptionYesNo);
+}
+
+void cmd_run_command(pEddy const& eddy, JSONValue const&)
+{
+    struct Commands : public ListBox<Widget::WidgetCommand> {
+        pEddy const& eddy;
+        explicit Commands(pEddy const &eddy)
+            : ListBox("Select command")
+            , eddy(eddy)
+        {
+            auto push_commands = [this](auto& w) -> void {
+                for (auto &[name, command] : w->commands) {
+                    entries.emplace_back(name, command);
+                }
+            };
+            for (pWidget &w = eddy->focus; w; w = w->parent) {
+                push_commands(w);
+                if (w->delegate) {
+                    push_commands(w->delegate);
+                }
+            }
+        }
+
+        void submit() override
+        {
+            auto const& cmd = entries[selection].payload;
+            cmd.owner->submit(cmd.command, JSONValue {});
+            eddy->set_message(std::format("Selected command '{}'", cmd.command));
+        }
+    };
+    Commands commands { eddy };
+    commands.show();
+}
+
 void Eddy::initialize()
 {
     auto res = read_settings();
@@ -85,6 +164,13 @@ void Eddy::initialize()
     main_area->add_widget<StatusBar>();
     main_area->add_widget<MiniBuffer>();
     append(main_area);
+
+    add_command<Eddy>("eddy-force-quit", cmd_force_quit)
+        .bind(KeyCombo { KEY_Q, KModControl | KModShift });
+    add_command<Eddy>("eddy-quit", cmd_quit)
+        .bind(KeyCombo { KEY_Q, KModControl });
+    add_command<Eddy>("eddy-run-command", cmd_run_command)
+        .bind(KeyCombo { KEY_P, KModSuper | KModShift });
 
     std::string project_dir { "." };
     if (!arguments.empty()) {
@@ -131,7 +217,7 @@ Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
 
 void Eddy::close_buffer(int buffer_num)
 {
-    assert(buffer_num > 0 && buffer_num < buffers.size());
+    assert(buffer_num >= 0 && buffer_num < buffers.size());
     pBuffer buffer = buffers[buffer_num];
     buffer->close();
     buffers.erase(buffers.begin() + buffer_num);

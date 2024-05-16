@@ -107,6 +107,7 @@ struct Eddy : public App {
     static void  set_message(std::string_view const &text);
 
     void            initialize() override;
+    bool            query_close() override;
     pBuffer         new_buffer();
     Result<pBuffer> open_buffer(std::string_view const &file);
     void            close_buffer(int buffer_num);
@@ -114,6 +115,7 @@ struct Eddy : public App {
     void            load_font();
     StringList      get_font_dirs();
     EError          open_dir(std::string_view const &dir);
+    void            terminate();
 
     pBuffer const &buffer(int buffer_num)
     {
