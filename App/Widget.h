@@ -213,6 +213,7 @@ public:
     std::deque<PendingCommand>           pending_commands;
     std::mutex                           commands_mutex {};
 
+    virtual void initialize() { }
     virtual void draw() { }
     virtual void resize() { }
     virtual bool character(int) { return false; }
@@ -230,7 +231,8 @@ public:
     requires std::derived_from<C, Widget>
     static std::shared_ptr<C> make(Args &&...args)
     {
-        return std::make_shared<C>(std::forward<Args>(args)...);
+        auto ret = std::make_shared<C>(std::forward<Args>(args)...);
+        return ret;
     }
 
     template<class C = Widget>
@@ -339,6 +341,11 @@ struct Layout : public Widget {
     std::vector<pWidget> widgets {};
 
     Layout() = default;
+    explicit Layout(ContainerOrientation orientation)
+        : Widget()
+        , orientation(orientation)
+    {
+    }
 
     void draw() override;
     void resize() override;
@@ -351,6 +358,16 @@ struct Layout : public Widget {
     virtual void on_process_input() { }
     virtual void after_process_input() { }
 
+    void append(pWidget widget)
+    {
+        widgets.push_back(widget);
+    }
+
+    void insert(size_t ix, pWidget widget)
+    {
+        widgets.insert(widgets.begin() + ix, widget);
+    }
+
     template<class Cls, typename... Args>
         requires std::derived_from<Cls, Widget>
     std::shared_ptr<Cls> add_widget(Args &&...args)
@@ -358,6 +375,16 @@ struct Layout : public Widget {
         auto widget = Widget::make<Cls>(std::forward<Args>(args)...);
         widget->parent = self();
         widgets.push_back(widget);
+        return std::dynamic_pointer_cast<Cls>(widget);
+    }
+
+    template<class Cls, typename... Args>
+        requires std::derived_from<Cls, Widget>
+    std::shared_ptr<Cls> insert_widget(size_t ix, Args &&...args)
+    {
+        auto widget = Widget::make<Cls>(std::forward<Args>(args)...);
+        widget->parent = self();
+        widgets.insert(widgets.begin() + ix, widget);
         return std::dynamic_pointer_cast<Cls>(widget);
     }
 

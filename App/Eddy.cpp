@@ -15,7 +15,9 @@
 #include <config.h>
 
 #include <App/Eddy.h>
+#include <App/Editor.h>
 #include <App/MiniBuffer.h>
+#include <App/StatusBar.h>
 
 namespace Eddy {
 
@@ -65,8 +67,25 @@ Eddy::Eddy()
     }
 }
 
-void Eddy::on_start()
+void Eddy::initialize()
 {
+    auto res = read_settings();
+    if (res.is_error()) {
+        fatal("Error reading settings: {}", res.error().to_string());
+    }
+    load_font();
+    auto editor_pane = Widget::make<Layout>(ContainerOrientation::Horizontal);
+    editor_pane->parent = self();
+    editor_pane->policy = SizePolicy::Stretch;
+    auto editor = editor_pane->add_widget<Editor>();
+    editor_pane->insert_widget<Gutter>(0, editor);
+    auto main_area = Widget::make<Layout>(ContainerOrientation::Vertical);
+    main_area->policy = SizePolicy::Stretch;
+    main_area->append(editor_pane);
+    main_area->add_widget<StatusBar>();
+    main_area->add_widget<MiniBuffer>();
+    append(main_area);
+
     std::string project_dir { "." };
     if (!arguments.empty()) {
         project_dir = arguments.front();
@@ -77,6 +96,7 @@ void Eddy::on_start()
         fatal("Could not open project directory '{}': {}", project_dir, project_maybe.error().to_string());
     }
     project = project_maybe.value();
+    new_buffer();
 }
 
 pBuffer Eddy::new_buffer()
@@ -89,6 +109,8 @@ pBuffer Eddy::new_buffer()
     }
     pBuffer b = Buffer::new_buffer();
     buffers.push_back(b);
+    auto const& editor = find_by_class<Editor>();
+    editor->select_buffer(b);
     return b;
 }
 
@@ -102,6 +124,8 @@ Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
     }
     pBuffer b = TRY_EVAL(Buffer::open(file));
     buffers.push_back(b);
+    auto const& editor = find_by_class<Editor>();
+    editor->select_buffer(b);
     return b;
 }
 
@@ -159,20 +183,19 @@ EError Eddy::read_settings()
 
 StringList Eddy::get_font_dirs()
 {
-    static StringList s_font_dirs {};
-    if (s_font_dirs.empty()) {
-        s_font_dirs.push_back(fs::canonical(EDDY_DATADIR "/fonts"));
+    if (font_dirs.empty()) {
+        font_dirs.emplace_back(EDDY_DATADIR "/fonts");
 
         auto &appearance = settings["appearance"];
         auto &directories = appearance["font_directories"];
 
         struct passwd *pw = getpwuid(getuid());
-        auto           append_dir = [pw](std::string_view const &dir) -> void {
+        auto           append_dir = [pw, this](std::string_view const &dir) -> void {
             std::string d { dir };
             replace_all(d, "${HOME}", pw->pw_dir);
             replace_all(d, "${EDDY_DATADIR}", EDDY_DATADIR);
-            if (std::find(s_font_dirs.begin(), s_font_dirs.end(), d) == s_font_dirs.end()) {
-                s_font_dirs.push_back(fs::canonical(d));
+            if (std::find(font_dirs.begin(), font_dirs.end(), d) == font_dirs.end()) {
+                font_dirs.push_back(fs::canonical(d));
             }
         };
 
@@ -187,7 +210,7 @@ StringList Eddy::get_font_dirs()
             }
         }
     }
-    return s_font_dirs;
+    return font_dirs;
 }
 
 void Eddy::load_font()

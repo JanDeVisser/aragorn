@@ -99,6 +99,10 @@ StatusBar::StatusBar()
     orientation = ContainerOrientation::Horizontal;
     policy = SizePolicy::Characters;
     policy_size = 1.0f;
+}
+
+void StatusBar::initialize()
+{
     add_widget<Spacer>(SizePolicy::Characters, 1);
     add_widget<FileName>();
     add_widget<Spacer>();

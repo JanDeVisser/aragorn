@@ -91,4 +91,8 @@ include_directories("${PROJECT_BINARY_DIR}" . base eddy/src scribble/src)
 #add_subdirectory(eddy)
 #add_subdirectory(scribble)
 add_subdirectory(LibCore)
+add_subdirectory(Util)
 add_subdirectory(App)
+
+
+install(DIRECTORY share DESTINATION .)

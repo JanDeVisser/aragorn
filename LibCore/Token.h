@@ -54,14 +54,14 @@ inline JSONValue to_json(TokenKind const &kind)
 }
 
 template<>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, TokenKind &kind)
+inline Error<JSONError> decode_value(JSONValue const &json, TokenKind &kind)
 {
     if (!json.is_string()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     auto kind_maybe = TokenKind_from_string(json.to_string());
     if (kind_maybe.is_error()) {
-        return JSONDecodeError { JSONDecodeError::Code::ProtocolError, std::format("Invalid token kind '{}'", json.to_string()) };
+        return JSONError { JSONError::Code::ProtocolError, std::format("Invalid token kind '{}'", json.to_string()) };
     }
     kind = kind_maybe.value();
     return {};
@@ -89,14 +89,14 @@ inline JSONValue to_json(QuoteType const &type)
 }
 
 template<>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, QuoteType &type)
+inline Error<JSONError> decode_value(JSONValue const &json, QuoteType &type)
 {
     if (!json.is_string()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     auto type_maybe = QuoteType_from_string(json.to_string());
     if (type_maybe.is_error()) {
-        return JSONDecodeError { JSONDecodeError::Code::ProtocolError, std::format("Invalid quote type '{}'", json.to_string()) };
+        return JSONError { JSONError::Code::ProtocolError, std::format("Invalid quote type '{}'", json.to_string()) };
     }
     type = type_maybe.value();
     return {};
@@ -123,14 +123,14 @@ inline JSONValue to_json(CommentType const &type)
 }
 
 template<>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, CommentType &type)
+inline Error<JSONError> decode_value(JSONValue const &json, CommentType &type)
 {
     if (!json.is_string()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     auto type_maybe = CommentType_from_string(json.to_string());
     if (type_maybe.is_error()) {
-        return JSONDecodeError { JSONDecodeError::Code::ProtocolError, std::format("Invalid comment type '{}'", json.to_string()) };
+        return JSONError { JSONError::Code::ProtocolError, std::format("Invalid comment type '{}'", json.to_string()) };
     }
     type = type_maybe.value();
     return {};
@@ -159,14 +159,14 @@ inline JSONValue to_json(NumberType const &type)
 }
 
 template<>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, NumberType &type)
+inline Error<JSONError> decode_value(JSONValue const &json, NumberType &type)
 {
     if (!json.is_string()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     auto type_maybe = NumberType_from_string(json.to_string());
     if (type_maybe.is_error()) {
-        return JSONDecodeError { JSONDecodeError::Code::ProtocolError, std::format("Invalid number type '{}'", json.to_string()) };
+        return JSONError { JSONError::Code::ProtocolError, std::format("Invalid number type '{}'", json.to_string()) };
     }
     type = type_maybe.value();
     return {};
@@ -198,10 +198,10 @@ inline JSONValue to_json(TokenLocation const &location)
 }
 
 template<>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, TokenLocation &location)
+inline Error<JSONError> decode_value(JSONValue const &json, TokenLocation &location)
 {
     if (!json.is_object()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     location.file = TRY_EVAL(json.try_get<std::string>("file"));
     location.index = TRY_EVAL(json.try_get<size_t>("index"));
@@ -236,10 +236,10 @@ inline JSONValue to_json(TokenCode<CodeType> const &code)
 }
 
 template<int CodeType>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, TokenCode<CodeType> &code)
+inline Error<JSONError> decode_value(JSONValue const &json, TokenCode<CodeType> &code)
 {
     if (!json.is_integer()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     code = json.value<int>().value();
     return {};
@@ -406,8 +406,8 @@ struct Token {
     [[nodiscard]] bool matches(DirectiveCode code) const { return matches(TokenKind::Directive) && this->directive_code == code; }
     [[nodiscard]] bool is_identifier() const { return matches(TokenKind::Identifier); }
 
-    friend Error<JSONDecodeError> decode_value(JSONValue const &json, Token &token);
-    friend Error<JSONDecodeError> decode_token(JSONValue const &json, Token &token);
+    friend Error<JSONError> decode_value(JSONValue const &json, Token &token);
+    friend Error<JSONError> decode_token(JSONValue const &json, Token &token);
 };
 
 template<TokenKind K>
@@ -481,21 +481,21 @@ inline JSONValue to_json(Token const &token)
 }
 
 template<TokenKind K>
-inline Error<JSONDecodeError> decode_token(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token(JSONValue const &json, Token &token)
 {
     // By default nothing
     return {};
 }
 
 template<>
-inline Error<JSONDecodeError> decode_token<TokenKind::Number>(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token<TokenKind::Number>(JSONValue const &json, Token &token)
 {
     token.number_type = TRY_EVAL(json.try_get<NumberType>("number_type"));
     return {};
 }
 
 template<>
-inline Error<JSONDecodeError> decode_token<TokenKind::QuotedString>(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token<TokenKind::QuotedString>(JSONValue const &json, Token &token)
 {
     auto quote = TRY_EVAL(json.try_get<JSONValue>("quoted_string"));
     token.quoted_string.quote_type = TRY_EVAL(quote.try_get<QuoteType>("quote_type"));
@@ -505,7 +505,7 @@ inline Error<JSONDecodeError> decode_token<TokenKind::QuotedString>(JSONValue co
 }
 
 template<>
-inline Error<JSONDecodeError> decode_token<TokenKind::Comment>(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token<TokenKind::Comment>(JSONValue const &json, Token &token)
 {
     auto comment = TRY_EVAL(json.try_get<JSONValue>("comment"));
     token.comment_text.comment_type = TRY_EVAL(comment.try_get<CommentType>("comment_type"));
@@ -514,31 +514,31 @@ inline Error<JSONDecodeError> decode_token<TokenKind::Comment>(JSONValue const &
 }
 
 template<>
-inline Error<JSONDecodeError> decode_token<TokenKind::Keyword>(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token<TokenKind::Keyword>(JSONValue const &json, Token &token)
 {
     token.keyword_code = TRY_EVAL(json.try_get<KeywordCode>("code"));
     return {};
 }
 
 template<>
-inline Error<JSONDecodeError> decode_token<TokenKind::Directive>(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token<TokenKind::Directive>(JSONValue const &json, Token &token)
 {
     token.directive_code = TRY_EVAL(json.try_get<DirectiveCode>("directive"));
     return {};
 }
 
 template<>
-inline Error<JSONDecodeError> decode_token<TokenKind::Symbol>(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_token<TokenKind::Symbol>(JSONValue const &json, Token &token)
 {
     token.symbol_code = TRY_EVAL(json.try_get<int>("symbol"));
     return {};
 }
 
 template<>
-inline Error<JSONDecodeError> decode_value(JSONValue const &json, Token &token)
+inline Error<JSONError> decode_value(JSONValue const &json, Token &token)
 {
     if (!json.is_object()) {
-        return JSONDecodeError { JSONDecodeError::Code::TypeMismatch, "" };
+        return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     token.kind = TRY_EVAL(json.try_get<TokenKind>("kind"));
     token.text = TRY_EVAL(json.try_get<std::string>("text"));

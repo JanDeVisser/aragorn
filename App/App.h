@@ -97,6 +97,7 @@ struct App : public Layout {
         SetTargetFPS(60);
         MaximizeWindow();
         s_app = app;
+        s_app->initialize();
         return dynamic_pointer_cast<AppClass>(s_app);
     }
 

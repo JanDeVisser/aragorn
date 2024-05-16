@@ -190,6 +190,10 @@ Editor::Editor()
 {
     background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
     padding = Rect<float>(PADDING);
+}
+
+void Editor::initialize()
+{
     add_command<Editor>("editor-switch-buffer", cmd_switch_buffer)
         .bind(KeyCombo { KEY_B, KModSuper });
     add_command<Editor>("editor-close-buffer", cmd_close_buffer)

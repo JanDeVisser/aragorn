@@ -30,6 +30,7 @@ public:
 
     BufferView(pEditor editor, pBuffer buf);
     pBuffer const &buffer() const;
+    void           initialize() override;
     void           draw() override;
     void           process_input() override;
     bool           character(int ch) override;
@@ -55,13 +56,14 @@ public:
 
 private:
     pBuffer m_buf { nullptr };
-    double  clicks[3] {0.0, 0.0, 0.0};
-    int     num_clicks {0};
+    double  clicks[3] { 0.0, 0.0, 0.0 };
+    int     num_clicks { 0 };
 };
 
 class Editor : public Widget {
 public:
     Editor();
+    void        initialize() override;
     void        draw() override;
     void        resize() override;
     void        process_input() override;
@@ -74,12 +76,12 @@ public:
     void        close_view();
     void        close_buffer();
 
-    int columns {0};
-    int lines {0};
+    int columns { 0 };
+    int lines { 0 };
 
 private:
     std::vector<pBufferView> views {};
-    int                      current_view_ix {-1};
+    int                      current_view_ix { -1 };
 };
 
 struct Gutter : public Widget {

@@ -26,6 +26,14 @@ struct DisplayToken {
     size_t length;
     size_t line;
     Color  color;
+
+    DisplayToken(size_t index, size_t length, size_t line, Color color)
+        : index(index)
+        , length(length)
+        , line(line)
+        , color(color)
+    {
+    }
 };
 
 struct Index {
@@ -33,8 +41,16 @@ struct Index {
     std::string_view line;
     size_t           first_token;
     size_t           num_tokens;
-    size_t           first_diagnostic;
-    size_t           num_diagnostics;
+    size_t           first_diagnostic { 0 };
+    size_t           num_diagnostics { 0 };
+
+    Index(size_t index_of, std::string_view line, size_t first_token = 0, size_t num_tokens = 0)
+        : index_of(index_of)
+        , line(std::move(line))
+        , first_token(first_token)
+        , num_tokens(num_tokens)
+    {
+    }
 };
 
 using pBuffer = std::shared_ptr<Buffer>;

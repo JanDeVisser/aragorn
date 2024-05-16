@@ -423,6 +423,10 @@ BufferView::BufferView(pEditor editor, pBuffer buf)
     viewport = editor->viewport;
     padding = editor->padding;
     parent = std::move(editor);
+}
+
+void BufferView::initialize()
+{
     add_command<BufferView>("cursor-up", cmd_up)
         .bind(KeyCombo { KEY_UP, KModNone })
         .bind(KeyCombo { KEY_UP, KModShift });

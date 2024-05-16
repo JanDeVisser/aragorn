@@ -12,6 +12,7 @@ namespace Eddy {
 
 struct StatusBar : public Layout {
     StatusBar();
+    void initialize() override;
     void on_draw() override;
 };
 

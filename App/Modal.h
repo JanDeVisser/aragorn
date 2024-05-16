@@ -94,6 +94,10 @@ struct ListBox : public Modal {
         : Modal(prompt)
         , to_string_fnc(std::move(to_string))
     {
+    }
+
+    void initialize() override
+    {
         sort();
         filter();
         resize();
@@ -302,6 +306,10 @@ void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
         {
             assert(submit_fnc != nullptr);
             background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
+        }
+
+        void initialize() override
+        {
             resize();
         }
 

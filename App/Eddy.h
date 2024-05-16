@@ -46,26 +46,30 @@ struct SettingsError {
 
 class EddyError {
 public:
+    template<class... Ts>
+    struct overloaded : Ts... {
+        using Ts::operator()...;
+    };
+    template<class... Ts>
+    overloaded(Ts...) -> overloaded<Ts...>;
+
     template<typename T>
     explicit EddyError(T const &e)
         : error(e)
     {
     }
 
-    std::variant<LibCError, LibCore::JSONValue::ParseError, SettingsError> error;
+    std::variant<LibCError, JSONError, SettingsError> error;
 
-    std::string to_string() const
+    [[nodiscard]] std::string to_string() const
     {
-        switch (error.index()) {
-        case 0:
-            return std::format("I/O Error: {}", get<LibCError>(error).to_string());
-        case 1:
-            return std::format("JSON Parse Error", get<LibCError>(error).to_string());
-        case 2:
-            return std::format("Settings error", get<SettingsError>(error).error);
-        default:
-            UNREACHABLE();
-        }
+        return std::visit(
+            overloaded {
+                [](LibCError const &e) { return e.to_string(); },
+                [](JSONError const &e) { return e.to_string(); },
+                [](SettingsError const &e) { return e.error; },
+            },
+            error);
     }
 };
 
@@ -96,12 +100,13 @@ struct Eddy : public App {
     FT_Library           ft_library {};
     JSONValue            settings;
     pProject             project;
+    StringList           font_dirs;
 
     Eddy();
     static pEddy the();
     static void  set_message(std::string_view const &text);
 
-    void on_start() override;
+    void            initialize() override;
     pBuffer         new_buffer();
     Result<pBuffer> open_buffer(std::string_view const &file);
     void            close_buffer(int buffer_num);

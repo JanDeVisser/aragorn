@@ -25,12 +25,12 @@ using namespace std::literals;
     case JSONType::Double:
         return std::to_string(std::get<double>(m_value));
     case JSONType::Array: {
-        auto const& array = std::get<Array>(m_value);
+        auto const &array = std::get<Array>(m_value);
         if (array.empty())
             return "[]";
         std::string ret = "[ ";
-        bool first = true;
-        for (auto const& v : array) {
+        bool        first = true;
+        for (auto const &v : array) {
             if (!first)
                 ret += ", ";
             first = false;
@@ -39,12 +39,12 @@ using namespace std::literals;
         return ret + " ]";
     }
     case JSONType::Object: {
-        auto const& object = std::get<Object>(m_value);
+        auto const &object = std::get<Object>(m_value);
         if (object.empty())
             return "{}";
         std::string ret = "{ ";
-        bool first = true;
-        for (auto const& v : object) {
+        bool        first = true;
+        for (auto const &v : object) {
             if (!first)
                 ret += ", ";
             first = false;
@@ -71,17 +71,18 @@ using namespace std::literals;
         return "\"" + s + "\"";
     }
     case JSONType::Array: {
-        auto const& array = std::get<Array>(m_value);
+        auto const &array = std::get<Array>(m_value);
         if (array.empty())
             return "[]";
         std::string ret = "[";
-        bool first = true;
-        for (auto const& v : array) {
+        bool        first = true;
+        for (auto const &v : array) {
             if (!first)
                 ret += ",";
             if (pretty) {
                 ret += "\n";
-                for (auto i = 0u; i < indent + indent_width; ++i) ret += ' ';
+                for (auto i = 0u; i < indent + indent_width; ++i)
+                    ret += ' ';
             } else {
                 ret += ' ';
             }
@@ -90,25 +91,27 @@ using namespace std::literals;
         }
         if (pretty) {
             ret += "\n";
-            for (auto i = 0u; i < indent; ++i) ret += ' ';
+            for (auto i = 0u; i < indent; ++i)
+                ret += ' ';
         } else {
             ret += ' ';
         }
         return ret + "]";
     }
     case JSONType::Object: {
-        auto const& object = std::get<Object>(m_value);
+        auto const &object = std::get<Object>(m_value);
         if (object.empty())
             return "{}";
         std::string ret = "{";
-        bool first = true;
-        for (auto const& v : object) {
+        bool        first = true;
+        for (auto const &v : object) {
             if (!first)
                 ret += ",";
             first = false;
             if (pretty) {
                 ret += "\n";
-                for (auto i = 0u; i < indent + indent_width; ++i) ret += ' ';
+                for (auto i = 0u; i < indent + indent_width; ++i)
+                    ret += ' ';
             } else {
                 ret += ' ';
             }
@@ -116,7 +119,8 @@ using namespace std::literals;
         }
         if (pretty) {
             ret += "\n";
-            for (auto i = 0u; i < indent; ++i) ret += ' ';
+            for (auto i = 0u; i < indent; ++i)
+                ret += ' ';
         } else {
             ret += ' ';
         }
@@ -129,9 +133,9 @@ constexpr static int JSONKeywordTrue = 0;
 constexpr static int JSONKeywordFalse = 1;
 constexpr static int JSONKeywordNull = 2;
 
-Result<JSONValue,JSONValue::ParseError> JSONValue::deserialize(std::string_view const& str)
+Result<JSONValue, JSONError> JSONValue::deserialize(std::string_view const &str)
 {
-    JSONValue current;
+    JSONValue              current;
     std::vector<JSONValue> state {};
 
     Language json_language {};
@@ -152,12 +156,15 @@ Result<JSONValue,JSONValue::ParseError> JSONValue::deserialize(std::string_view 
             switch (token.keyword_code.code) {
             case JSONKeywordFalse:
                 current = JSONValue { false };
+                lexer.lex();
                 break;
             case JSONKeywordTrue:
                 current = JSONValue { true };
+                lexer.lex();
                 break;
             case JSONKeywordNull:
                 current = JSONValue {};
+                lexer.lex();
                 break;
             default:
                 UNREACHABLE();
@@ -165,19 +172,32 @@ Result<JSONValue,JSONValue::ParseError> JSONValue::deserialize(std::string_view 
         } break;
         case TokenKind::QuotedString: {
             if (!token.quoted_string.terminated) {
-                return ParseError::Error;
+                return JSONError {
+                    JSONError::Code::SyntaxError,
+                    "Unterminated quoted string",
+                    (int) token.location.line,
+                    (int) token.location.column,
+                };
             }
             switch (token.quoted_string.quote_type) {
             case QuoteType::DoubleQuote:
             case QuoteType::SingleQuote: {
-                auto &s = token.text;
+                auto s = token.text.substr(1, token.text.length() - 2);
                 replace_all(s, R"(\r)", "\r"sv);
                 replace_all(s, R"(\n)", "\n"sv);
                 replace_all(s, R"(\t)", "\t"sv);
+                replace_all(s, R"(\")", R"(")");
+                replace_all(s, R"(\')", "'"sv);
                 current = JSONValue(s);
+                lexer.lex();
             } break;
             case QuoteType::BackQuote:
-                return ParseError::Error;
+                return JSONError {
+                    JSONError::Code::SyntaxError,
+                    "Backquoted ('`') strings are not allowed in JSON",
+                    (int) token.location.line,
+                    (int) token.location.column,
+                };
             }
         } break;
         case TokenKind::Number: {
@@ -187,16 +207,28 @@ Result<JSONValue,JSONValue::ParseError> JSONValue::deserialize(std::string_view 
             case NumberType::BinaryNumber: {
                 auto num = string_to_integer<int64_t>(token.text);
                 if (!num) {
-                    return ParseError::Error;
+                    return JSONError {
+                        JSONError::Code::SyntaxError,
+                        "Unparseable integer number",
+                        (int) token.location.line,
+                        (int) token.location.column,
+                    };
                 }
                 current = JSONValue { num.value() };
+                lexer.lex();
             } break;
             case NumberType::Decimal: {
                 auto num = string_to_double(token.text);
                 if (!num) {
-                    return ParseError::Error;
+                    return JSONError {
+                        JSONError::Code::SyntaxError,
+                        "Unparseable floating point number",
+                        (int) token.location.line,
+                        (int) token.location.column,
+                    };
                 }
                 current = JSONValue { num.value() };
+                lexer.lex();
             } break;
             }
         } break;
@@ -204,52 +236,88 @@ Result<JSONValue,JSONValue::ParseError> JSONValue::deserialize(std::string_view 
             switch (token.symbol_code) {
             case '[':
                 state.emplace_back(JSONType::Array);
+                lexer.lex();
                 handled = true;
                 break;
             case ']':
                 if (state.empty() || !state.back().is_array())
-                    return ParseError::Error;
+                    return JSONError {
+                        JSONError::Code::SyntaxError,
+                        "Stray ']'",
+                        (int) token.location.line,
+                        (int) token.location.column,
+                    };
+                lexer.lex();
                 current = state.back();
                 state.pop_back();
                 break;
             case '{':
                 state.emplace_back(JSONType::Object);
+                lexer.lex();
                 handled = true;
                 break;
             case '}':
                 if (state.empty() || !state.back().is_object())
-                    return ParseError::Error;
+                    return JSONError {
+                        JSONError::Code::SyntaxError,
+                        "Stray '}'",
+                        (int) token.location.line,
+                        (int) token.location.column,
+                    };
+                lexer.lex();
                 current = state.back();
                 state.pop_back();
                 break;
             case ',':
                 if (state.empty() || (!state.back().is_object() && !state.back().is_array()))
-                    return ParseError::Error;
+                    return JSONError {
+                        JSONError::Code::SyntaxError,
+                        "Stray ','",
+                        (int) token.location.line,
+                        (int) token.location.column,
+                    };
+                lexer.lex();
                 handled = true;
                 break;
             case ':':
                 if (state.empty() || !state.back().is_string())
-                    return ParseError::Error;
+                    return JSONError {
+                        JSONError::Code::SyntaxError,
+                        "Stray ':'",
+                        (int) token.location.line,
+                        (int) token.location.column,
+                    };
+                lexer.lex();
                 handled = true;
                 break;
             }
-        }
+        } break;
         case TokenKind::EndOfFile:
             handled = true;
             break;
+        case TokenKind::EndOfLine:
+        case TokenKind::Whitespace:
+            handled = true;
+            lexer.lex();
+            break;
         default:
-            return ParseError::Error;
+            return JSONError {
+                JSONError::Code::SyntaxError,
+                std::format("Unexpected token '{}'", token.text),
+                (int) token.location.line,
+                (int) token.location.column,
+            };
         }
 
-        if (handled)
+        if (handled) {
             continue;
-
+        }
         if (state.empty()) {
             state.push_back(current);
             continue;
         }
 
-        auto& last = state.back();
+        auto &last = state.back();
         if (last.is_array()) {
             last.append(current);
             continue;
@@ -257,23 +325,32 @@ Result<JSONValue,JSONValue::ParseError> JSONValue::deserialize(std::string_view 
 
         if (last.is_object()) {
             if (!current.is_string())
-                return ParseError::Error;
+                return JSONError {
+                    JSONError::Code::SyntaxError,
+                    std::format("Expected object key name, got '{}'", current.to_string()),
+                    (int) token.location.line,
+                    (int) token.location.column,
+                };
             state.push_back(current);
             continue;
         }
 
-        if (last.is_string() && (state.size() >= 2) && state[state.size()-2].is_object()) {
-            auto& obj = state[state.size()-2];
+        if (last.is_string() && (state.size() >= 2) && state[state.size() - 2].is_object()) {
+            auto &obj = state[state.size() - 2];
             obj.set(std::get<std::string>(last.m_value), current);
             state.pop_back();
             continue;
         }
-
-        return ParseError::Error;
+        return JSONError {
+            JSONError::Code::SyntaxError,
+            std::format("Unexpected JSON value '{}'. This should not happen", current.to_string()),
+            (int) token.location.line,
+            (int) token.location.column,
+        };
     }
     if (state.empty())
         return JSONValue();
     return state.back();
 }
 
-} // Obelix
+}
