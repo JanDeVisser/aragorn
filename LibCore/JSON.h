@@ -14,6 +14,7 @@
 #include <variant>
 #include <vector>
 
+#include <LibCore/Lexer.h>
 #include <LibCore/Logging.h>
 #include <LibCore/Result.h>
 
@@ -64,8 +65,8 @@ public:
     std::string description;
 
     struct Location {
-        int      line;
-        int      column;
+        int line;
+        int column;
     };
     std::optional<Location> location;
 
@@ -512,11 +513,19 @@ public:
         return *this;
     }
 
+    using ReadError = std::variant<LibCError, JSONError>;
+    static Result<JSONValue, ReadError> read_file(std::string_view const &);
     static Result<JSONValue, JSONError> deserialize(std::string_view const &);
 
 private:
-    JSONType                                                        m_type { JSONType::Null };
-    std::variant<std::string, int64_t, bool, double, Array, Object> m_value;
+    using JSONLexer = Lexer<false, false>;
+    using JSONValueValue = std::variant<std::string, int64_t, bool, double, Array, Object>;
+
+    static Result<std::string, JSONError> decode_string(Token const& token);
+    static Result<JSONValue, JSONError>   decode_value(JSONLexer &lexer);
+
+    JSONType       m_type { JSONType::Null };
+    JSONValueValue m_value;
 };
 
 template<typename T>

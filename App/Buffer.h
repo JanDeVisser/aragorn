@@ -56,19 +56,19 @@ struct Index {
 using pBuffer = std::shared_ptr<Buffer>;
 
 struct Buffer : public Widget {
-    std::string               name;
-    std::string               text;
-    int                       buffer_ix;
-    std::vector<BufferEvent>  undo_stack;
-    std::vector<Index>        lines;
-    std::vector<DisplayToken> tokens;
-    size_t                    saved_version;
-    size_t                    indexed_version;
-    size_t                    version;
-    size_t                    undo_pointer;
+    std::string               name {};
+    std::string               text {} ;
+    int                       buffer_ix {-1};
+    std::vector<BufferEvent>  undo_stack {};
+    std::vector<Index>        lines {};
+    std::vector<DisplayToken> tokens {};
+    size_t                    saved_version {0};
+    size_t                    indexed_version {0};
+    size_t                    version {0};
+    size_t                    undo_pointer {0};
     //    std::vector<Diagnostic>          diagnostics;
     //    Mode                            *mode;
-    std::vector<BufferEventListener> listeners;
+    std::vector<BufferEventListener> listeners {};
 
     Buffer();
     static Result<pBuffer, LibCError> open(std::string_view const& name);

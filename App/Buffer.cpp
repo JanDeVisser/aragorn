@@ -89,15 +89,11 @@ void Buffer::build_indices()
     //        trace(EDIT, "buffer_build_indices('%.*s'): no language found", SV_ARG(name));
     //        lexer = lexer_create();
     //    }
-    Lexer lexer {};
-    lexer.whitespace_significant = true;
-    lexer.include_comments = true;
+    Lexer<true, true> lexer {};
     lexer.push_source(text, name);
     Index &current { lines.emplace_back(0, text) };
     size_t lineno { 0 };
     trace(EDIT, "Buffer size: {}", text.length());
-    current.first_diagnostic = 0;
-    current.num_diagnostics = 0;
     //    auto dix = 0;
     //    if (dix < diagnostics.size) {
     //        current->first_diagnostic = dix;
@@ -122,8 +118,6 @@ void Buffer::build_indices()
             current.line = current.line.substr(0, t.location.index - current.index_of);
             ++lineno;
             current = lines.emplace_back(t.location.index + 1, std::string_view { text.begin() + t.location.index + 1, text.end() }, 0, 0);
-            current.first_diagnostic = 0;
-            current.num_diagnostics = 0;
             //            if (dix < diagnostics.size) {
             //                current->first_diagnostic = dix;
             //                while (dix < diagnostics.size && diagnostics.elements[dix].range.start.line == lineno) {

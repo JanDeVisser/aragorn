@@ -266,13 +266,16 @@ EError Eddy::read_settings()
         fs::create_directory(dir);
         auto settings_file = dir / "settings.json";
         if (fs::exists(settings_file)) {
-            auto json_text_maybe = read_file_by_name(settings_file.string());
-            if (json_text_maybe.is_error()) {
-                return EddyError { json_text_maybe.error() };
-            }
-            auto json_maybe = JSONValue::deserialize(json_text_maybe.value());
+            auto json_maybe = JSONValue::read_file(settings_file.string());
             if (json_maybe.is_error()) {
-                return EddyError { json_maybe.error() };
+                switch (json_maybe.error().index()) {
+                case 0:
+                    return EddyError { std::get<LibCError>(json_maybe.error()) };
+                case 1:
+                    return EddyError { std::get<JSONError>(json_maybe.error()) };
+                default:
+                    UNREACHABLE();
+                }
             }
             settings.merge(json_maybe.value());
         }

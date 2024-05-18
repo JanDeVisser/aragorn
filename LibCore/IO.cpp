@@ -352,7 +352,7 @@ Result<std::string> read_file(int fd)
     }
     std::string ret {};
     size_t sz = sb.st_size;
-    ret.resize(sz);
+    ret.resize(sz+1);
     if (auto err = ::read(fd, ret.data(), sz); err < 0) {
         return LibCError();
     }

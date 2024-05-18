@@ -42,7 +42,7 @@ inline bool string_compare_ic(std::string_view const &s1, std::string_view const
 }
 
 template<typename ElementType, typename ToString>
-inline std::string join(std::vector<ElementType> const &collection, std::string const &sep, ToString const &tostring)
+inline std::string join(std::vector<ElementType> const &collection, std::string_view const &sep, ToString const &tostring)
 {
     std::string ret;
     auto        first = true;
@@ -56,7 +56,7 @@ inline std::string join(std::vector<ElementType> const &collection, std::string 
     return ret;
 }
 
-inline std::string join(StringList const &collection, std::string const &sep)
+inline std::string join(StringList const &collection, std::string_view const &sep)
 {
     return join(collection, sep, [](std::string const &s) { return s; });
 }
@@ -64,16 +64,14 @@ inline std::string join(StringList const &collection, std::string const &sep)
 template<typename ElementType, typename ToString>
 inline std::string join(std::vector<ElementType> const &collection, char sep, ToString const &tostring)
 {
-    std::string sep_str;
-    sep_str += sep;
-    return join(collection, sep_str, tostring);
+    std::string_view s { &sep, 1 };
+    return join(collection, s, tostring);
 }
 
 inline std::string join(StringList const &collection, char sep)
 {
-    std::string sep_str;
-    sep_str += sep;
-    return join(collection, sep_str);
+    std::string_view s { &sep, 1 };
+    return join(collection, s);
 }
 
 template<std::integral Int>
