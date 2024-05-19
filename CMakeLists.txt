@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27)
-project(eddy C CXX)
+project(eddy CXX)
 
 message("System: ${CMAKE_SYSTEM_NAME}. Processor: ${CMAKE_SYSTEM_PROCESSOR}. Version: ${CMAKE_SYSTEM_VERSION}. Compiler: ${CMAKE_CXX_COMPILER_ID}.")
 #if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -98,6 +98,7 @@ include_directories("${PROJECT_BINARY_DIR}" . base eddy/src scribble/src)
 #add_subdirectory(eddy)
 #add_subdirectory(scribble)
 add_subdirectory(LibCore)
+add_subdirectory(LSP/Schema)
 add_subdirectory(Util)
 add_subdirectory(App)
 

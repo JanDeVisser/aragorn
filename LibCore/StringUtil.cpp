@@ -63,30 +63,56 @@ std::string c_escape(std::string const& s)
     return ret;
 }
 
-StringList split(std::string_view const& s, char sep)
+StringViewList split(std::string_view const& s, std::string_view const& sep)
 {
     auto start = 0u;
     auto ptr = 0u;
-    std::vector<std::string> ret;
+    StringViewList ret;
     do {
         start = ptr;
-        for (; (ptr < s.length()) && (s[ptr] != sep); ptr++)
+        for (; ptr < s.length() && !s.substr(ptr).starts_with(sep); ++ptr)
             ;
         ret.emplace_back(s.substr(start, ptr - start));
-        start = ++ptr;
+        ptr += sep.length();
+        start = ptr;
     } while (ptr < s.length());
-    if (s[s.length() - 1] == sep) // This is ugly...
+    if (s.ends_with(sep)) { // This is ugly...
         ret.emplace_back("");
+    }
     return ret;
 }
 
-std::string strip(std::string const& s)
+StringViewList split(std::string_view const& s, char sep)
+{
+    char const buf[2] = { sep, 0 };
+    return split(s, buf);
+}
+
+
+StringViewList split_by_whitespace(std::string_view const& s)
+{
+    auto start = 0u;
+    auto ptr = 0u;
+    StringViewList ret;
+    do {
+        start = ptr;
+        for (; ptr < s.length() && !isspace(s[ptr]); ++ptr)
+            ;
+        ret.emplace_back(s.substr(start, ptr - start));
+        for (; ptr < s.length() && isspace(s[ptr]); ++ptr)
+            ;
+        start = ptr;
+    } while (ptr < s.length());
+    return ret;
+}
+
+std::string_view strip(std::string_view const& s)
 {
     size_t start;
     for (start = 0; (start < s.length()) && std::isspace(s[start]); start++)
         ;
     if (start == s.length()) {
-        return {};
+        return { s.data(), 0 };
     }
     size_t end;
     for (end = s.length() - 1; std::isspace(s[end]); end--)
@@ -94,7 +120,7 @@ std::string strip(std::string const& s)
     return s.substr(start, end - start + 1);
 }
 
-std::string rstrip(std::string const& s)
+std::string_view rstrip(std::string_view const& s)
 {
     size_t end;
     for (end = s.length() - 1; std::isspace(s[end]); end--)
@@ -102,7 +128,7 @@ std::string rstrip(std::string const& s)
     return s.substr(0, end + 1);
 }
 
-std::string lstrip(std::string const& s)
+std::string_view lstrip(std::string_view const& s)
 {
     size_t start;
     for (start = 0; (start < s.length()) && std::isspace(s[start]); start++)

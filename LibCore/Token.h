@@ -142,7 +142,7 @@ inline Error<JSONError> decode_value(JSONValue const &json, CommentType &type)
     S(HexNumber)       \
     S(BinaryNumber)
 
-enum class NumberType {
+enum class NumberType : int {
 #undef S
 #define S(T) T,
     NUMBERTYPES(S)

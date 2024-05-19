@@ -13,7 +13,7 @@ add_executable(
         MiniBuffer.h
         Modal.h
         StatusBar.cpp
-#        Theme.cpp
+        Theme.cpp
         Widget.cpp
         Project.cpp
 )
@@ -23,6 +23,7 @@ target_link_libraries(
         Eddy
         PRIVATE
         LibCore
+        LSPSchema
         ${raylib_LIBRARIES}
         ${FREETYPE_LIBRARIES}
         m

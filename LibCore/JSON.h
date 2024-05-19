@@ -349,11 +349,9 @@ public:
             return JSONError { JSONError::Code::MissingValue, std::string(key) };
         }
         JSONValue const jv = maybe.value();
-        auto v = value<T>(jv);
-        if (!v.has_value()) {
-            return JSONError { JSONError::Code::TypeMismatch, std::string(key) };
-        }
-        return v.value();
+        T v;
+        TRY(decode_value<T>(maybe.value(), v));
+        return v;
     }
 
     JSONValue &operator[](std::string_view const &key)
@@ -557,6 +555,24 @@ template<>
     return ret;
 }
 
+
+template<typename T>
+[[nodiscard]] inline std::optional<std::vector<T>> value(JSONValue const &json)
+{
+    if (json.type() != JSONType::Array) {
+        return {};
+    }
+    std::vector<std::string> ret {};
+    for (auto ix = 0; ix < json.size(); ++ix) {
+        auto const &v = json[ix];
+        if (!v.is_string()) {
+            return {};
+        }
+        ret.push_back(value<T>(v));
+    }
+    return ret;
+}
+
 template<typename T>
 inline JSONValue to_json(T const &)
 {
@@ -569,8 +585,8 @@ inline JSONValue to_json(JSONValue const &json)
     return json;
 }
 
-template<>
-inline JSONValue to_json(std::string const &obj)
+template<String Str>
+inline JSONValue to_json(Str const &obj)
 {
     return JSONValue { obj };
 }
