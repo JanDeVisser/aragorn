@@ -1,10 +1,13 @@
 cmake_minimum_required(VERSION 3.27)
 project(eddy C CXX)
 
+message("System: ${CMAKE_SYSTEM_NAME}. Processor: ${CMAKE_SYSTEM_PROCESSOR}. Version: ${CMAKE_SYSTEM_VERSION}. Compiler: ${CMAKE_CXX_COMPILER_ID}.")
+#if (NOT "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+#  message(FATAL_ERROR "Eddy requires Clang because it used C++ language extensions not supported in GCC")
+#endif()
+
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_CXX_STANDARD 20)
-
-message("System: ${CMAKE_SYSTEM_NAME} Processor: ${CMAKE_SYSTEM_PROCESSOR} Version: ${CMAKE_SYSTEM_VERSION}")
 
 if(APPLE)
   set(IS_APPLE TRUE)
@@ -33,11 +36,15 @@ set(scribble_DATADIR ${CMAKE_INSTALL_PREFIX}/share)
 
 if(DEFINED RAYLIB)
   set(raylib_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/${RAYLIB}")
+  # FIXME abstract out Apple bits
   set(raylib_LIBRARIES "-framework IOKit -framework Cocoa -framework OpenGL -L${PROJECT_SOURCE_DIR}/${RAYLIB} -lraylib -lSDL2 -lglfw3")
 else()
   set(raylib_VERBOSE ON)
   include(cmake/raylib-config.cmake)
 endif()
+
+#add_compile_options("-stdlib=libc++")
+#add_link_options("-stdlib=libc++")
 
 include(CheckCSourceCompiles)
 include(CheckCXXSourceCompiles)

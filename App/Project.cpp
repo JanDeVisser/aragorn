@@ -48,7 +48,7 @@ Result<pProject, EddyError> Project::open(pEddy const &eddy, std::string_view co
         }
         prj.merge(json_maybe.value());
     }
-    if (auto sources = prj["sources"].value<StringList>(); sources.has_value()) {
+    if (auto sources = value<StringList>(prj["sources"]); sources.has_value()) {
         for (auto const &f : sources.value()) {
             auto const result = eddy->open_buffer(f);
             if (result.is_error()) {
@@ -87,7 +87,7 @@ Result<pProject, EddyError> Project::open(pEddy const &eddy, std::string_view co
             return EddyError { json_maybe.error() };
         }
         auto const &state = json_maybe.value();
-        if (auto files = state["files"].value<StringList>(); files.has_value()) {
+        if (auto files = value<StringList>(state["files"]); files.has_value()) {
             for (auto const &f : files.value()) {
                 auto const result = eddy->open_buffer(f);
                 if (result.is_error()) {

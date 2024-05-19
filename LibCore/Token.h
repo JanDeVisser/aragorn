@@ -241,7 +241,7 @@ inline Error<JSONError> decode_value(JSONValue const &json, TokenCode<CodeType> 
     if (!json.is_integer()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
     }
-    code = json.value<int>().value();
+    code = *(value<int>(json));
     return {};
 };
 

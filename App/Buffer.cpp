@@ -105,7 +105,7 @@ void Buffer::build_indices()
     }
 }
 
-size_t Buffer::line_for_index(int index)
+size_t Buffer::line_for_index(int index) const
 {
     if (lines.empty()) {
         return 0;
@@ -125,7 +125,7 @@ size_t Buffer::line_for_index(int index)
     }
 }
 
-Vec<int> Buffer::index_to_position(int index)
+Vec<int> Buffer::index_to_position(int index) const
 {
     Vec<int> ret {};
     ret.line = static_cast<int>(line_for_index(index));
@@ -133,9 +133,9 @@ Vec<int> Buffer::index_to_position(int index)
     return ret;
 }
 
-size_t Buffer::position_to_index(Vec<int> position)
+size_t Buffer::position_to_index(Vec<int> position) const
 {
-    Index &line = lines[position.line];
+    Index const& line = lines[position.line];
     return line.index_of + position.column;
 }
 
@@ -296,7 +296,7 @@ void Buffer::save_as(std::string_view const &new_name)
     apply(BufferEvent::make_save_as(new_name));
 }
 
-size_t Buffer::word_boundary_left(size_t index)
+size_t Buffer::word_boundary_left(size_t index) const
 {
     index = clamp(index, 0, text.length() - 1);
     if (isalnum(text[index]) || text[index] == '_') {
@@ -313,7 +313,7 @@ size_t Buffer::word_boundary_left(size_t index)
     return index;
 }
 
-size_t Buffer::word_boundary_right(size_t index)
+size_t Buffer::word_boundary_right(size_t index) const
 {
     index = clamp(index, 0, text.length()-1);
     size_t max_index = text.length();

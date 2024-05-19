@@ -12,6 +12,7 @@
 #include <mutex>
 #include <set>
 #include <string>
+#include <sys/signal.h>
 
 #include <config.h>
 
@@ -86,7 +87,7 @@ public:
     }
 
     template<typename... Args>
-    [[noreturn]] void fatal_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args const &...args)
+    __attribute__ ((noreturn)) void fatal_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args const &...args)
     {
         logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
         abort();
@@ -98,7 +99,7 @@ public:
         if (condition)
             return;
         logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
-        abort();
+        raise(SIGABRT);
     }
     static Logger &get_logger();
 

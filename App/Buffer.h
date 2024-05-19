@@ -74,14 +74,14 @@ struct Buffer : public Widget {
     void                              insert(size_t at, std::string_view const &text);
     void                              del(size_t at, size_t count);
     void                              replace(size_t at, size_t num, std::string_view const &replacement);
-    size_t                            line_for_index(int index);
-    Vec<int>                          index_to_position(int index);
-    size_t                            position_to_index(Vec<int> position);
+    size_t                            line_for_index(int index) const;
+    Vec<int>                          index_to_position(int index) const;
+    size_t                            position_to_index(Vec<int> position) const;
     void                              merge_lines(int top_line);
     void                              save();
     void                              save_as(std::string_view const &new_name);
-    size_t                            word_boundary_left(size_t index);
-    size_t                            word_boundary_right(size_t index);
+    size_t                            word_boundary_left(size_t index) const;
+    size_t                            word_boundary_right(size_t index) const;
     void                              add_listener(BufferEventListener const &listener);
     std::string const                &uri();
 

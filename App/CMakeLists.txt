@@ -13,6 +13,7 @@ add_executable(
         MiniBuffer.h
         Modal.h
         StatusBar.cpp
+#        Theme.cpp
         Widget.cpp
         Project.cpp
 )

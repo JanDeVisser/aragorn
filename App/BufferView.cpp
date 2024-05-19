@@ -19,7 +19,7 @@ int get_closing_brace_code(int brace);
 bool do_select(JSONValue const &key_combo)
 {
     if (key_combo.type() == JSONType::Boolean) {
-        return key_combo.value<bool>().value();
+        return value<bool>(key_combo).value();
     }
     assert(key_combo.type() == JSONType::Object);
     auto modifier = KModNone;
