@@ -15,6 +15,7 @@
 #define EDDY_DATADIR                       "@eddy_DATADIR@"
 #define SCRIBBLE_DIR                       "@scribble_DIR@"
 #define SCRIBBLE_DATADIR                   "@scribble_DATADIR@"
+#define EDDY_SYSTEM                        "@CMAKE_SYSTEM_NAME@"
 
 #cmakedefine HAVE_DIRENT_D_NAMLEN              1
 #cmakedefine HAVE_C23_ATTRIBUTE_NORETURN       1

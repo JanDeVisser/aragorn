@@ -31,19 +31,19 @@ struct App : public Layout {
     };
 
     std::deque<std::string>   arguments;
-    int                       monitor;
-    Font                      font;
-    std::string               font_path;
-    int                       font_size;
+    int                       monitor {0};
+    std::optional<Font>       font {};
+    std::string               font_path {};
+    int                       font_size { 20 };
     pWidget                   focus { nullptr };
-    Vector2                   cell;
+    Vector2                   cell { 20.0, 20.0 };
     std::deque<int>           queue {};
     std::string               last_key;
-    bool                      quit;
-    double                    time;
+    bool                      quit { false };
+    double                    time { 0.0 };
     std::vector<pWidget>      modals {};
     std::mutex                commands_mutex {};
-    size_t                    frame_count;
+    size_t                    frame_count {0};
     std::vector<DrawFloating> floatings;
     std::string               title_string { "Eddy" };
     std::string               icon_file { "eddy.png" };
@@ -83,6 +83,7 @@ struct App : public Layout {
         for (auto ix = app_args; ix < argc; ++ix) {
             app->arguments.emplace_back(argv[ix]);
         }
+        app->time = GetTime();
 
         //        SetTraceLogLevel(LOG_FATAL);
         InitWindow(static_cast<int>(app->viewport.width), static_cast<int>(app->viewport.height), app->window_title());

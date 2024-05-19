@@ -16,8 +16,8 @@
 
 #include <App/Eddy.h>
 #include <App/Editor.h>
-#include <App/Modal.h>
 #include <App/MiniBuffer.h>
+#include <App/Modal.h>
 #include <App/StatusBar.h>
 
 namespace Eddy {
@@ -77,7 +77,6 @@ bool Eddy::query_close()
 void Eddy::on_start()
 {
     monitor = GetCurrentMonitor();
-    load_font();
 }
 
 void Eddy::process_input()
@@ -90,7 +89,9 @@ void Eddy::process_input()
 
 void Eddy::on_terminate()
 {
-    UnloadFont(font);
+    if (font) {
+        UnloadFont(*font);
+    }
 }
 
 void Eddy::terminate()
@@ -99,33 +100,33 @@ void Eddy::terminate()
     quit = true;
 }
 
-void cmd_force_quit(pEddy const& eddy, JSONValue const&)
+void cmd_force_quit(pEddy const &eddy, JSONValue const &)
 {
     eddy->terminate();
 }
 
-void cmd_quit(pEddy const& eddy, JSONValue const&)
+void cmd_quit(pEddy const &eddy, JSONValue const &)
 {
     if (!eddy->modals.empty()) {
         // User probably clicked the close window button twice
         return;
     }
     bool has_modified_buffers = false;
-    for (auto const& buffer : eddy->buffers) {
+    for (auto const &buffer : eddy->buffers) {
         if (buffer->saved_version < buffer->version) {
             has_modified_buffers = true;
             break;
         }
     }
 
-    int        selection = 0;
-    auto const* prompt = "Are you sure you want to quit?";
+    int         selection = 0;
+    auto const *prompt = "Are you sure you want to quit?";
     if (has_modified_buffers) {
         selection = 1;
         prompt = "There are modified files. Are you sure you want to quit?";
     }
 
-    auto are_you_sure = [](pEddy const& eddy, QueryOption selection){
+    auto are_you_sure = [](pEddy const &eddy, QueryOption selection) {
         if (selection == QueryOptionYes) {
             eddy->terminate();
         }
@@ -133,15 +134,15 @@ void cmd_quit(pEddy const& eddy, JSONValue const&)
     query_box(eddy, prompt, are_you_sure, QueryOptionYesNo);
 }
 
-void cmd_run_command(pEddy const& eddy, JSONValue const&)
+void cmd_run_command(pEddy const &eddy, JSONValue const &)
 {
     struct Commands : public ListBox<Widget::WidgetCommand> {
-        pEddy const& eddy;
-        explicit Commands(pEddy const &eddy)
+        pEddy const &eddy;
+        explicit     Commands(pEddy const &eddy)
             : ListBox("Select command")
             , eddy(eddy)
         {
-            auto push_commands = [this](auto& w) -> void {
+            auto push_commands = [this](auto &w) -> void {
                 for (auto &[name, command] : w->commands) {
                     entries.emplace_back(name, command);
                 }
@@ -156,7 +157,7 @@ void cmd_run_command(pEddy const& eddy, JSONValue const&)
 
         void submit() override
         {
-            auto const& cmd = entries[selection].payload;
+            auto const &cmd = entries[selection].payload;
             cmd.owner->submit(cmd.command, JSONValue {});
             eddy->set_message(std::format("Selected command '{}'", cmd.command));
         }
@@ -171,6 +172,8 @@ void Eddy::initialize()
     if (res.is_error()) {
         fatal("Error reading settings: {}", res.error().to_string());
     }
+    load_font();
+
     auto editor_pane = Widget::make<Layout>(ContainerOrientation::Horizontal);
     editor_pane->parent = self();
     editor_pane->policy = SizePolicy::Stretch;
@@ -226,7 +229,7 @@ pBuffer Eddy::new_buffer()
     }
     pBuffer b = Buffer::new_buffer();
     buffers.push_back(b);
-    auto const& editor = find_by_class<Editor>();
+    auto const &editor = find_by_class<Editor>();
     editor->select_buffer(b);
     return b;
 }
@@ -241,7 +244,7 @@ Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
     }
     pBuffer b = TRY_EVAL(Buffer::open(file));
     buffers.push_back(b);
-    auto const& editor = find_by_class<Editor>();
+    auto const &editor = find_by_class<Editor>();
     editor->select_buffer(b);
     return b;
 }
@@ -262,10 +265,10 @@ EError Eddy::read_settings()
     settings = JSONValue::object();
     settings["appearance"] = JSONValue::object();
 
-    auto merge_settings = [this](fs::path const &dir) -> EError {
-        fs::create_directory(dir);
-        auto settings_file = dir / "settings.json";
-        if (fs::exists(settings_file)) {
+    auto merge_settings = [this](fs::path const &dir, std::string const& file = "settings.json") -> EError {
+        create_directory(dir);
+        auto settings_file = dir / file;
+        if (exists(settings_file)) {
             auto json_maybe = JSONValue::read_file(settings_file.string());
             if (json_maybe.is_error()) {
                 switch (json_maybe.error().index()) {
@@ -282,6 +285,9 @@ EError Eddy::read_settings()
         return {};
     };
 
+    if (auto const &e = merge_settings(EDDY_DATADIR, EDDY_SYSTEM ".json"); e.is_error()) {
+        return e;
+    }
     if (auto const &e = merge_settings(EDDY_DATADIR); e.is_error()) {
         return e;
     }
@@ -304,8 +310,6 @@ EError Eddy::read_settings()
 StringList Eddy::get_font_dirs()
 {
     if (font_dirs.empty()) {
-        font_dirs.emplace_back(EDDY_DATADIR "/fonts");
-
         auto &appearance = settings["appearance"];
         auto &directories = appearance["font_directories"];
 
@@ -315,7 +319,16 @@ StringList Eddy::get_font_dirs()
             replace_all(d, "${HOME}", pw->pw_dir);
             replace_all(d, "${EDDY_DATADIR}", EDDY_DATADIR);
             if (std::find(font_dirs.begin(), font_dirs.end(), d) == font_dirs.end()) {
-                font_dirs.push_back(fs::canonical(d));
+                auto const base_dir { d };
+                if (!fs::is_directory(base_dir)) {
+                    return;
+                }
+                font_dirs.push_back(base_dir);
+                for (auto const& dir_entry : fs::recursive_directory_iterator(base_dir)) {
+                    if (dir_entry.is_directory()) {
+                        font_dirs.push_back(base_dir);
+                    }
+                }
             }
         };
 
@@ -337,7 +350,7 @@ void Eddy::load_font()
 {
     auto        appearance = settings["appearance"];
     std::string default_font { "VictorMono-Medium.ttf" };
-    auto        font_name = default_font;
+    std::string font_name { default_font };
     auto const  font_maybe = appearance.try_get<std::string>("font");
     if (font_maybe.has_value()) {
         font_name = font_maybe.value();
@@ -350,14 +363,15 @@ void Eddy::load_font()
 
     StringList font_dirs = get_font_dirs();
     auto       find_font = [this, &font_dirs, font_size](auto const &font) -> bool {
-        for (auto const &dir : font_dirs) {
-            auto const path = std::format("{}/{}", dir, font);
-            if (fs::exists(path) && !fs::is_directory(path)) {
-                set_font(path, font_size);
-                return true;
+        return std::any_of(font_dirs.begin(), font_dirs.end(), [this, font, font_size](auto const &dir) -> bool {
+            if (fs::exists(dir) && fs::is_directory(dir)) {
+                if (auto const path = fs::path {dir} / font; fs::exists(path) && !fs::is_directory(path)) {
+                   set_font(path.string(), font_size);
+                   return true;
+               }
             }
-        }
-        return false;
+            return false;
+        });
     };
 
     if (!find_font(font_name) && (font_name != default_font)) {

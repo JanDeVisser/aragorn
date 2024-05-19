@@ -33,13 +33,19 @@ using KeyboardModifier = uint8_t;
 
 #undef KEYBOARDMODIFIER
 #define KEYBOARDMODIFIER(mod, ord, str) constexpr KeyboardModifier KMod##mod = (ord);
-    KEYBOARDMODIFIERS(KEYBOARDMODIFIER)
+KEYBOARDMODIFIERS(KEYBOARDMODIFIER)
 #undef KEYBOARDMODIFIER
 constexpr KeyboardModifier KModCount = 16;
 
+#define CONTAINERORIENTATIONS(S) \
+    S(Horizontal)                \
+    S(Vertical)
+
 enum class ContainerOrientation {
-    Horizontal = 0,
-    Vertical,
+#undef S
+#define S(o) o,
+    CONTAINERORIENTATIONS(S)
+#undef S
 };
 
 enum class SizePolicy {
@@ -188,7 +194,7 @@ public:
             handler(owner, args);
         }
 
-        auto operator <=> (WidgetCommand const& other) const
+        auto operator<=>(WidgetCommand const &other) const
         {
             return command <=> other.command;
         }
@@ -232,7 +238,7 @@ public:
     void draw_hover_panel(float x, float y, std::vector<std::string> text, Color bgcolor, Color textcolor) const;
 
     template<class C, typename... Args>
-    requires std::derived_from<C, Widget>
+        requires std::derived_from<C, Widget>
     static std::shared_ptr<C> make(Args &&...args)
     {
         auto ret = std::make_shared<C>(std::forward<Args>(args)...);
@@ -240,7 +246,7 @@ public:
     }
 
     template<class C = Widget>
-    requires std::derived_from<C, Widget>
+        requires std::derived_from<C, Widget>
     std::shared_ptr<C> self()
     {
         return std::dynamic_pointer_cast<C>(shared_from_this());
@@ -338,13 +344,14 @@ public:
     Widget(Widget &&) = delete;
     Widget() = default;
     Widget(SizePolicy policy, float policy_size);
+    virtual ~Widget() = default;
 };
 
 struct Layout : public Widget {
     ContainerOrientation orientation { ContainerOrientation::Vertical };
     std::vector<pWidget> widgets {};
 
-    Layout() = default;
+             Layout() = default;
     explicit Layout(ContainerOrientation orientation)
         : Widget()
         , orientation(orientation)
@@ -448,11 +455,12 @@ struct Label : public Widget {
     Color       color;
     std::string text;
 
-    Label(std::string_view const &text, Color color);
+         Label(std::string_view const &text, Color color);
     void draw() override;
 };
 
 extern char const      *SizePolicy_name(SizePolicy policy);
+extern char const      *ContainerOrientation_name(ContainerOrientation orientation);
 extern bool             is_modifier_down(KeyboardModifier modifier);
 extern std::string      modifier_string(KeyboardModifier modifiers);
 extern KeyboardModifier modifier_current();

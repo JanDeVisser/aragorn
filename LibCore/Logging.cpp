@@ -52,11 +52,11 @@ std::clock_t LogCategory::start()
 
 Logger::Logger()
 {
-    auto add_category = [this](LogCategory const& category) {
-        if (category.name == "all") {
+    auto add_category = [this](std::string_view const& category) {
+        if (category == "all") {
             m_all_enabled = true;
         } else {
-            m_categories.insert_or_assign(category.name, category);
+            m_categories.insert(category);
         }
     };
     auto add_categories = [add_category](std::string_view const& categories) {
@@ -64,7 +64,9 @@ Logger::Logger()
         for (auto sep = categories.find_first_of(";,:", prev); sep != std::string_view::npos; prev = sep, sep = categories.find_first_of(";,:", prev + 1)) {
             add_category(categories.substr(prev, sep - prev));
         }
-        add_category(categories.substr(prev));
+        if (prev < categories.length()) {
+            add_category(categories.substr(prev));
+        }
     };
     auto set_level = [this](std::string_view level) {
         auto lvl = LogLevel_by_name(level);

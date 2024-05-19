@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <iostream>
 #include <map>
 #include <optional>
 #include <sstream>
@@ -14,7 +13,6 @@
 #include <variant>
 #include <vector>
 
-#include <LibCore/Lexer.h>
 #include <LibCore/Logging.h>
 #include <LibCore/Result.h>
 
@@ -321,25 +319,25 @@ public:
     template<Boolean Bool>
     [[nodiscard]] DecodeResult<Bool> convert() const
     {
-        auto value = to_boolean<Bool>();
-        if (!value)
+        auto v = value<Bool>();
+        if (!v)
             return JSONError {
                 JSONError::Code::TypeMismatch,
                 std::format("Cannot convert JSON value '{}' to bool", to_string()),
             };
-        return *value;
+        return *v;
     }
 
     template<std::floating_point Float>
     [[nodiscard]] DecodeResult<Float> convert() const
     {
-        auto value = to_float<Float>();
-        if (!value)
+        auto v = value<Float>();
+        if (!v)
             return JSONError {
                 JSONError::Code::TypeMismatch,
                 std::format("Cannot convert JSON value '{}' to floating point", to_string()),
             };
-        return *value;
+        return *v;
     }
 
     [[nodiscard]] std::optional<Array> to_array() const
@@ -505,10 +503,34 @@ public:
 
     JSONValue &merge(JSONValue const &other)
     {
-        assert(is_object() && other.is_object());
-        auto const &obj = std::get<Object>(other.m_value);
-        for (auto const &[name, value] : obj) {
-            set(name, value);
+        switch (type()) {
+        case JSONType::Object: {
+            if (!other.is_object()) {
+                return *this;
+            }
+            auto const &obj = std::get<Object>(other.m_value);
+            for (auto const &[name, value] : obj) {
+                if (value.is_object() || value.is_array() && has(name)) {
+                    auto my_value = (*this)[name];
+                    if (my_value.type() == value.type()) {
+                        (*this)[name].merge(value);
+                        continue;
+                    }
+                }
+                set(name, value);
+            }
+        } break;
+        case JSONType::Array: {
+            if (!other.is_array()) {
+                return *this;
+            }
+            auto const &arr = std::get<Array>(other.m_value);
+            for (auto const &value : arr) {
+                append(value);
+            }
+        } break;
+        default:
+            break;
         }
         return *this;
     }
@@ -518,11 +540,7 @@ public:
     static Result<JSONValue, JSONError> deserialize(std::string_view const &);
 
 private:
-    using JSONLexer = Lexer<false, false>;
     using JSONValueValue = std::variant<std::string, int64_t, bool, double, Array, Object>;
-
-    static Result<std::string, JSONError> decode_string(Token const& token);
-    static Result<JSONValue, JSONError>   decode_value(JSONLexer &lexer);
 
     JSONType       m_type { JSONType::Null };
     JSONValueValue m_value;

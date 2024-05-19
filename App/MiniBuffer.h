@@ -39,13 +39,13 @@ struct MiniBuffer : public Widget {
         }
         draw_rectangle(0, 0, viewport.width, viewport.height, DARKGRAY /*colour_to_color(eddy.theme.editor.bg)*/);
         if (!message.empty()) {
-            render_text(0, 0, message, Eddy::the()->font, RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
+            render_text(0, 0, message, Eddy::the()->font.value(), RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
         }
     }
 
     void process_input() override
     {
-        if (!message.empty() && Eddy::the()->time - time > 2.0) {
+        if (!message.empty() && Eddy::the()->time - time > 5.0) {
             message.clear();
         }
     }
@@ -158,7 +158,7 @@ struct MiniBuffer : public Widget {
 
             void draw() override
             {
-                render_text(0, 0, std::format("{}: {}", prompt, text), Eddy::the()->font, RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
+                render_text(0, 0, std::format("{}: {}", prompt, text), Eddy::the()->font.value(), RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
                 double t = GetTime();
                 if ((t - floor(t)) < 0.5) {
                     auto x = static_cast<float>(prompt.length() + 2 + cursor);

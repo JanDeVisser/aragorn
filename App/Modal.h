@@ -125,7 +125,7 @@ struct ListBox : public Modal {
             if (sv.length() > maxlen) {
                 sv = sv.substr(0, maxlen);
             }
-            render_sized_text(10, y_offset, sv, Eddy::the()->font, textsize, text_color);
+            render_sized_text(10, y_offset, sv, Eddy::the()->font.value(), textsize, text_color);
             y_offset += (cell.y * textsize) + 2;
         };
 
@@ -152,8 +152,8 @@ struct ListBox : public Modal {
         auto fg = RAYWHITE; // colour_to_color(Eddy::the()->theme.editor.fg);
         draw_rectangle(0.0f, 0.0f, 0.0f, 0.0, bg);
         draw_outline(2, 2, -2.0f, -2.0f, fg);
-        render_text(8, 8, prompt, Eddy::the()->font, fg);
-        render_text(-8, 8, search, Eddy::the()->font, fg);
+        render_text(8, 8, prompt, Eddy::the()->font.value(), fg);
+        render_text(-8, 8, search, Eddy::the()->font.value(), fg);
         draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, fg);
         draw_entries(Eddy::the()->cell.y + 14);
     }
@@ -170,7 +170,7 @@ struct ListBox : public Modal {
         if constexpr (Shrink && !Search) {
             lines = clamp(lines, 0, entries.size());
         }
-        Vector2 m = MeasureTextEx(Eddy::the()->font, prompt.c_str(), Eddy::the()->font.baseSize, 2);
+        Vector2 m = MeasureTextEx(Eddy::the()->font.value(), prompt.c_str(), Eddy::the()->font->baseSize, 2);
         if (m.x > viewport.width - 16) {
             viewport.width = m.x + 16;
             viewport.x = (screen.width - m.x) / 2;
@@ -379,9 +379,9 @@ void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
         {
             draw_rectangle(0.0, 0.0, 0.0, 0.0, DARKGRAY /* colour_to_color(Eddy::the()->theme.editor.bg) */);
             draw_outline(2, 2, -2.0, -2.0, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
-            render_text(8, 8, prompt, Eddy::the()->font, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
+            render_text(8, 8, prompt, Eddy::the()->font.value(), RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
             draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
-            render_text(10, Eddy::the()->cell.y + 14, text, Eddy::the()->font, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
+            render_text(10, Eddy::the()->cell.y + 14, text, Eddy::the()->font.value(), RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
             double t = GetTime();
             if ((t - floor(t)) < 0.5) {
                 draw_rectangle(10 + cursor * Eddy::the()->cell.x, Eddy::the()->cell.y + 12, 2, Eddy::the()->cell.y + 2, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);

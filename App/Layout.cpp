@@ -10,9 +10,23 @@
 
 namespace Eddy {
 
+char const *ContainerOrientation_name(ContainerOrientation orientation)
+{
+    switch (orientation) {
+#undef S
+#define S(o)                      \
+    case ContainerOrientation::o: \
+        return #o;
+        CONTAINERORIENTATIONS(S)
+#undef S
+    default:
+        UNREACHABLE();
+    }
+}
+
 void Layout::resize()
 {
-    // printf("Resizing layout %s %s\n", layout->classname, rect_tostring(layout->viewport));
+    trace(LAYOUT, "Resizing layout {} {}", typeid(*this).name(), viewport.to_string());
     on_resize();
     float allocated = 0.0f;
     int   stretch_count = 0;
@@ -23,7 +37,7 @@ void Layout::resize()
     float fixed_pos = viewport.position.coords[fixed_coord];
     float var_offset = viewport.position.coords[var_coord];
 
-    // printf("Total available %f, laying out %s\n", total, (layout->orientation == CO_VERTICAL) ? "vertically" : "horizontally");
+    trace(LAYOUT, "Total available {}, orintation {}", total, ContainerOrientation_name(orientation));
     // printf("Fixed %s: %f, fixed %s position: %f\n",
     //     (layout->orientation == CO_VERTICAL) ? "width" : "height",
     //     fixed_size,
@@ -33,7 +47,7 @@ void Layout::resize()
         w->viewport.size.coords[fixed_coord] = fixed_size - w->padding.coords[fixed_coord] - w->padding.coords[fixed_coord + 2];
         w->viewport.position.coords[fixed_coord] = fixed_pos + w->padding.coords[fixed_coord];
         float sz = 0;
-        // printf("Component widget %s has policy %s\n", w->classname, SizePolicy_name(w->policy));
+        trace(LAYOUT, "Component widget {} has policy {}", typeid(w).name(), SizePolicy_name(w->policy));
         switch (w->policy) {
         case SizePolicy::Absolute:
             sz = w->policy_size;
@@ -56,17 +70,17 @@ void Layout::resize()
         w->viewport.size.coords[var_coord] = sz - w->padding.coords[var_coord] - w->padding.coords[var_coord + 2];
         if (sz > 0) {
             allocated += sz;
-            // printf("Allocating %f, now allocated %f\n", sz, allocated);
+            trace(LAYOUT, "Allocating {}, now allocated {}", sz, allocated);
         }
     }
 
     if (stretch_count) {
-        // printf("Stretch count %d\n", stretch_count);
+        trace(LAYOUT, "Stretch count {}", stretch_count);
         assert(total > allocated);
         float stretch = floorf((total - allocated) / (float) stretch_count);
         for (auto &w : widgets) {
             if (w->policy == SizePolicy::Stretch) {
-                // printf("Allocating %f to stretchable %s\n", stretch, w->classname);
+                trace(LAYOUT, "Allocating {} to stretchable {}", stretch, typeid(w).name());
                 w->viewport.size.coords[var_coord] = stretch - w->padding.coords[var_coord] - w->padding.coords[var_coord + 2];
             }
         }
@@ -75,7 +89,7 @@ void Layout::resize()
     for (auto &w : widgets) {
         w->viewport.position.coords[var_coord] = var_offset + w->padding.coords[var_coord];
         var_offset += w->viewport.size.coords[var_coord] + w->padding.coords[var_coord] + w->padding.coords[var_coord + 2];
-        // printf("Resizing %s to %s\n", w->classname, rect_tostring(w->viewport));
+        trace(LAYOUT, "Resizing {} to {}", typeid(w).name(), w->viewport.to_string());
         w->resize();
     }
     after_resize();

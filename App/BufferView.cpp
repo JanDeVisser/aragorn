@@ -119,7 +119,7 @@ void cmd_end_of_line(pBufferView const &view, JSONValue const &)
     auto const &buffer = view->buffer();
     assert(view->cursor_pos.y < buffer->lines.size());
     Index const &line = buffer->lines[view->cursor_pos.y];
-    view->new_cursor = line.index_of + line.line.length();
+    view->new_cursor = line.index_of + line.length;
     view->cursor_col = -1;
 }
 
@@ -155,7 +155,7 @@ void cmd_merge_lines(pBufferView const &view, JSONValue const &)
 {
     auto const  &buffer = view->buffer();
     Index const &line = buffer->lines[view->cursor_pos.y];
-    view->new_cursor = line.index_of + line.line.length();
+    view->new_cursor = line.index_of + line.length;
     buffer->merge_lines(view->cursor_pos.y);
     view->cursor_col = -1;
 }
@@ -571,8 +571,8 @@ void BufferView::update_cursor()
     auto &current_line = m_buf->lines[cursor_pos.line];
     if (new_cursor == -1) {
         assert(cursor_col >= 0);
-        if (((int) current_line.line.length()) <= (cursor_col - 1)) {
-            cursor_pos.column = current_line.line.length();
+        if (((int) current_line.length) <= (cursor_col - 1)) {
+            cursor_pos.column = current_line.length;
         } else {
             cursor_pos.column = cursor_col;
         }
@@ -625,7 +625,7 @@ void BufferView::move(int line, int col)
 {
     new_cursor = -1;
     cursor_pos.y = clamp(line, 0, m_buf->lines.size() - 1);
-    cursor_col = clamp(col, 0, max(0, m_buf->lines[cursor_pos.y].line.length() - 1));
+    cursor_col = clamp(col, 0, max(0, m_buf->lines[cursor_pos.y].length - 1));
 }
 
 void BufferView::select_line()
@@ -633,7 +633,7 @@ void BufferView::select_line()
     size_t lineno = m_buf->line_for_index(cursor);
     Index &line = m_buf->lines[lineno];
     selection = line.index_of;
-    new_cursor = cursor = line.index_of + line.line.length() + 1;
+    new_cursor = cursor = line.index_of + line.length + 1;
 }
 
 void BufferView::word_left()
@@ -791,14 +791,15 @@ void BufferView::draw()
         selection_start = min(selection, cursor);
         selection_end = max(selection, cursor);
     }
+    std::string_view txt { buffer()->text };
 
     for (int row = 0; row < lines() && top_line + row < m_buf->lines.size(); ++row) {
         auto        lineno = top_line + row;
         auto const &line = m_buf->lines[lineno];
-        auto        line_len = min(line.line.length() - 1, left_column + columns());
+        auto        line_len = min(line.length - 1, left_column + columns());
         if (selection != -1) {
             auto line_start = line.index_of + left_column;
-            auto line_end = min(line.index_of + line.line.length() - 1, line_start + columns());
+            auto line_end = min(line.index_of + line.length - 1, line_start + columns());
             auto selection_offset = clamp(selection_start - line_start, 0, line_end);
 
             if (selection_start < line_end && selection_end > line.index_of) {
@@ -846,12 +847,12 @@ void BufferView::draw()
                 length = left_column + columns() - start_col;
             }
 
-            std::string_view text { line.line.begin() + start_col, line.line.begin() + start_col + length };
+            std::string_view text { txt.substr(line.index_of + start_col, length) };
             //            if (frame == 0) {
             //                trace_nonl(EDIT, "[%zu %.*s]", ix, SV_ARG(text));
             //            }
             render_text(Eddy::the()->cell.x * (start_col - left_column), Eddy::the()->cell.y * row,
-                text, Eddy::the()->font, RAYWHITE /*token->color*/);
+                text, Eddy::the()->font.value(), RAYWHITE /*token->color*/);
         }
         //        if (frame == 0) {
         //            trace_nl(EDIT);
@@ -905,7 +906,7 @@ void BufferView::process_input()
         int         lineno = min((GetMouseY() - viewport.y) / Eddy::the()->cell.y + top_line,
                     m_buf->lines.size() - 1);
         int         col = min((GetMouseX() - viewport.x) / Eddy::the()->cell.x + left_column,
-                    m_buf->lines[lineno].line.length());
+                    m_buf->lines[lineno].length);
         new_cursor = m_buf->lines[lineno].index_of + col;
         cursor_col = -1;
         if (num_clicks > 0 && (Eddy::the()->time - clicks[num_clicks - 1]) > 0.5) {
@@ -925,7 +926,7 @@ void BufferView::process_input()
             lineno = m_buf->line_for_index(new_cursor);
             Index &line = m_buf->lines[lineno];
             selection = line.index_of;
-            new_cursor = line.index_of + line.line.length() + 1;
+            new_cursor = line.index_of + line.length + 1;
         }
             // Fall through
         default:

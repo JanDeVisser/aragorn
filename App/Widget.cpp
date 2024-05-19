@@ -175,13 +175,13 @@ void Widget::draw_hover_panel(float x, float y, std::vector<std::string> text, C
             longest_line = ix;
         }
     }
-    auto text_size = MeasureTextEx(App::the()->font, text.at(longest_line).c_str(), App::the()->font.baseSize, 2);
+    auto text_size = MeasureTextEx(App::the()->font.value(), text.at(longest_line).c_str(), App::the()->font.value().baseSize, 2);
     auto width = static_cast<float>(text_size.x + 12);
     auto height = static_cast<float>(App::the()->cell.y + 2) * text.size() + 12;
     draw_rectangle_no_normalize(x, y, width, height, bgcolor);
     draw_outline_no_normalize(x + 2, y + 2, width - 4, height - 4, textcolor);
     for (size_t ix = 0; ix < text.size(); ++ix) {
-        render_text(x + 6, y + (App::the()->cell.y + 2) * ix + 6, text[ix], App::the()->font, textcolor);
+        render_text(x + 6, y + (App::the()->cell.y + 2) * ix + 6, text[ix], App::the()->font.value(), textcolor);
     }
 }
 
@@ -242,7 +242,7 @@ Label::Label(std::string_view const &text, Color color)
 void Label::draw()
 {
     if (!text.empty()) {
-        render_text(0, 0, text, App::the()->font, color);
+        render_text(0, 0, text, App::the()->font.value(), color);
     }
 }
 }

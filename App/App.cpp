@@ -46,8 +46,8 @@ void App::set_font(std::string_view const &path, int sz)
     if (f.baseSize == 0) {
         return;
     }
-    if (font.baseSize > 0) {
-        UnloadFont(font);
+    if (font) {
+        UnloadFont(*font);
     }
     font = f;
     if (font_path != path) {
@@ -59,7 +59,8 @@ void App::set_font(std::string_view const &path, int sz)
 
 void App::on_resize()
 {
-    auto measurements = MeasureTextEx(font, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", font_size, 2);
+    assert(font.has_value());
+    auto measurements = MeasureTextEx(*font, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", font_size, 2);
     cell.x = measurements.x / 52.0f;
     auto rows = static_cast<int>(((viewport.height - 10) / measurements.y));
     cell.y = static_cast<float>((viewport.height - 10) / static_cast<float>(rows));

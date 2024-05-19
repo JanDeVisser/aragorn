@@ -9,7 +9,6 @@
 namespace LibCore {
 
 static int   isbdigit(int ch);
-static Token scan_number(char const *buffer);
 
 int isbdigit(int ch)
 {
@@ -19,6 +18,7 @@ int isbdigit(int ch)
 Source::Source(Language *language, std::string_view const &src, std::string_view const &name)
     : m_buffer(src)
     , m_language(language)
+    , quote_chars("\"'`")
 {
     m_location.file = name;
 }
@@ -97,19 +97,17 @@ Token const& Source::peek_next()
             }
             return block_comment(0);
         }
-        switch (m_buffer[0]) {
-        case '\'':
-        case '"':
-        case '`': {
+        if (strchr(quote_chars, m_buffer[0])) {
             size_t ix = 1;
-            while (m_buffer[ix] && m_buffer[ix] != m_buffer[0]) {
+            while (ix < m_buffer.length() && m_buffer[ix] != m_buffer[0]) {
                 if (m_buffer[ix] == '\\')
                     ++ix;
                 if (m_buffer[ix])
                     ++ix;
             }
-            return Token::string(static_cast<QuoteType>(m_buffer[0]), m_buffer.substr(0, ix + 1), m_buffer[ix] != 0);
+            return Token::string(static_cast<QuoteType>(m_buffer[0]), m_buffer.substr(0, ix + 1), ix < m_buffer.length());
         }
+        switch (m_buffer[0]) {
         case '/':
             switch (m_buffer[1]) {
             case '/': {

@@ -50,7 +50,7 @@ void Gutter::draw()
         auto lineno = view->top_line + row;
         render_text(0, Eddy::the()->cell.y * row,
             std::format("{:4}", lineno + 1),
-            Eddy::the()->font,
+            Eddy::the()->font.value(),
             RAYWHITE /*colour_to_color(Eddy::the()->theme.gutter.fg)*/);
         auto &line = buffer->lines[lineno];
 #if 0

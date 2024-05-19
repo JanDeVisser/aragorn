@@ -9,8 +9,8 @@
 #include <cstring>
 #include <format>
 #include <iostream>
-#include <map>
 #include <mutex>
+#include <set>
 #include <string>
 
 #include <config.h>
@@ -55,7 +55,7 @@ public:
     void logmsg(LogMessage const &msg, Args const &...args)
     {
         std::lock_guard<std::mutex> const lock(g_logging_mutex);
-        if (!msg.category.empty() && !m_categories.contains(msg.category) && m_all_enabled) {
+        if (!msg.category.empty() && !m_categories.contains(msg.category) && !m_all_enabled) {
             return;
         }
         if (msg.level >= m_level) {
@@ -70,12 +70,10 @@ public:
                     f = f.substr(ix + 1, len);
                 }
             }
-//            auto file_line = std::format("{}:{}", f, msg.line);
-//            auto prefix = std::format("{:<20}:{:<5}:", msg.function, LogLevel_name(msg.level));
-//            auto prefix = std::format("{:<24}:{:<20}:{:<5}:", file_line, msg.function, LogLevel_name(msg.level));
-            std::cerr << f << ":" << msg.line << ":" << msg.function << ":" << LogLevel_name(msg.level) << ":";
+            auto file_line = std::format("{}:{}", f, msg.line);
+            auto prefix = std::format("{:<24}:{:<20}:{:<5}:", file_line, msg.function, LogLevel_name(msg.level));
             auto message = std::vformat(msg.message, std::make_format_args(args...));
-            std::cerr << message << std::endl;
+            std::cerr << prefix << message << std::endl;
             std::cerr.flush();
         }
     }
@@ -107,20 +105,17 @@ public:
 private:
     Logger();
 
-    std::map<std::string_view, LogCategory> m_categories {};
-    LogLevel                                m_level { LogLevel::Trace };
-    std::string                             m_logfile {};
-    bool                                    m_all_enabled { false };
+    std::set<std::string_view> m_categories {};
+    LogLevel              m_level { LogLevel::Trace };
+    std::string           m_logfile {};
+    bool                  m_all_enabled { false };
 };
 
 struct LogCategory {
 public:
     std::string name {};
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "google-explicit-constructor"
     LogCategory(std::string_view name) noexcept;
-#pragma clang diagnostic pop
     LogCategory(LogCategory const &) = default;
 
     template<typename... Args>

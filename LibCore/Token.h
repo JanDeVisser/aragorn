@@ -558,3 +558,32 @@ inline Error<JSONError> decode_value(JSONValue const &json, Token &token)
 }
 
 }
+
+template<>
+struct std::formatter<LibCore::Token, char>
+{
+    using Token = LibCore::Token;
+    bool quoted = false;
+
+    template<class ParseContext>
+    constexpr ParseContext::iterator parse(ParseContext& ctx)
+    {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format args for QuotableString.");
+        }
+        return it;
+    }
+
+    template<class FmtContext>
+    FmtContext::iterator format(Token const& token, FmtContext& ctx) const
+    {
+        std::ostringstream out;
+        out << "[" << LibCore::TokenKind_name(token.kind) << "]";
+        if (token != LibCore::TokenKind::EndOfLine && token != LibCore::TokenKind::EndOfFile) {
+            out << " '" << token.text << "'";
+        }
+        return std::ranges::copy(std::move(out).str(), ctx.out()).out;
+    }
+};
+

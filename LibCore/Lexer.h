@@ -17,8 +17,8 @@
 namespace LibCore {
 
 struct Language {
-    Language() = default;
-    Language(Language const &) = default;
+                                                  Language() = default;
+                                                  Language(Language const &) = default;
     [[nodiscard]] std::optional<std::string_view> keyword(KeywordCode const &code) const
     {
         if (auto kw = std::find_if(keywords.begin(), keywords.end(),
@@ -47,10 +47,11 @@ struct Language {
 
 class Source {
 public:
-    Source(Language *language, std::string_view const &src, std::string_view const &name);
+                                       Source(Language *language, std::string_view const &src, std::string_view const &name);
     Token const                       &peek_next();
     void                               lex();
     [[nodiscard]] TokenLocation const &location() const { return m_location; }
+    char const                        *quote_chars;
 
 private:
     std::string_view     m_buffer;
@@ -68,7 +69,7 @@ struct LexerErrorMessage {
 using LexerError = Error<LexerErrorMessage>;
 using LexerResult = Result<Token, LexerErrorMessage>;
 
-template<bool Whitespace = false, bool Comments = false>
+template<bool Whitespace = false, bool Comments = false, bool BackquotedStrings = true>
 class Lexer {
 public:
     Lexer() = default;
@@ -81,27 +82,34 @@ public:
     void push_source(std::string_view const &source, std::string_view const &name)
     {
         m_sources.emplace_back(&m_language, source, name);
+        if constexpr (!BackquotedStrings) {
+            m_sources.back().quote_chars = "\"'";
+        }
     }
 
-    Token const& peek()
+    Token const &peek()
     {
         if (m_current.has_value()) {
+            trace(LEXER, "lexer.peek() -> {} [cached]", *m_current);
             return m_current.value();
         }
         while (!m_sources.empty()) {
             TokenKind k;
             while (true) {
                 m_current = m_sources.back().peek_next();
+                trace(LEXER, "lexer.peek() -> {} [source.peek_next()]", *m_current);
                 k = m_current->kind;
                 if constexpr (!Whitespace) {
                     if (k == TokenKind::Whitespace || k == TokenKind::EndOfLine) {
                         lex();
+                        trace(LEXER, "skip it");
                         continue;
                     }
                 }
                 if constexpr (!Comments) {
                     if (k == TokenKind::Comment) {
                         lex();
+                        trace(LEXER, "skip it");
                         continue;
                     }
                 }
@@ -112,6 +120,7 @@ public:
             }
             m_sources.pop_back();
         }
+        trace(LEXER, "lexer.peek() -> {} [caching it]", *m_current);
         return m_current.value();
     }
 
@@ -177,7 +186,7 @@ public:
     }
 
 private:
-    [[nodiscard]] TokenLocation const& location() const
+    [[nodiscard]] TokenLocation const &location() const
     {
         assert(!m_sources.empty());
         return m_sources.back().location();

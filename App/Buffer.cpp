@@ -11,19 +11,6 @@
 
 #include <App/Buffer.h>
 #include <App/Eddy.h>
-// #include <app/c.h>
-// #include <app/eddy.h>
-// #include <app/listbox.h>
-// #include <app/theme.h>
-// #include <base/io.h>
-// #include <lsp/schema/DidChangeTextDocumentParams.h>
-// #include <lsp/schema/DidCloseTextDocumentParams.h>
-// #include <lsp/schema/DidOpenTextDocumentParams.h>
-// #include <lsp/schema/DidSaveTextDocumentParams.h>
-// #include <lsp/schema/SemanticTokens.h>
-// #include <lsp/schema/SemanticTokensParams.h>
-
-// void buffer_semantic_tokens_response(Buffer *buffer, JSONValue resp);
 
 namespace Eddy {
 
@@ -81,68 +68,34 @@ void Buffer::build_indices()
     }
     lines.clear();
     tokens.clear();
-    //    Editor *editor = eddy.editor;
-    //    Lexer   lexer = { 0 };
-    //    if (mode != NULL && mode->language != NULL) {
-    //        lexer = lexer_for_language(mode->language);
-    //    } else {
-    //        trace(EDIT, "buffer_build_indices('%.*s'): no language found", SV_ARG(name));
-    //        lexer = lexer_create();
-    //    }
-    Lexer<true, true> lexer {};
+    Lexer<true, true, true> lexer {};
     lexer.push_source(text, name);
-    Index &current { lines.emplace_back(0, text) };
+    std::string_view txt_view { text };
+    Index current { 0, 0 };
     size_t lineno { 0 };
-    trace(EDIT, "Buffer size: {}", text.length());
-    //    auto dix = 0;
-    //    if (dix < diagnostics.size) {
-    //        current->first_diagnostic = dix;
-    //        while (dix < diagnostics.size && diagnostics.elements[dix].range.start.line == 0) {
-    //            ++current->num_diagnostics;
-    //            ++dix;
-    //        }
-    //    }
-    while (true) {
-        auto t = lexer.lex();
-        if (t.matches(TokenKind::EndOfFile)) {
+    trace(EDIT, "Buffer length: {}", text.length());
+    bool done = false;
+    do {
+        auto const t = lexer.lex();
+        switch (t.kind) {
+        case TokenKind::EndOfFile:
             trace(EDIT, "[EOF]");
+            done = true;
             break;
-        }
-        if (t.matches(TokenKind::EndOfLine)) {
-            if (current.num_tokens == 0) {
-                trace(EDIT, "[EOL]");
-            } else {
-                trace(EDIT, "[EOL] {}..{}", current.first_token, current.first_token + current.num_tokens - 1);
-            }
+        case TokenKind::EndOfLine:
             assert(t.location.index <= text.length());
-            current.line = current.line.substr(0, t.location.index - current.index_of);
+            current.length = t.location.index - current.index_of;
+            lines.push_back(current);
+            trace(EDIT, "[EOL]-{}-", text.substr(current.index_of, current.length));
             ++lineno;
-            current = lines.emplace_back(t.location.index + 1, std::string_view { text.begin() + t.location.index + 1, text.end() }, 0, 0);
-            //            if (dix < diagnostics.size) {
-            //                current->first_diagnostic = dix;
-            //                while (dix < diagnostics.size && diagnostics.elements[dix].range.start.line == lineno) {
-            //                    ++current->num_diagnostics;
-            //                    ++dix;
-            //                }
-            //            }
-            continue;
+            current = Index { t.location.index + 1, tokens.size() };
+            break;
+        default:
+            ++current.num_tokens;
+            tokens.emplace_back(t.location.index, t.text.length(), lineno, /*colour_to_color(colour) */ RAYWHITE);
         }
-        //        OptionalColours colours = theme_token_colours(&eddy.theme, t);
-        //        Colour          colour = colours.has_value ? colours.value.fg : eddy.theme.editor.fg;
-        //        if (token_matches_kind(t, TK_WHITESPACE)) {
-        //            sb_printf(&trc, "%*.s", (int) t.text.length, "");
-        //        } else {
-        //            StringView s = colour_to_rgb(colour);
-        //            sb_printf(&trc, "[%.*s %.*s %.*s]", SV_ARG(t.text), SV_ARG(TokenKind_name(t.kind)), SV_ARG(s));
-        //            sv_free(s);
-        //        }
-        if (current.num_tokens == 0) {
-            current.first_token = tokens.size();
-        }
-        trace(EDIT, "[{}] {}", TokenKind_name(t.kind), t.text);
-        ++current.num_tokens;
-        tokens.emplace_back(t.location.index, t.text.length(), lineno, /*colour_to_color(colour) */ RAYWHITE);
-    }
+    } while (!done);
+    lines.push_back(current);
     trace(EDIT, "=====================");
     indexed_version = version;
     BufferEvent event;
@@ -330,7 +283,7 @@ void Buffer::merge_lines(int top_line)
         top_line = 0;
     }
     Index& line = lines[top_line];
-    replace(line.index_of + line.line.length(), 1, " ");
+    replace(line.index_of + line.length, 1, " ");
 }
 
 void Buffer::save()

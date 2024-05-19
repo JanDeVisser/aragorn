@@ -1,5 +1,5 @@
 .cache
-.clang-format
 .idea
+.eddy
 build
 cmake-build-debug
