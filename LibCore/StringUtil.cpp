@@ -157,7 +157,7 @@ std::vector<std::pair<std::string, std::string>> parse_pairs(std::string const& 
             if (!strip(nvp[0]).empty()) {
                 std::vector<std::string> tail;
                 for (auto ix = 1u; ix < nvp.size(); ix++) {
-                    tail.push_back(nvp[ix]);
+                    tail.emplace_back(nvp[ix]);
                 }
                 auto value = strip(join(tail, name_value_sep));
                 ret.emplace_back(strip(nvp[0]), strip(value));
@@ -172,7 +172,7 @@ std::string dequote(std::string const& str, char quote)
     auto s = strip(str);
     if (!s.empty() && s.starts_with(quote) && s.ends_with(quote))
         s = s.substr(1, s.length()-2);
-    return s;
+    return std::string { s };
 }
 
 unsigned long parse_binary(char const* str, char** end)

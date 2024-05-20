@@ -367,7 +367,7 @@ void cmd_find_replace(pBufferView const &view, JSONValue const &)
 
 void do_goto(pBufferView const &view, std::string const &query)
 {
-    StringList coords = split(query, ':');
+    StringViewList coords = split(query, ':');
     int        line = -1;
     int        col = -1;
     if (!coords.empty()) {

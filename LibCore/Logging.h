@@ -99,7 +99,7 @@ public:
         if (condition)
             return;
         logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
-        raise(SIGABRT);
+        abort();
     }
     static Logger &get_logger();
 

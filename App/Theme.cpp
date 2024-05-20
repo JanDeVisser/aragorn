@@ -14,10 +14,10 @@
 
 namespace Eddy {
 
-Result<Colour,Colour::ColourParseError> Colour::parse_color(std::string_view const& color)
+Result<Colour, Colour::ColourParseError> Colour::parse_color(std::string_view const &color)
 {
-    auto parse_hex_color = [color](auto prefixlen, auto num_components) {
-        Colour ret = { 0 };
+    auto parse_hex_color = [color](int prefixlen, int num_components) -> Result<Colour, ColourParseError> {
+        Colour ret;
         ret.color.a = 0xFF;
         char buf[3];
         buf[2] = 0;
@@ -51,14 +51,14 @@ Result<Colour,Colour::ColourParseError> Colour::parse_color(std::string_view con
         if (!s.ends_with(")")) {
             return ColourParseError { std::format("Color string '{}' should end with a ')'", color) };
         }
-        s = s.substr(0, s.length()-1);
+        s = s.substr(0, s.length() - 1);
         auto components = split_by_whitespace(s);
         if (components.size() != 3) {
             return ColourParseError { std::format("Color string '{}' should have 3 color components", color) };
         }
-        Colour ret = { 0 };
+        Colour ret;
         ret.color.a = 0xFF;
-        for (size_t ix = 0; ix < 4; ++ix) {
+        for (auto ix = 0; ix < 4; ++ix) {
             auto res = string_to_integer<uint8_t>(components[ix]);
             if (!res) {
                 return ColourParseError { std::format("Could not parse RGB color component '{}'", components[ix]) };
@@ -70,346 +70,341 @@ Result<Colour,Colour::ColourParseError> Colour::parse_color(std::string_view con
     return ColourParseError { std::format("Color string '{}' has an unknown format", color) };
 }
 
+Result<Colour, JSONError> Colour::decode(JSONValue const &json)
+{
+    auto decode_component = [](JSONValue const &comp) -> Result<uint8_t, JSONError> {
+        if (!comp.is_integer()) {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Cannot convert JSON value {} to Colour component", comp.to_string()),
+            };
+        }
+        auto res = value<uint8_t>(comp);
+        if (!res.has_value()) {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Integer color component value '{}' out of range", comp.to_string()),
+            };
+        }
+        return res.value();
+    };
+
+    auto decode_object_item = [&decode_component, &json](std::string_view const &short_tag, std::string_view const &long_tag) -> Result<uint8_t, JSONError> {
+        if (json.has(long_tag)) {
+            return TRY_EVAL(decode_component(json[long_tag]));
+        } else if (json.has(short_tag)) {
+            return TRY_EVAL(decode_component(json[short_tag]));
+        } else {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Missing color component value '{}'", long_tag),
+            };
+        }
+    };
+
+    switch (json.type()) {
+    case JSONType::String: {
+        auto res = Colour::parse_color(json.to_string());
+        if (res.is_error()) {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Invalid string color value '{}': {}", json.to_string(), res.error().message),
+            };
+        }
+        return res.value();
+    } break;
+    case JSONType::Integer: {
+        auto res = value<uint32_t>(json);
+        if (!res.has_value()) {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Invalid integer color value '{}'", json.to_string()),
+            };
+        }
+        return Colour { res.value() };
+    }
+    case JSONType::Array: {
+        if (json.size() != 4) {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                "Array color value must have 4 entries",
+            };
+        }
+        Colour ret;
+        for (size_t ix = 0; ix < 4; ++ix) {
+            ret.components[ix] = TRY_EVAL(decode_component(json[ix]));
+        }
+        return ret;
+    } break;
+    case JSONType::Object: {
+        Colour ret { 0 };
+        ret.color.r = TRY_EVAL(decode_object_item("r", "red"));
+        ret.color.g = TRY_EVAL(decode_object_item("g", "green"));
+        ret.color.b = TRY_EVAL(decode_object_item("b", "blue"));
+        ret.color.a = TRY_EVAL(decode_object_item("a", "alpha"));
+        return ret;
+    } break;
+    default:
+        return JSONError {
+            JSONError::Code::TypeMismatch,
+            std::format("Cannot convert JSON value of type '{}' to color value", JSONType_name(json.type())),
+        };
+    }
+}
+
 std::string Colour::to_rgb() const
 {
     if (color.a < 0xFF) {
         auto perc = static_cast<int>(static_cast<float>(color.a) / 255.0) * 100.0;
-        return std::format("rgb({} {} {} / {}%)}", color.r, color.g, color.b, perc);
+        return std::format("rgb({} {} {} / {}%)", color.r, color.g, color.b, perc);
     }
     return std::format("rgb({} {} {})", color.r, color.g, color.b);
 }
 
 std::string Colour::to_hex() const
 {
-    return std::format("#{:02x}{:02x}{:02x}"%02x%02x%02x", colour.color.r, colour.color.g, colour.color.b, colour.color.a);
+    return std::format("#{:02x}{:02x}{:02x}{:02x}", color.r, color.g, color.b, color.a);
 }
 
 std::string Colours::to_string() const
 {
-    StringView bg = colour_to_hex(colours.bg);
-    StringView fg = colour_to_hex(colours.fg);
-    StringView ret = sv_printf("bg: %.*s fg: %.*s", SV_ARG(bg), SV_ARG(fg));
-    sv_free(fg);
-    sv_free(bg);
+    return std::format("bg: {} fg: {}", bg.to_hex(), fg.to_hex());
+}
+
+Result<TokenColour, JSONError> TokenColour::decode(JSONValue const &json)
+{
+    CHECK_JSON_TYPE(json, Object);
+    TokenColour ret;
+    auto        name_maybe = json.get("name");
+    if (name_maybe.has_value()) {
+        CHECK_JSON_TYPE(name_maybe.value(), String);
+        ret.name = name_maybe.value().to_string();
+    }
+    auto scope_maybe = json.get("scope");
+    if (scope_maybe.has_value()) {
+        auto scope = scope_maybe.value();
+        if (!scope.is_string() && !scope.is_array()) {
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                "'tokenColor' entry scope value must be a string",
+            };
+        }
+        if (ret.name.empty()) {
+            if (scope.is_string()) {
+                ret.name = scope.to_string();
+            } else if (scope.size() > 0) {
+                ret.name = scope[0].to_string();
+            }
+        }
+        if (scope.is_string()) {
+            auto scopes = split(scope.to_string(), ',');
+            for (auto const &s : scopes) {
+                ret.scope.emplace_back(strip(s));
+            }
+        } else {
+            for (auto ix = 0; ix < scope.size(); ++ix) {
+                auto const &entry = scope[ix];
+                CHECK_JSON_TYPE(entry, String);
+                ret.scope.emplace_back(std::move(entry.to_string()));
+            }
+        }
+    }
+    if (ret.name.empty()) {
+        ret.name = "(root)";
+    }
+    auto settings_maybe = json.get("settings");
+    if (!settings_maybe.has_value()) {
+        return JSONError {
+            JSONError::Code::TypeMismatch,
+            "'tokenColor' entry must specify settings",
+        };
+    }
+    auto settings = settings_maybe.value();
+    CHECK_JSON_TYPE(settings, Object);
+    ret.colours.fg = TRY_EVAL(Colour::decode(settings["foreground"]));
+    ret.colours.bg = TRY_EVAL(Colour::decode(settings["background"]));
     return ret;
 }
 
-ErrorOrUChar Colour::decode_component(OptionalJSONValue json)
+Result<SemanticTokenColour, JSONError> SemanticTokenColour::decode(SemanticTokenTypes type, JSONValue const &json)
 {
-    if (!json.has_value) {
-        RETURN(UChar, 0);
-    }
-    if (json.value.type != JSON_TYPE_INT) {
-        ERROR(UChar, ParserError, 0, "Color component value must be integer");
-    }
-    OptionalInteger i = integer_coerce_to(json.value.int_number, U8);
-    if (!i.has_value) {
-        ERROR(UChar, ParserError, 0, "Invalid integer color component value");
-    }
-    RETURN(UChar, i.value.u8);
-}
-
-ErrorOrColour colour_decode(OptionalJSONValue json)
-{
-    if (!json.has_value) {
-        RETURN(Colour, (Colour) { 0 });
-    }
-    switch (json.value.type) {
-    case JSON_TYPE_STRING:
-        return colour_parse_color(json.value.string);
-    case JSON_TYPE_INT: {
-        Colour          ret = { 0 };
-        OptionalInteger i = integer_coerce_to(json.value.int_number, U32);
-        if (!i.has_value) {
-            ERROR(Colour, ParserError, 0, "Could not convert integer color value");
-        }
-        ret.rgba = i.value.u32;
-        RETURN(Colour, ret);
-    }
-    case JSON_TYPE_ARRAY: {
-        if (json_len(&json.value) != 4) {
-            ERROR(Colour, ParserError, 0, "Could not convert array color value");
-        }
-        Colour ret = { 0 };
-        for (size_t ix = 0; ix < 4; ++ix) {
-            ret.components[ix] = TRY_TO(UChar, Colour, colour_decode_component(json_at(&json.value, ix)));
-        }
-        RETURN(Colour, ret);
-    }
-    case JSON_TYPE_OBJECT: {
-        Colour ret = { 0 };
-        ret.color.r = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "r")));
-        if (json_has(&json.value, "red")) {
-            ret.color.r = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "red")));
-        }
-        ret.color.g = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "g")));
-        if (json_has(&json.value, "green")) {
-            ret.color.r = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "green")));
-        }
-        ret.color.b = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "b")));
-        if (json_has(&json.value, "blue")) {
-            ret.color.b = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "blue")));
-        }
-        ret.color.a = 0xFF;
-        if (json_has(&json.value, "a")) {
-            ret.color.a = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "a")));
-        }
-        if (json_has(&json.value, "alpha")) {
-            ret.color.a = TRY_TO(UChar, Colour, colour_decode_component(json_get(&json.value, "alpha")));
-        }
-        RETURN(Colour, ret);
-    }
-    default:
-        ERROR(Colour, ParserError, 0, "Could not convert color value");
-    }
-}
-
-ErrorOrTokenColour token_colour_decode(JSONValue *json)
-{
-    TokenColour       ret = { 0 };
-    OptionalJSONValue name = json_get(json, "name");
-    if (name.has_value) {
-        if (name.value.type != JSON_TYPE_STRING) {
-            ERROR(TokenColour, IOError, 0, "'tokenColor' entry name must be a string");
-        }
-        ret.name = sv_copy(name.value.string);
-    }
-    OptionalJSONValue scope = json_get(json, "scope");
-    if (scope.has_value) {
-        if (scope.value.type != JSON_TYPE_STRING && scope.value.type != JSON_TYPE_ARRAY) {
-            ERROR(TokenColour, IOError, 0, "'tokenColor' entry scope value must be a string");
-        }
-        if (sv_empty(ret.name)) {
-            if (scope.value.type == JSON_TYPE_STRING) {
-                ret.name = sv_copy(scope.value.string);
-            } else if (scope.value.type == JSON_TYPE_ARRAY && json_len(&scope.value) > 0) {
-                ret.name = sv_copy(json_at(&scope.value, 0).value.string);
-            }
-        }
-        if (scope.value.type == JSON_TYPE_STRING) {
-            ret.scope = sv_split(sv_copy(scope.value.string), SV(",", 1));
-            for (size_t ix = 0; ix < ret.scope.size; ++ix) {
-                ret.scope.strings[ix] = sv_strip(ret.scope.strings[ix]);
-            }
-        } else {
-            for (size_t ix = 0; ix < json_len(&scope.value); ++ix) {
-                JSONValue entry = MUST_OPTIONAL(JSONValue, json_at(&scope.value, ix));
-                assert(entry.type == JSON_TYPE_STRING);
-                sl_push(&ret.scope, sv_copy(entry.string));
-            }
-        }
-    }
-    if (sv_empty(ret.name)) {
-        ret.name = sv_copy_cstr("(root)");
-    }
-    OptionalJSONValue settings = json_get(json, "settings");
-    if (!settings.has_value) {
-        ERROR(TokenColour, IOError, 0, "'tokenColor' entry must specify settings");
-    }
-    if (settings.value.type != JSON_TYPE_OBJECT) {
-        ERROR(TokenColour, IOError, 0, "'tokenColor' entry settings must be an object");
-    }
-    ret.colours.fg = TRY_TO(Colour, TokenColour, colour_decode(json_get(&settings.value, "foreground")));
-    ret.colours.bg = TRY_TO(Colour, TokenColour, colour_decode(json_get(&settings.value, "background")));
-    RETURN(TokenColour, ret);
-}
-
-ErrorOrSemanticTokenColour semantic_token_colour_decode(SemanticTokenTypes type, OptionalJSONValue settings)
-{
-    if (!settings.has_value) {
-        ERROR(SemanticTokenColour, IOError, 0, "'semanticTokenColors' entry must specify settings");
-    }
-    if (settings.value.type != JSON_TYPE_OBJECT) {
-        ERROR(SemanticTokenColour, IOError, 0, "'semanticTokenColors' entry settings must be an object");
-    }
-    SemanticTokenColour ret = { 0 };
+    CHECK_JSON_TYPE(json, Object);
+    SemanticTokenColour ret;
     ret.token_type = type;
-    ret.colours.fg = TRY_TO(Colour, SemanticTokenColour, colour_decode(json_get(&settings.value, "foreground")));
-    ret.colours.bg = TRY_TO(Colour, SemanticTokenColour, colour_decode(json_get(&settings.value, "background")));
-    RETURN(SemanticTokenColour, ret);
+    ret.colours.fg = TRY_EVAL(Colour::decode(json["foreground"]));
+    ret.colours.bg = TRY_EVAL(Colour::decode(json["background"]));
+    return ret;
 }
 
-void theme_get_mapping(Theme *theme, TokenKind kind, char const *scope)
+void Theme::get_mapping(TokenKind kind, std::string_view const &scope)
 {
-    OptionalInt index = theme_index_for_scope(theme, sv_from(scope));
-    if (index.has_value) {
-        trace(EDIT, "Mapping token kind '%.*s' to scope '%s', color %.*s",
-            SV_ARG(TokenKind_name(kind)),
-            scope,
-            SV_ARG(colour_to_rgb(theme->token_colours.elements[index.value].colours.fg)));
-        da_append_TokenThemeMapping(&theme->token_mappings, (TokenThemeMapping) { .kind = kind, .theme_index = index.value });
+    auto index = index_for_scope(scope);
+    if (index.has_value()) {
+        token_mappings.push_back(TokenThemeMapping { kind, index.value() });
         return;
     }
-    trace(EDIT, "Mapping token kind '%.*s' to scope '%s' which is not found",
-        SV_ARG(TokenKind_name(kind)), scope);
 }
 
-void theme_build_theme_index_mappings(Theme *theme)
+void Theme::build_theme_index_mappings()
 {
-    theme_get_mapping(theme, TK_COMMENT, "comment");
-    theme_get_mapping(theme, TK_KEYWORD, "keyword");
-    theme_get_mapping(theme, TK_IDENTIFIER, "identifier");
-    theme_get_mapping(theme, TK_NUMBER, "constant.numeric");
-    theme_get_mapping(theme, TK_SYMBOL, "punctuation");
-    theme_get_mapping(theme, TK_QUOTED_STRING, "string");
-    theme_get_mapping(theme, TK_DIRECTIVE, "keyword.control.directive");
-    theme_get_mapping(theme, TK_DIRECTIVE_ARG, "string");
+    get_mapping(TokenKind::Comment, "comment");
+    get_mapping(TokenKind::Keyword, "keyword");
+    get_mapping(TokenKind::Identifier, "identifier");
+    get_mapping(TokenKind::Number, "constant.numeric");
+    get_mapping(TokenKind::Symbol, "punctuation");
+    get_mapping(TokenKind::QuotedString, "string");
+    get_mapping(TokenKind::Directive, "keyword.control.directive");
+    get_mapping(TokenKind::DirectiveArg, "string");
 }
 
-ErrorOrTheme theme_decode(Theme *theme, JSONValue *json)
+Result<Theme, JSONError> Theme::decode(JSONValue const &json)
 {
-    JSONValue colors = json_get_default(json, "colors", json_object());
-    if (colors.type != JSON_TYPE_OBJECT) {
-        ERROR(Theme, ParserError, 0, "'colors' section of theme definition must be a JSON object");
+    Theme ret;
+    auto  colors = json.get_with_default("colors");
+    CHECK_JSON_TYPE(colors, Object);
+    ret.editor.bg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.background", JSONType::Integer)));
+    if (ret.editor.bg.rgba == 0) {
+        ret.editor.bg = Colour { 0x000000FF };
     }
-    assert(colors.type == JSON_TYPE_OBJECT);
-    theme->editor.bg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.background")));
-    if (theme->editor.bg.rgba == 0) {
-        theme->editor.bg = (Colour) { .rgba = 0x000000FF };
+    ret.editor.fg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.foreground", JSONType::Integer)));
+    if (ret.editor.fg.rgba == 0) {
+        ret.editor.fg = Colour { 0xFFFFFFFF };
     }
-    theme->editor.fg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.foreground")));
-    if (theme->editor.fg.rgba == 0) {
-        theme->editor.fg = (Colour) { .rgba = 0xFFFFFFFF };
+    ret.selection.bg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.selectionBackground", JSONType::Integer)));
+    ret.selection.fg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.selectionForeground", JSONType::Integer)));
+    if (ret.selection.bg.rgba == 0 && ret.selection.fg.rgba == 0) {
+        ret.selection.bg = ret.editor.fg;
+        ret.selection.fg = ret.editor.bg;
     }
-    theme->selection.bg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.selectionBackground")));
-    theme->selection.fg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.selectionForeground")));
-    if (theme->selection.bg.rgba == 0 && theme->selection.fg.rgba == 0) {
-        theme->selection.bg = theme->editor.fg;
-        theme->selection.fg = theme->editor.bg;
+    if (ret.selection.bg.rgba == 0) {
+        ret.selection.bg = ret.editor.bg;
     }
-    if (theme->selection.bg.rgba == 0) {
-        theme->selection.bg = theme->editor.bg;
+    if (ret.selection.fg.rgba == 0) {
+        ret.selection.fg = ret.editor.fg;
     }
-    if (theme->selection.fg.rgba == 0) {
-        theme->selection.fg = theme->editor.fg;
+    ret.linehighlight.bg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.lineHighlightBackground", JSONType::Integer)));
+    ret.linehighlight.fg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.lineHighlightForeground", JSONType::Integer)));
+    if (ret.linehighlight.bg.rgba == 0) {
+        ret.linehighlight.bg = ret.editor.bg;
     }
-    theme->linehighlight.bg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.lineHighlightBackground")));
-    theme->linehighlight.fg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.lineHighlightForeground")));
-    if (theme->selection.bg.rgba == 0) {
-        theme->selection.bg = theme->editor.bg;
+    if (ret.linehighlight.fg.rgba == 0) {
+        ret.linehighlight.fg = ret.editor.fg;
     }
-    if (theme->selection.fg.rgba == 0) {
-        theme->selection.fg = theme->editor.fg;
+    ret.gutter.bg = TRY_EVAL(Colour::decode(colors.get_with_default("editorGutter.background", JSONType::Integer)));
+    ret.gutter.fg = TRY_EVAL(Colour::decode(colors.get_with_default("editor.activeLineNumber.foreground", JSONType::Integer)));
+    if (ret.gutter.bg.rgba == 0) {
+        ret.gutter.bg = ret.editor.bg;
     }
-    theme->gutter.bg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editorGutter.background")));
-    theme->gutter.fg = TRY_TO(Colour, Theme, colour_decode(json_get(&colors, "editor.activeLineNumber.foreground")));
-    if (theme->gutter.bg.rgba == 0) {
-        theme->gutter.bg = theme->editor.bg;
+    if (ret.gutter.fg.rgba == 0) {
+        ret.gutter.fg = ret.editor.fg;
     }
-    if (theme->gutter.fg.rgba == 0) {
-        theme->gutter.fg = theme->editor.fg;
-    }
-    JSONValue token_colors = json_get_default(json, "tokenColors", json_array());
-    if (token_colors.type != JSON_TYPE_ARRAY) {
-        ERROR(Theme, ParserError, 0, "'tokenColors' section of theme definition must be a JSON array");
-    }
-    for (size_t ix = 0; ix < json_len(&token_colors); ++ix) {
-        JSONValue   c = MUST_OPTIONAL(JSONValue, json_at(&token_colors, ix));
-        TokenColour tc = TRY_TO(TokenColour, Theme, token_colour_decode(&c));
+    auto token_colors = json.get_with_default("tokenColors", JSONType::Array);
+    CHECK_JSON_TYPE(token_colors, Array);
+    for (auto c : token_colors) {
+        TokenColour tc = TRY_EVAL(TokenColour::decode(c));
         if (tc.colours.bg.rgba == 0) {
-            tc.colours.bg = theme->editor.bg;
+            tc.colours.bg = ret.editor.bg;
         }
         if (tc.colours.fg.rgba == 0) {
-            tc.colours.fg = theme->editor.fg;
+            tc.colours.fg = ret.editor.fg;
         }
-        da_append_TokenColour(&theme->token_colours, tc);
+        ret.token_colours.push_back(tc);
     }
 
-    JSONValue semantic_token_colors = json_get_default(json, "semanticTokenColors", json_object());
-    if (semantic_token_colors.type != JSON_TYPE_OBJECT) {
-        ERROR(Theme, ParserError, 0, "'semanticTokenColors' section of theme definition must be a JSON object");
-    }
-    for (size_t ix = 0; ix < json_len(&semantic_token_colors); ++ix) {
-        JSONNVPair                *pair = da_element_JSONNVPair(&semantic_token_colors.object, ix);
-        OptionalSemanticTokenTypes type = SemanticTokenTypes_decode(OptionalJSONValue_create(json_string(pair->name)));
-        if (!type.has_value) {
+    auto semantic_token_colors = json.get_with_default("semanticTokenColors");
+    CHECK_JSON_TYPE(semantic_token_colors, Object);
+    for (auto it = semantic_token_colors.obj_begin(); it != semantic_token_colors.obj_end(); ++it) {
+        auto const &p = *it;
+        auto        type_maybe = SemanticTokenTypes_parse(p.first);
+        if (!type_maybe.has_value()) {
             continue;
         }
-        OptionalJSONValue   settings = OptionalJSONValue_create(pair->value);
-        SemanticTokenColour semantic_token_colour = TRY_TO(SemanticTokenColour, Theme, semantic_token_colour_decode(type.value, settings));
-        da_append_SemanticTokenColour(&theme->semantic_colours, semantic_token_colour);
+        auto type = type_maybe.value();
+        auto semantic_token_colour = TRY_EVAL(SemanticTokenColour::decode(type, p.second));
+        ret.semantic_colours.push_back(semantic_token_colour);
     }
 
-    theme_build_theme_index_mappings(theme);
-    RETURN(Theme, *theme);
+    ret.build_theme_index_mappings();
+    return ret;
 }
 
-ErrorOrTheme theme_load(StringView name)
+Result<Theme, JSONError> Theme::load(std::string_view const &name)
 {
-    Theme          ret = { 0 };
+    namespace fs = std::filesystem;
+    Theme          ret;
     struct passwd *pw = getpwuid(getuid());
-    StringBuilder  eddy_fname = sb_createf("%s/.eddy", pw->pw_dir);
-    TRY_TO(Int, Theme, fs_assert_dir(eddy_fname.view));
-    sb_append_cstr(&eddy_fname, "/themes");
-    TRY_TO(Int, Theme, fs_assert_dir(eddy_fname.view));
-    StringView theme_fname = sv_printf("%.*s/%.*s.json", SV_ARG(eddy_fname), SV_ARG(name));
-    sv_free(eddy_fname.view);
-    if (!fs_file_exists(theme_fname)) {
-        sv_free(theme_fname);
-        theme_fname = sv_printf(EDDY_DATADIR "/themes/%.*s.json", SV_ARG(name));
-        if (!fs_file_exists(theme_fname)) {
-            ERROR(Theme, IOError, 0, "Theme file '%.*s.json' not found", SV_ARG(name));
+    auto           file_name = fs::path(pw->pw_dir) / ".eddy" / "themes" / name;
+    if (!fs::exists(file_name)) {
+        file_name = fs::path(EDDY_DATADIR) / "themes" / name;
+        if (!fs::exists(file_name)) {
+            return JSONError {
+                JSONError::Code::ProtocolError,
+                std::format("Theme file '{}.json' not found", name),
+            };
         }
     }
-    StringView s = TRY_TO(StringView, Theme, read_file_by_name(theme_fname));
-    sv_free(theme_fname);
-    JSONValue theme = TRY_TO(JSONValue, Theme, json_decode(s));
-    sv_free(s);
-    TRY(Theme, theme_decode(&ret, &theme));
-    json_free(theme);
-    RETURN(Theme, ret);
+    auto json_maybe = JSONValue::read_file(file_name.string());
+    if (json_maybe.is_error()) {
+        if (std::holds_alternative<LibCError>(json_maybe.error())) {
+            return JSONError {
+                JSONError::Code::ProtocolError,
+                std::get<LibCError>(json_maybe.error()).description,
+            };
+        } else {
+            return std::get<JSONError>(json_maybe.error());
+        }
+    }
+    return TRY_EVAL(Theme::decode(json_maybe.value()));
 }
 
-OptionalInt theme_index_for_scope(Theme *theme, StringView scope)
+std::optional<int> Theme::index_for_scope(std::string_view const &scope) const
 {
     int    tc_match = -1;
     size_t matchlen = 0;
-    for (int tc_ix = 0; tc_ix < theme->token_colours.size; ++tc_ix) {
-        TokenColour *tc = theme->token_colours.elements + tc_ix;
-        if (tc->scope.size == 0 && tc_match == -1) {
+    for (auto tc_ix = 0; tc_ix < token_colours.size(); ++tc_ix) {
+        auto &tc = token_colours[tc_ix];
+        if (tc.scope.empty() && tc_match == -1) {
             assert(matchlen == 0);
             tc_match = tc_ix;
             continue;
         }
-        for (size_t scope_ix = 0; scope_ix < tc->scope.size; ++scope_ix) {
-            if (sv_startswith(scope, tc->scope.strings[scope_ix]) && tc->scope.strings[scope_ix].length > matchlen) {
+        for (auto &s : tc.scope) {
+            if (scope.starts_with(s) && s.length() > matchlen) {
                 tc_match = tc_ix;
-                matchlen = tc->scope.strings[scope_ix].length;
+                matchlen = s.length();
             }
         }
     }
     if (tc_match >= 0) {
-        RETURN_VALUE(Int, tc_match);
+        return tc_match;
     }
-    RETURN_EMPTY(Int);
+    return {};
 }
 
-OptionalColours theme_token_colours(Theme *theme, Token t)
+std::optional<Colours> Theme::colours(Token const &t) const
 {
-    for (size_t ix = 0; ix < theme->token_mappings.size; ++ix) {
-        TokenThemeMapping *mapping = theme->token_mappings.elements + ix;
-        if (mapping->kind == t.kind) {
-            RETURN_VALUE(Colours, theme->token_colours.elements[mapping->theme_index].colours);
+    for (auto &mapping : token_mappings) {
+        if (mapping.kind == t.kind) {
+            return token_colours[mapping.theme_index].colours;
         }
     }
-    RETURN_EMPTY(Colours);
+    return {};
 }
 
-OptionalColours theme_semantic_colours(Theme *theme, int semantic_index)
+std::optional<Colours> Theme::get_semantic_colours(int semantic_index) const
 {
-    for (size_t ix = 0; ix < theme->semantic_mappings.size; ++ix) {
-        SemanticMapping *mapping = theme->semantic_mappings.elements + ix;
-        if (mapping->semantic_index == semantic_index) {
-            if (mapping->semantic_theme_index < 0 && mapping->token_theme_index >= 0) {
-                RETURN_VALUE(Colours, theme->token_colours.elements[mapping->token_theme_index].colours);
+    for (auto &mapping : semantic_mappings) {
+        if (mapping.semantic_index == semantic_index) {
+            if (mapping.semantic_theme_index < 0 && mapping.token_theme_index >= 0) {
+                return token_colours[mapping.token_theme_index].colours;
             }
-            if (mapping->semantic_theme_index >= 0) {
-                RETURN_VALUE(Colours, theme->semantic_colours.elements[mapping->semantic_theme_index].colours);
+            if (mapping.semantic_theme_index >= 0) {
+                return semantic_colours[mapping.semantic_theme_index].colours;
             }
-            RETURN_EMPTY(Colours);
+            return {};
         }
     }
-    RETURN_EMPTY(Colours);
+    return {};
 }
 
 typedef struct {
@@ -434,29 +429,27 @@ SemanticTypeToScopeMapping semantic_scope_mapping[] = {
     { SemanticTokenTypesOperator, "keyword.operator" },
 };
 
-void theme_map_semantic_type(Theme *theme, int semantic_index, SemanticTokenTypes type)
+void Theme::map_semantic_type(int semantic_index, SemanticTokenTypes type)
 {
-    for (size_t ix = 0; ix < theme->semantic_colours.size; ++ix) {
-        SemanticTokenColour *colour = theme->semantic_colours.elements + ix;
-        if (colour->token_type == type) {
-            trace(LSP, "Mapping SemanticTokenType %d = '%.*s' to theme semantic index %zu", semantic_index, SV_ARG(SemanticTokenTypes_to_string(type)), ix);
-            da_append_SemanticMapping(&theme->semantic_mappings, (SemanticMapping) { .semantic_index = semantic_index, .semantic_theme_index = ix, .token_theme_index = -1 });
+    for (auto ix = 0; auto const &colour : semantic_colours) {
+        if (colour.token_type == type) {
+            semantic_mappings.push_back(SemanticMapping { semantic_index, ix, -1 });
             return;
         }
+        ++ix;
     }
-    for (size_t ix = 0; ix < sizeof(semantic_scope_mapping) / sizeof(SemanticTypeToScopeMapping); ++ix) {
-        if (semantic_scope_mapping[ix].semantic_type == type) {
-            OptionalInt theme_ix_maybe = theme_index_for_scope(theme, sv_from(semantic_scope_mapping[ix].scope));
+
+    for (auto const&mapping : semantic_scope_mapping) {
+        if (mapping.semantic_type == type) {
+            auto theme_ix_maybe = index_for_scope(mapping.scope);
             int         theme_ix = -1;
-            if (theme_ix_maybe.has_value) {
-                theme_ix = theme_ix_maybe.value;
+            if (theme_ix_maybe.has_value()) {
+                theme_ix = theme_ix_maybe.value();
             }
-            trace(LSP, "Mapping SemanticTokenType %d = '%.*s' to scope '%s'", semantic_index, SV_ARG(SemanticTokenTypes_to_string(type)), semantic_scope_mapping[ix].scope);
-            da_append_SemanticMapping(&theme->semantic_mappings, (SemanticMapping) { .semantic_index = semantic_index, .semantic_theme_index = -1, .token_theme_index = theme_ix });
+            semantic_mappings.push_back(SemanticMapping { semantic_index, -1, theme_ix });
             return;
         }
     }
-    trace(LSP, "SemanticTokenType %d = '%.*s' not mapped", semantic_index, SV_ARG(SemanticTokenTypes_to_string(type)));
 }
 
 }

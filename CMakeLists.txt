@@ -60,7 +60,7 @@ check_cxx_source_compiles("
 " HAVE_C23_ATTRIBUTE_NORETURN
 )
 
-check_c_source_compiles("
+check_cxx_source_compiles("
    __attribute__((noreturn)) void testFunc()
    {}
 
@@ -71,7 +71,7 @@ check_c_source_compiles("
 " HAVE_LEGACY_ATTRIBUTE_NORETURN
 )
 
-check_c_source_compiles("
+check_cxx_source_compiles("
    __attribute__((format(printf,1,2))) void testFunc(char *fmt, ...)
    {
    }
@@ -84,7 +84,7 @@ check_c_source_compiles("
 )
 
 include(CheckStructHasMember)
-check_struct_has_member("struct dirent" d_namlen dirent.h HAVE_DIRENT_D_NAMLEN LANGUAGE C)
+check_struct_has_member("struct dirent" d_namlen dirent.h HAVE_DIRENT_D_NAMLEN LANGUAGE CXX)
 
 configure_file(
   "config.h.in"

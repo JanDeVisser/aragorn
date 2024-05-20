@@ -33,6 +33,125 @@ concept SignedInteger = (std::is_integral_v<T> && std::is_signed_v<T> && !Boolea
 template<typename T>
 concept String = (std::is_same_v<std::remove_cvref_t<T>, std::string> || std::is_same_v<std::remove_cvref_t<T>, std::string_view>);
 
+template<Integer Int>
+consteval uint64_t max_value()
+{
+    return 0;
+}
+
+template<>
+consteval uint64_t max_value<uint64_t>()
+{
+    return UINT64_MAX;
+}
+
+template<>
+consteval uint64_t max_value<int64_t>()
+{
+    return INT64_MAX;
+}
+
+template<>
+consteval uint64_t max_value<uint32_t>()
+{
+    return UINT32_MAX;
+}
+
+template<>
+consteval uint64_t max_value<int32_t>()
+{
+    return INT32_MAX;
+}
+
+template<>
+consteval uint64_t max_value<uint16_t>()
+{
+    return UINT16_MAX;
+}
+
+template<>
+consteval uint64_t max_value<int16_t>()
+{
+    return INT16_MAX;
+}
+
+template<>
+consteval uint64_t max_value<uint8_t>()
+{
+    return UINT8_MAX;
+}
+
+template<>
+consteval uint64_t max_value<int8_t>()
+{
+    return INT8_MAX;
+}
+
+template<SignedInteger Int>
+consteval int64_t min_value()
+{
+    abort();
+    return 0; // keep clangd happy.
+}
+
+template<UnsignedInteger Int>
+consteval int64_t min_value()
+{
+    return 0;
+}
+
+template<>
+consteval int64_t min_value<int64_t>()
+{
+    return INT64_MIN;
+}
+
+template<>
+consteval int64_t min_value<int32_t>()
+{
+    return INT32_MIN;
+}
+
+template<>
+consteval int64_t min_value<int16_t>()
+{
+    return INT16_MIN;
+}
+
+template<>
+consteval int64_t min_value<int8_t>()
+{
+    return INT8_MIN;
+}
+
+#define JSONTYPES(S) \
+    S(Null)          \
+    S(String)        \
+    S(Integer)       \
+    S(Boolean)       \
+    S(Double)        \
+    S(Array)         \
+    S(Object)
+
+enum class JSONType {
+#undef S
+#define S(code) code,
+    JSONTYPES(S)
+#undef S
+};
+
+static inline char const *JSONType_name(JSONType type)
+{
+    switch (type) {
+#undef S
+#define S(type)          \
+    case JSONType::type: \
+        return #type;
+        JSONTYPES(S)
+#undef S
+    }
+}
+
 #define JSONERRORCODES(S) \
     S(NoSuchKey)          \
     S(TypeMismatch)       \
@@ -90,42 +209,30 @@ public:
         }
         return std::format("{}JSON error {}: {}", prefix, JSONErrorCode_name(code), description);
     }
-};
 
-#define JSONTYPES(S) \
-    S(Null)          \
-    S(String)        \
-    S(Integer)       \
-    S(Boolean)       \
-    S(Double)        \
-    S(Array)         \
-    S(Object)
-
-enum class JSONType {
-#undef S
-#define S(code) code,
-    JSONTYPES(S)
-#undef S
-};
-
-static inline char const *JSONType_name(JSONType type)
-{
-    switch (type) {
-#undef S
-#define S(type)          \
-    case JSONType::type: \
-        return #type;
-        JSONTYPES(S)
-#undef S
+    static JSONError expected(JSONType expected, JSONType got, std::string_view const& what, int line = -1, int column = -1)
+    {
+        return JSONError {
+            JSONError::Code::TypeMismatch,
+            std::format("'{}': Expected a JSON '{}', got a '{}'", what, JSONType_name(expected), JSONType_name(got)),
+            line,
+            column,
+        };
     }
-}
+};
+
+#define CHECK_JSON_TYPE(expr, T)                                 \
+    do {                                                         \
+        auto t__ = (expr).type();                                \
+        if (t__ != JSONType::T) {                                \
+            return JSONError::expected(JSONType::T, t__, #expr); \
+        }                                                        \
+    } while (0)
 
 class JSONValue {
 public:
     using Array = std::vector<JSONValue>;
     using Object = std::map<std::string, JSONValue>;
-    template<typename T>
-    friend std::optional<T> value(JSONValue const &json);
 
     JSONValue() = default;
 
@@ -338,6 +445,23 @@ public:
         return {};
     }
 
+    [[nodiscard]] JSONValue get_with_default(std::string_view const &key, JSONType defaultType = JSONType::Object) const
+    {
+        auto make_default = [defaultType]() {
+            return JSONValue(defaultType);
+        };
+
+        if (m_type != JSONType::Object) {
+            return make_default();
+        }
+        auto &object = std::get<Object>(m_value);
+        auto  s = std::string(key);
+        if (object.contains(s)) {
+            return object.at(s);
+        }
+        return make_default();
+    }
+
     template<typename T>
     [[nodiscard]] Result<T, JSONError> try_get(std::string_view const &key) const
     {
@@ -349,7 +473,7 @@ public:
             return JSONError { JSONError::Code::MissingValue, std::string(key) };
         }
         JSONValue const jv = maybe.value();
-        T v;
+        T               v;
         TRY(decode_value<T>(maybe.value(), v));
         return v;
     }
@@ -367,6 +491,24 @@ public:
         return obj[s];
     }
 
+    [[nodiscard]] auto obj_begin() const
+    {
+        if (is_object()) {
+            auto             &obj = std::get<Object>(m_value);
+            return obj.begin();
+        }
+        abort();
+    }
+
+    [[nodiscard]] auto obj_end() const
+    {
+        if (is_object()) {
+            auto             &obj = std::get<Object>(m_value);
+            return obj.end();
+        }
+        abort();
+    }
+
     JSONValue const &operator[](std::string_view const &key) const
     {
         if (m_type != JSONType::Object) {
@@ -380,7 +522,7 @@ public:
         return obj.at(s);
     }
 
-    [[nodiscard]] std::optional<JSONValue> get(uint ix) const
+    [[nodiscard]] std::optional<JSONValue> get(unsigned int ix) const
     {
         if (m_type != JSONType::Array)
             return {};
@@ -390,7 +532,7 @@ public:
         return {};
     }
 
-    [[nodiscard]] JSONValue const &must_get(uint ix) const
+    [[nodiscard]] JSONValue const &must_get(unsigned int ix) const
     {
         if (m_type != JSONType::Array) {
             fatal("JSON::must_get called on non-array");
@@ -402,7 +544,7 @@ public:
         fatal("Index out of bound ({} <= {}) in JSON::must_get", array.size(), ix);
     }
 
-    [[nodiscard]] JSONValue const &operator[](uint ix) const
+    [[nodiscard]] JSONValue const &operator[](unsigned int ix) const
     {
         if (m_type != JSONType::Array) {
             fatal("JSON::must_get called on non-array");
@@ -414,7 +556,7 @@ public:
         fatal("Index out of bound ({} <= {}) in JSON::operator[]", array.size(), ix);
     }
 
-    [[nodiscard]] JSONValue &operator[](uint ix)
+    [[nodiscard]] JSONValue &operator[](unsigned int ix)
     {
         if (m_type != JSONType::Array) {
             fatal("JSON::must_get called on non-array");
@@ -424,6 +566,42 @@ public:
             return array[ix];
         }
         fatal("Index out of bound ({} <= {}) in JSON::operator[]", array.size(), ix);
+    }
+
+    [[nodiscard]] auto begin() const
+    {
+        if (is_array()) {
+            auto             &obj = std::get<Array>(m_value);
+            return obj.begin();
+        }
+        abort();
+    }
+
+    [[nodiscard]] auto end() const
+    {
+        if (is_array()) {
+            auto             &obj = std::get<Array>(m_value);
+            return obj.end();
+        }
+        abort();
+    }
+
+    [[nodiscard]] auto begin()
+    {
+        if (is_array()) {
+            auto             &obj = std::get<Array>(m_value);
+            return obj.begin();
+        }
+        abort();
+    }
+
+    [[nodiscard]] auto end()
+    {
+        if (is_array()) {
+            auto             &obj = std::get<Array>(m_value);
+            return obj.end();
+        }
+        abort();
     }
 
     JSONValue &merge(JSONValue const &other)
@@ -460,28 +638,25 @@ public:
         return *this;
     }
     using JSONValueValue = std::variant<std::string, int64_t, bool, double, Array, Object>;
-    [[nodiscard]] JSONValueValue const& raw_value() const { return m_value; }
+    [[nodiscard]] JSONValueValue const &raw_value() const { return m_value; }
 
     using ReadError = std::variant<LibCError, JSONError>;
     static Result<JSONValue, ReadError> read_file(std::string_view const &);
     static Result<JSONValue, JSONError> deserialize(std::string_view const &);
 
-
 private:
-
     JSONType       m_type { JSONType::Null };
     JSONValueValue m_value;
-
 };
 
 template<typename T>
 concept JSON = std::is_same_v<std::remove_cvref_t<T>, JSONValue>;
 
-template<typename T>
-[[nodiscard]] inline std::optional<T> value(JSONValue const &json)
-{
-    UNREACHABLE();
-}
+//template<typename T>
+//[[nodiscard]] inline std::optional<T> value(JSONValue const &json)
+//{
+//    UNREACHABLE();
+//}
 
 template<JSON J>
 [[nodiscard]] inline std::optional<J> value(JSONValue const &json)
@@ -495,14 +670,49 @@ template<String Str>
     return json.to_string();
 }
 
-template<Integer Int>
+template<SignedInteger Int>
 [[nodiscard]] inline std::optional<Int> value(JSONValue const &json)
 {
     switch (json.type()) {
-    case JSONType::Integer:
-        return static_cast<Int>(std::get<int64_t>(json.raw_value()));
-    case JSONType::Double:
-        return static_cast<Int>(std::get<double>(json.raw_value()));
+    case JSONType::Integer: {
+        auto v = std::get<int64_t>(json.raw_value());
+        if ((v < min_value<Int>()) || (static_cast<uint64_t>(v) > max_value<Int>())) {
+            return {};
+        }
+        return static_cast<Int>(v);
+    }
+    case JSONType::Double: {
+        auto v = std::get<double>(json.raw_value());
+        if ((v < min_value<Int>()) || (static_cast<uint64_t>(v) > max_value<Int>())) {
+            return {};
+        }
+        return static_cast<Int>(v);
+    }
+    case JSONType::Boolean:
+        return std::get<bool>(json.raw_value()) ? 1 : 0;
+    default:
+        return {};
+    }
+}
+
+template<UnsignedInteger UInt>
+[[nodiscard]] inline std::optional<UInt> value(JSONValue const &json)
+{
+    switch (json.type()) {
+    case JSONType::Integer: {
+        auto v = std::get<int64_t>(json.raw_value());
+        if ((v < 0) || (static_cast<uint64_t>(v) > max_value<UInt>())) {
+            return {};
+        }
+        return static_cast<UInt>(v);
+    }
+    case JSONType::Double: {
+        auto v = std::get<double>(json.raw_value());
+        if ((v < 0) || (static_cast<uint64_t>(v) > max_value<UInt>())) {
+            return {};
+        }
+        return static_cast<UInt>(v);
+    }
     case JSONType::Boolean:
         return std::get<bool>(json.raw_value()) ? 1 : 0;
     default:
@@ -538,37 +748,20 @@ template<Boolean B = bool>
     }
 }
 
-template<>
-[[nodiscard]] inline std::optional<std::vector<std::string>> value(JSONValue const &json)
-{
-    if (json.type() != JSONType::Array) {
-        return {};
-    }
-    std::vector<std::string> ret {};
-    for (auto ix = 0; ix < json.size(); ++ix) {
-        auto const &v = json[ix];
-        if (!v.is_string()) {
-            return {};
-        }
-        ret.push_back(v.to_string());
-    }
-    return ret;
-}
-
-
 template<typename T>
-[[nodiscard]] inline std::optional<std::vector<T>> value(JSONValue const &json)
+[[nodiscard]] inline std::optional<std::vector<T>> values(JSONValue const &json)
 {
     if (json.type() != JSONType::Array) {
         return {};
     }
-    std::vector<std::string> ret {};
-    for (auto ix = 0; ix < json.size(); ++ix) {
-        auto const &v = json[ix];
-        if (!v.is_string()) {
+    std::vector<T> ret {};
+    for (auto const &v : json) {
+        T t;
+        auto res = decode_value<T>(v, t);
+        if (res.is_error()) {
             return {};
         }
-        ret.push_back(value<T>(v));
+        ret.push_back(t);
     }
     return ret;
 }
@@ -669,15 +862,20 @@ template<typename T>
 inline Error<JSONError> decode_value(JSONValue const &, T &)
 {
     UNREACHABLE();
-    return JSONError {JSONError::Code::TypeMismatch, "Template override"};
+    return JSONError { JSONError::Code::TypeMismatch, "Template override" };
 }
 
 template<Integer Int>
 inline Error<JSONError> decode_value(JSONValue const &json, Int &target)
 {
-    if (!json.is_integer())
+    if (!json.is_integer()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
-    target = *(value<Int>(json));
+    }
+    auto v = value<Int>(json);
+    if (!v) {
+        return JSONError { JSONError::Code::TypeMismatch, "Integer out of range" };
+    }
+    target = *v;
     return {};
 }
 
@@ -702,8 +900,8 @@ inline Error<JSONError> decode_value(JSONValue const &json, Float &target)
     return {};
 }
 
-template<>
-inline Error<JSONError> decode_value(JSONValue const &value, std::string &target)
+template<String Str>
+inline Error<JSONError> decode_value(JSONValue const &value, Str &target)
 {
     if (!value.is_string())
         return JSONError {
@@ -723,7 +921,7 @@ inline Error<JSONError> decode_value(JSONValue const &value, std::vector<T> &tar
             std::format("Cannot convert JSON value {} to vector", value.to_string()),
         };
     for (auto ix = 0u; ix < value.size(); ++ix) {
-        T    decoded;
+        T decoded;
         TRY(decode_value<T>(value[ix], decoded));
         target.push_back(decoded);
     }
@@ -808,5 +1006,4 @@ inline Error<JSONError> decode(JSONValue const &obj, std::string const &key, std
     target = decoded;
     return {};
 }
-
 }
