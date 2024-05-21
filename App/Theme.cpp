@@ -89,17 +89,13 @@ Result<Colour, JSONError> Colour::decode(JSONValue const &json)
         return res.value();
     };
 
-    auto decode_object_item = [&decode_component, &json](std::string_view const &short_tag, std::string_view const &long_tag) -> Result<uint8_t, JSONError> {
+    auto decode_object_item = [&decode_component, &json](std::string_view const &short_tag, std::string_view const &long_tag, uint8_t &target) -> Error<JSONError> {
         if (json.has(long_tag)) {
-            return TRY_EVAL(decode_component(json[long_tag]));
+            target = TRY_EVAL(decode_component(json[long_tag]));
         } else if (json.has(short_tag)) {
-            return TRY_EVAL(decode_component(json[short_tag]));
-        } else {
-            return JSONError {
-                JSONError::Code::TypeMismatch,
-                std::format("Missing color component value '{}'", long_tag),
-            };
+            target = TRY_EVAL(decode_component(json[short_tag]));
         }
+        return {};
     };
 
     switch (json.type()) {
@@ -135,15 +131,16 @@ Result<Colour, JSONError> Colour::decode(JSONValue const &json)
             ret.components[ix] = TRY_EVAL(decode_component(json[ix]));
         }
         return ret;
-    } break;
+    }
     case JSONType::Object: {
         Colour ret { 0 };
-        ret.color.r = TRY_EVAL(decode_object_item("r", "red"));
-        ret.color.g = TRY_EVAL(decode_object_item("g", "green"));
-        ret.color.b = TRY_EVAL(decode_object_item("b", "blue"));
-        ret.color.a = TRY_EVAL(decode_object_item("a", "alpha"));
+        TRY(decode_object_item("r", "red", ret.color.r));
+        TRY(decode_object_item("g", "green", ret.color.g));
+        TRY(decode_object_item("b", "blue", ret.color.b));
+        ret.color.a = 0xFF;
+        TRY(decode_object_item("a", "alpha", ret.color.a));
         return ret;
-    } break;
+    }
     default:
         return JSONError {
             JSONError::Code::TypeMismatch,
@@ -186,13 +183,13 @@ Result<TokenColour, JSONError> TokenColour::decode(JSONValue const &json)
         if (!scope.is_string() && !scope.is_array()) {
             return JSONError {
                 JSONError::Code::TypeMismatch,
-                "'tokenColor' entry scope value must be a string",
+                "'tokenColor' entry scope value must be an array or a string",
             };
         }
         if (ret.name.empty()) {
             if (scope.is_string()) {
                 ret.name = scope.to_string();
-            } else if (scope.size() > 0) {
+            } else if (!scope.empty()) {
                 ret.name = scope[0].to_string();
             }
         }
@@ -202,15 +199,11 @@ Result<TokenColour, JSONError> TokenColour::decode(JSONValue const &json)
                 ret.scope.emplace_back(strip(s));
             }
         } else {
-            for (auto ix = 0; ix < scope.size(); ++ix) {
-                auto const &entry = scope[ix];
+            for (auto const &entry : scope) {
                 CHECK_JSON_TYPE(entry, String);
-                ret.scope.emplace_back(std::move(entry.to_string()));
+                ret.scope.emplace_back(entry.to_string());
             }
         }
-    }
-    if (ret.name.empty()) {
-        ret.name = "(root)";
     }
     auto settings_maybe = json.get("settings");
     if (!settings_maybe.has_value()) {
@@ -223,7 +216,7 @@ Result<TokenColour, JSONError> TokenColour::decode(JSONValue const &json)
     CHECK_JSON_TYPE(settings, Object);
     ret.colours.fg = TRY_EVAL(Colour::decode(settings["foreground"]));
     ret.colours.bg = TRY_EVAL(Colour::decode(settings["background"]));
-    return ret;
+    return Result<TokenColour, JSONError> { ret };
 }
 
 Result<SemanticTokenColour, JSONError> SemanticTokenColour::decode(SemanticTokenTypes type, JSONValue const &json)
@@ -333,13 +326,15 @@ Result<Theme, JSONError> Theme::load(std::string_view const &name)
     namespace fs = std::filesystem;
     Theme          ret;
     struct passwd *pw = getpwuid(getuid());
-    auto           file_name = fs::path(pw->pw_dir) / ".eddy" / "themes" / name;
+    std::string n { name };
+    n += ".json";
+    auto           file_name = fs::path(pw->pw_dir) / ".eddy" / "themes" / n;
     if (!fs::exists(file_name)) {
-        file_name = fs::path(EDDY_DATADIR) / "themes" / name;
+        file_name = fs::path(EDDY_DATADIR) / "themes" / n;
         if (!fs::exists(file_name)) {
             return JSONError {
                 JSONError::Code::ProtocolError,
-                std::format("Theme file '{}.json' not found", name),
+                std::format("Theme file '{}' not found", n),
             };
         }
     }

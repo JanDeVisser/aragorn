@@ -15,6 +15,7 @@
 
 #include <App/App.h>
 #include <App/Buffer.h>
+#include <App/Theme.h>
 
 namespace Eddy {
 
@@ -31,9 +32,9 @@ struct AppState {
         memset(&state, 0, sizeof(state));
     }
 
-    void read();
-    void write();
-    int monitor() const
+    void              read();
+    void              write();
+    [[nodiscard]] int monitor() const
     {
         return state[ASMonitor];
     }
@@ -111,6 +112,7 @@ struct Eddy : public App {
     JSONValue            settings;
     pProject             project;
     StringList           font_dirs;
+    Theme                theme;
 
     Eddy();
     static pEddy the();
@@ -125,6 +127,7 @@ struct Eddy : public App {
     Result<pBuffer> open_buffer(std::string_view const &file);
     void            close_buffer(int buffer_num);
     EError          read_settings();
+    EError          load_theme(std::string_view const &name);
     void            load_font();
     StringList      get_font_dirs();
     EError          open_dir(std::string_view const &dir);

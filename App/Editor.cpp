@@ -37,7 +37,6 @@ void Editor::select_view(int view_ix)
     if (view->mode) {
         Eddy::the()->focus = view->mode;
     }
-    std::cerr << view->buffer()->name << std::endl;
     SetWindowTitle(view->buffer()->name.c_str());
 }
 

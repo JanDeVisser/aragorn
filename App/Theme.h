@@ -28,14 +28,9 @@ struct Colour {
         uint32_t      rgba;
     };
 
-    Colour()
-        : rgba(0)
-    {
-    }
-
     Colour(Colour const &) = default;
 
-    explicit Colour(uint32_t rgba)
+    explicit Colour(uint32_t rgba = 0x000000FF)
         : rgba(rgba)
     {
     }
@@ -64,13 +59,23 @@ struct Colours {
     Colour bg { 0 };
     Colour fg { 0 };
 
+    explicit Colours(uint32_t bg = 0x000000FF, uint32_t fg = 0xFFFFFFFF)
+        : bg(bg)
+        , fg(fg)
+    {
+    }
+    Colours(Colours const&) = default;
+
     [[nodiscard]] std::string to_string() const;
 };
 
 struct TokenColour {
-    std::string                           name;
-    StringList                            scope;
-    Colours                               colours;
+    std::string name { "(root)" };
+    StringList  scope {};
+    Colours     colours {};
+    TokenColour() = default;
+    TokenColour(TokenColour const &) = default;
+
     static Result<TokenColour, JSONError> decode(JSONValue const &json);
 };
 

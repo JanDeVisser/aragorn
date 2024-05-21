@@ -6,13 +6,13 @@
 
 #include <App/Eddy.h>
 #include <App/Editor.h>
-#include <App/Modal.h>
 #include <App/MiniBuffer.h>
+#include <App/Modal.h>
 
 namespace Eddy {
 
-constexpr char const* OPEN_BRACES = "({[";
-constexpr char const* CLOSE_BRACES = ")}]";
+constexpr char const *OPEN_BRACES = "({[";
+constexpr char const *CLOSE_BRACES = ")}]";
 
 int get_closing_brace_code(int brace);
 
@@ -311,7 +311,7 @@ void cmd_find_next(pBufferView const &view, JSONValue const &)
 
 void do_ask_replace(pBufferView const &view, std::string const &reply)
 {
-    int         cmd = 0;
+    int cmd = 0;
     if (!reply.empty()) {
         cmd = toupper(reply[0]);
     }
@@ -367,9 +367,9 @@ void cmd_find_replace(pBufferView const &view, JSONValue const &)
 
 void do_goto(pBufferView const &view, std::string const &query)
 {
-    StringViewList coords = split(query, ':');
-    int        line = -1;
-    int        col = -1;
+    auto coords = split(query, ':');
+    int  line = -1;
+    int  col = -1;
     if (!coords.empty()) {
         auto line_maybe = string_to_integer<int>(coords[0]);
         if (line_maybe.has_value()) {
@@ -807,7 +807,7 @@ void BufferView::draw()
                 if (width > line_len - selection_offset) {
                     width = columns() - selection_offset;
                 }
-                draw_rectangle( Eddy::the()->cell.x * selection_offset, Eddy::the()->cell.y * row,
+                draw_rectangle(Eddy::the()->cell.x * selection_offset, Eddy::the()->cell.y * row,
                     width * Eddy::the()->cell.x, Eddy::the()->cell.y + 5,
                     DARKGRAY /*colour_to_color(Eddy::the()->theme.selection.bg)*/);
             }
@@ -903,10 +903,10 @@ void BufferView::process_input()
         return;
     }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        int         lineno = min((GetMouseY() - viewport.y) / Eddy::the()->cell.y + top_line,
-                    m_buf->lines.size() - 1);
-        int         col = min((GetMouseX() - viewport.x) / Eddy::the()->cell.x + left_column,
-                    m_buf->lines[lineno].length);
+        int lineno = min((GetMouseY() - viewport.y) / Eddy::the()->cell.y + top_line,
+            m_buf->lines.size() - 1);
+        int col = min((GetMouseX() - viewport.x) / Eddy::the()->cell.x + left_column,
+            m_buf->lines[lineno].length);
         new_cursor = m_buf->lines[lineno].index_of + col;
         cursor_col = -1;
         if (num_clicks > 0 && (Eddy::the()->time - clicks[num_clicks - 1]) > 0.5) {

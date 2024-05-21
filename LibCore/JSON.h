@@ -210,7 +210,7 @@ public:
         return std::format("{}JSON error {}: {}", prefix, JSONErrorCode_name(code), description);
     }
 
-    static JSONError expected(JSONType expected, JSONType got, std::string_view const& what, int line = -1, int column = -1)
+    static JSONError expected(JSONType expected, JSONType got, std::string_view const &what, int line = -1, int column = -1)
     {
         return JSONError {
             JSONError::Code::TypeMismatch,
@@ -227,6 +227,12 @@ public:
         if (t__ != JSONType::T) {                                \
             return JSONError::expected(JSONType::T, t__, #expr); \
         }                                                        \
+    } while (0)
+
+#define ASSERT_JSON_TYPE(expr, T)                   \
+    do {                                            \
+        auto t__ = (expr).type();                   \
+        assert_with_msg(t__ == JSONType::T, #expr); \
     } while (0)
 
 class JSONValue {
@@ -494,7 +500,7 @@ public:
     [[nodiscard]] auto obj_begin() const
     {
         if (is_object()) {
-            auto             &obj = std::get<Object>(m_value);
+            auto &obj = std::get<Object>(m_value);
             return obj.begin();
         }
         abort();
@@ -503,7 +509,7 @@ public:
     [[nodiscard]] auto obj_end() const
     {
         if (is_object()) {
-            auto             &obj = std::get<Object>(m_value);
+            auto &obj = std::get<Object>(m_value);
             return obj.end();
         }
         abort();
@@ -571,7 +577,7 @@ public:
     [[nodiscard]] auto begin() const
     {
         if (is_array()) {
-            auto             &obj = std::get<Array>(m_value);
+            auto &obj = std::get<Array>(m_value);
             return obj.begin();
         }
         abort();
@@ -580,7 +586,7 @@ public:
     [[nodiscard]] auto end() const
     {
         if (is_array()) {
-            auto             &obj = std::get<Array>(m_value);
+            auto &obj = std::get<Array>(m_value);
             return obj.end();
         }
         abort();
@@ -589,7 +595,7 @@ public:
     [[nodiscard]] auto begin()
     {
         if (is_array()) {
-            auto             &obj = std::get<Array>(m_value);
+            auto &obj = std::get<Array>(m_value);
             return obj.begin();
         }
         abort();
@@ -598,7 +604,7 @@ public:
     [[nodiscard]] auto end()
     {
         if (is_array()) {
-            auto             &obj = std::get<Array>(m_value);
+            auto &obj = std::get<Array>(m_value);
             return obj.end();
         }
         abort();
@@ -652,11 +658,11 @@ private:
 template<typename T>
 concept JSON = std::is_same_v<std::remove_cvref_t<T>, JSONValue>;
 
-//template<typename T>
+// template<typename T>
 //[[nodiscard]] inline std::optional<T> value(JSONValue const &json)
 //{
-//    UNREACHABLE();
-//}
+//     UNREACHABLE();
+// }
 
 template<JSON J>
 [[nodiscard]] inline std::optional<J> value(JSONValue const &json)
@@ -756,7 +762,7 @@ template<typename T>
     }
     std::vector<T> ret {};
     for (auto const &v : json) {
-        T t;
+        T    t;
         auto res = decode_value<T>(v, t);
         if (res.is_error()) {
             return {};

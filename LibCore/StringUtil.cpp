@@ -63,11 +63,11 @@ std::string c_escape(std::string const& s)
     return ret;
 }
 
-StringViewList split(std::string_view const& s, std::string_view const& sep)
+StringList split(std::string_view const& s, std::string_view const& sep)
 {
     auto start = 0u;
     auto ptr = 0u;
-    StringViewList ret;
+    StringList ret;
     do {
         start = ptr;
         for (; ptr < s.length() && !s.substr(ptr).starts_with(sep); ++ptr)
@@ -82,18 +82,18 @@ StringViewList split(std::string_view const& s, std::string_view const& sep)
     return ret;
 }
 
-StringViewList split(std::string_view const& s, char sep)
+StringList split(std::string_view const& s, char sep)
 {
     char const buf[2] = { sep, 0 };
     return split(s, buf);
 }
 
 
-StringViewList split_by_whitespace(std::string_view const& s)
+StringList split_by_whitespace(std::string_view const& s)
 {
     auto start = 0u;
     auto ptr = 0u;
-    StringViewList ret;
+    StringList ret;
     do {
         start = ptr;
         for (; ptr < s.length() && !isspace(s[ptr]); ++ptr)

@@ -27,9 +27,9 @@ using StringViewList = std::vector<std::string_view>;
 // std::string to_upper(std::string const&);
 // std::string to_lower(std::string const&);
 std::size_t replace_all(std::string&, std::string_view, std::string_view);
-StringViewList split(std::string_view const& s, std::string_view const& sep);
-StringViewList split(std::string_view const& s, char sep);
-StringViewList split_by_whitespace(std::string_view const& s);
+StringList split(std::string_view const& s, std::string_view const& sep);
+StringList split(std::string_view const& s, char sep);
+StringList split_by_whitespace(std::string_view const& s);
 //
 // std::string c_escape(std::string const& s);
 // std::string join(StringList const& collection, char sep);

@@ -138,7 +138,7 @@ void cmd_run_command(pEddy const &eddy, JSONValue const &)
 {
     struct Commands : public ListBox<Widget::WidgetCommand> {
         pEddy const &eddy;
-        explicit     Commands(pEddy const &eddy)
+        explicit Commands(pEddy const &eddy)
             : ListBox("Select command")
             , eddy(eddy)
         {
@@ -265,7 +265,7 @@ EError Eddy::read_settings()
     settings = JSONValue::object();
     settings["appearance"] = JSONValue::object();
 
-    auto merge_settings = [this](fs::path const &dir, std::string const& file = "settings.json") -> EError {
+    auto merge_settings = [this](fs::path const &dir, std::string const &file = "settings.json") -> EError {
         create_directory(dir);
         auto settings_file = dir / file;
         if (exists(settings_file)) {
@@ -298,12 +298,32 @@ EError Eddy::read_settings()
     if (auto const &e = merge_settings(".eddy"); e.is_error()) {
         return e;
     }
-#ifdef THEME
-    JSONValue appearance = json_get_default(&eddy->settings, "appearance", json_object());
-    JSONValue theme_name = json_get_default(&appearance, "theme", json_string(SV("darcula", 7)));
-    assert(theme_name.type == JSON_TYPE_STRING);
-    eddy_load_theme(eddy, theme_name.string);
-#endif
+    auto appearance = settings.get_with_default("appearance");
+    ASSERT_JSON_TYPE(appearance, Object);
+    std::string theme_name = "darcula";
+    auto        theme_name_value = appearance.get("theme");
+    if (theme_name_value) {
+        theme_name = theme_name_value.value().to_string();
+    }
+    TRY(load_theme(theme_name));
+    return {};
+}
+
+EError Eddy::load_theme(std::string_view const &name)
+{
+    auto theme_maybe = Theme::load(name);
+    if (theme_maybe.is_error()) {
+        return EddyError { theme_maybe.error() };
+    }
+    theme = theme_maybe.value();
+    for (auto const &buffer : buffers) {
+        bool is_saved = buffer->version == buffer->saved_version;
+        ++buffer->version;
+        buffer->build_indices();
+        if (is_saved) {
+            buffer->saved_version = buffer->version;
+        }
+    }
     return {};
 }
 
@@ -319,14 +339,13 @@ StringList Eddy::get_font_dirs()
             replace_all(d, "${HOME}", pw->pw_dir);
             replace_all(d, "${EDDY_DATADIR}", EDDY_DATADIR);
             if (std::find(font_dirs.begin(), font_dirs.end(), d) == font_dirs.end()) {
-                auto const base_dir { d };
-                if (!fs::is_directory(base_dir)) {
+                if (!fs::is_directory(d)) {
                     return;
                 }
-                font_dirs.push_back(base_dir);
-                for (auto const& dir_entry : fs::recursive_directory_iterator(base_dir)) {
+                font_dirs.push_back(d);
+                for (auto const &dir_entry : fs::recursive_directory_iterator(d)) {
                     if (dir_entry.is_directory()) {
-                        font_dirs.push_back(base_dir);
+                        font_dirs.push_back(d);
                     }
                 }
             }
@@ -361,14 +380,14 @@ void Eddy::load_font()
         font_size = font_size_maybe.value();
     }
 
-    StringList font_dirs = get_font_dirs();
-    auto       find_font = [this, &font_dirs, font_size](auto const &font) -> bool {
-        return std::any_of(font_dirs.begin(), font_dirs.end(), [this, font, font_size](auto const &dir) -> bool {
+    StringList dirs = get_font_dirs();
+    auto       find_font = [this, &dirs, font_size](auto const &font) -> bool {
+        return std::any_of(dirs.begin(), dirs.end(), [this, font, font_size](auto const &dir) -> bool {
             if (fs::exists(dir) && fs::is_directory(dir)) {
-                if (auto const path = fs::path {dir} / font; fs::exists(path) && !fs::is_directory(path)) {
-                   set_font(path.string(), font_size);
-                   return true;
-               }
+                if (auto const path = fs::path { dir } / font; fs::exists(path) && !fs::is_directory(path)) {
+                    set_font(path.string(), font_size);
+                    return true;
+                }
             }
             return false;
         });
