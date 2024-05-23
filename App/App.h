@@ -37,7 +37,6 @@ struct App : public Layout {
     int                       font_size { 20 };
     pWidget                   focus { nullptr };
     Vector2                   cell { 20.0, 20.0 };
-    std::deque<int>           queue {};
     std::string               last_key;
     bool                      quit { false };
     double                    time { 0.0 };
@@ -47,6 +46,8 @@ struct App : public Layout {
     std::vector<DrawFloating> floatings;
     std::string               title_string { "Eddy" };
     std::string               icon_file { "eddy.png" };
+
+    App();
 
     virtual void        on_start() {};
     virtual void        on_terminate() {};
@@ -62,7 +63,7 @@ struct App : public Layout {
     void on_process_input() override;
     void draw_floating(pWidget const &target, Draw const &draw);
     void set_font(std::string_view const &path, int font_size);
-    void handle_characters(pWidget const &focus);
+    void handle_keyboard(pWidget const &focus);
     void push_modal(pWidget const &modal);
     void pop_modal();
     void change_font_size(int increment);
@@ -72,8 +73,6 @@ struct App : public Layout {
         return true;
     }
 
-    App();
-
     template<class AppClass>
         requires std::derived_from<AppClass, App>
     static std::shared_ptr<AppClass> create(int argc, char const **argv)
@@ -82,6 +81,7 @@ struct App : public Layout {
         std::shared_ptr<App> app = Widget::make<AppClass>();
         for (auto ix = app_args; ix < argc; ++ix) {
             app->arguments.emplace_back(argv[ix]);
+
         }
         app->time = GetTime();
 

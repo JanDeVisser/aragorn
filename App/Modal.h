@@ -36,7 +36,7 @@ struct Modal : public Widget {
     ModalStatus status { ModalStatus::Dormant };
 
     explicit Modal(std::string_view const &prompt)
-        : Widget()
+        : Widget(App::the())
         , prompt(prompt)
     {
         background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
@@ -105,9 +105,9 @@ struct ListBox : public Modal {
 
     void draw_entries(size_t y_offset)
     {
-        auto const& cell = Eddy::the()->cell;
-        size_t maxlen = (viewport.width - 28) / (cell.x * textsize);
-        auto   draw_entry = [this, &y_offset, maxlen, &cell](ListBoxEntry const &e) -> void {
+        auto const &cell = Eddy::the()->cell;
+        size_t      maxlen = (viewport.width - 28) / (cell.x * textsize);
+        auto        draw_entry = [this, &y_offset, maxlen, &cell](ListBoxEntry const &e) -> void {
             auto text_color = RAYWHITE; // colour_to_color(Eddy::the()->theme.editor.fg);
             if (e.index == selection) {
                 draw_rectangle(8, y_offset - 1, -8, cell.y * textsize + 1, RAYWHITE /*colour_to_color(Eddy::the()->theme.selection.bg)*/);
@@ -160,10 +160,10 @@ struct ListBox : public Modal {
 
     void resize() override
     {
-        auto const& screen = Eddy::the()->viewport;
-        auto const& cell = Eddy::the()->cell;
+        auto const &screen = Eddy::the()->viewport;
+        auto const &cell = Eddy::the()->cell;
         viewport.x = screen.width / 4;
-        viewport.y =screen.height / 4;
+        viewport.y = screen.height / 4;
         viewport.width = screen.width / 2;
         viewport.height = screen.height / 2;
         lines = (viewport.height - 19 + cell.y) / (cell.y + 2);
@@ -189,10 +189,10 @@ struct ListBox : public Modal {
         return false;
     }
 
-    void process_input() override
+    bool process_key(KeyboardModifier modifier, int key) override
     {
         if (status == ModalStatus::Dormant) {
-            return;
+            return false;
         }
         size_t sz = entries.size();
         if constexpr (Search) {
@@ -200,50 +200,77 @@ struct ListBox : public Modal {
                 sz = matches.size();
             }
         }
-        if (IsKeyPressed(KEY_ESCAPE)) {
-            status = ModalStatus::Dismissed;
-            dismiss();
-        } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
-            if (selection < sz) {
-                status = ModalStatus::Submitted;
-                submit();
+
+        auto handle = [sz, this, key, modifier]() -> bool {
+            if (modifier != KModNone) {
+                return false;
             }
-        } else if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
-            if (selection > 0) {
-                --selection;
-                while (selection < top_line) {
-                    --top_line;
+            switch (key) {
+            case KEY_ESCAPE: {
+                status = ModalStatus::Dismissed;
+                dismiss();
+                return true;
+            }
+            case KEY_ENTER:
+            case KEY_KP_ENTER: {
+                if (selection >= 0 && selection < sz) {
+                    status = ModalStatus::Submitted;
+                    submit();
                 }
+                return true;
             }
-        } else if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
-            if (selection < sz - 1) {
-                ++selection;
-                while (selection > top_line + lines - 1) {
-                    ++top_line;
+            case KEY_UP: {
+                if (selection >= 0 && selection < sz) {
+                    --selection;
+                    while (selection < top_line) {
+                        --top_line;
+                    }
                 }
+                return true;
             }
-        } else if (IsKeyPressed(KEY_PAGE_UP)) {
-            if (selection >= lines) {
-                selection -= lines;
-                if (top_line > lines) {
-                    top_line -= lines;
+            case KEY_DOWN: {
+                if (selection < sz - 1) {
+                    ++selection;
+                    while (selection > top_line + lines - 1) {
+                        ++top_line;
+                    }
                 }
+                return true;
             }
-        } else if (IsKeyPressed(KEY_PAGE_DOWN)) {
-            if (selection < sz - lines - 1) {
-                selection += lines;
-                top_line += lines;
+            case KEY_PAGE_UP: {
+                if (selection >= lines) {
+                    selection -= lines;
+                    if (top_line > lines) {
+                        top_line -= lines;
+                    }
+                }
+                return true;
             }
-        }
-        if constexpr (Search) {
-            if ((IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) && !search.empty()) {
-                search.erase(search.length() - 1, 1);
-                filter();
+            case KEY_PAGE_DOWN: {
+                if (selection < sz - lines - 1) {
+                    selection += lines;
+                    top_line += lines;
+                }
+                return true;
             }
-        }
+            case KEY_BACKSPACE: {
+                if constexpr (Search) {
+                    search.erase(search.length() - 1, 1);
+                    filter();
+                    return true;
+                }
+                return false;
+            }
+            default:
+                return false;
+            }
+        };
+
+        bool ret = handle();
         if (status != ModalStatus::Active) {
             Eddy::the()->pop_modal();
         }
+        return ret;
     }
 
     void sort()
@@ -290,14 +317,14 @@ struct ListBox : public Modal {
     }
 };
 
-template <typename C, typename Submit, typename Dismiss = std::nullptr_t>
-void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit fnc, std::string_view const& def = "", Dismiss dismiss = nullptr)
+template<typename C, typename Submit, typename Dismiss = std::nullptr_t>
+void input_box(std::shared_ptr<C> target, std::string_view const &prompt, Submit fnc, std::string_view const &def = "", Dismiss dismiss = nullptr)
 {
     using pC = std::shared_ptr<C>;
     struct InputBox : public Modal {
-        pC target;
+        pC          target;
         std::string text;
-        size_t      cursor {0};
+        size_t      cursor { 0 };
         Submit      submit_fnc;
         Dismiss     dismiss_fnc;
 
@@ -338,28 +365,57 @@ void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
             return true;
         }
 
-        void process_input() override
+        bool process_key(KeyboardModifier modifier, int key) override
         {
             if (status == ModalStatus::Dormant) {
-                return;
+                return false;
             }
-            if (IsKeyPressed(KEY_ESCAPE)) {
-                status = ModalStatus::Dismissed;
-                dismiss();
-            } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
-                status = ModalStatus::Submitted;
-                submit();
-            } else if (IsKeyPressed(KEY_LEFT) && cursor > 0) {
-                --cursor;
-            } else if (IsKeyPressed(KEY_RIGHT) && cursor < text.length()) {
-                ++cursor;
-            } else if (IsKeyPressed(KEY_BACKSPACE) && cursor > 0) {
-                text.erase(cursor - 1, 1);
-                --cursor;
-            }
+
+            auto handle = [this, modifier, key]() -> bool {
+                if (modifier != KModNone) {
+                    return false;
+                }
+                switch (key) {
+                case KEY_ESCAPE: {
+                    status = ModalStatus::Dismissed;
+                    dismiss();
+                    return true;
+                }
+                case KEY_ENTER:
+                case KEY_KP_ENTER: {
+                    status = ModalStatus::Submitted;
+                    submit();
+                    return true;
+                }
+                case KEY_LEFT: {
+                    if (cursor > 0) {
+                        --cursor;
+                    }
+                    return true;
+                }
+                case KEY_RIGHT: {
+                    if (cursor < text.length()) {
+                        ++cursor;
+                    }
+                    return true;
+                }
+                case KEY_BACKSPACE: {
+                    if (cursor > 0) {
+                        text.erase(cursor - 1, 1);
+                        --cursor;
+                    }
+                    return true;
+                }
+                default:
+                    return false;
+                }
+            };
+
+            auto ret = handle();
             if (status != ModalStatus::Active) {
                 hide();
             }
+            return ret;
         }
 
         void show()
@@ -388,20 +444,20 @@ void input_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
             }
         }
     };
-    auto const& inputbox = Widget::make<InputBox>(target, prompt, fnc, dismiss);
+    auto const &inputbox = Widget::make<InputBox>(target, prompt, fnc, dismiss);
     inputbox->text = def;
     inputbox->show();
 }
 
-template <typename C, typename Submit>
-void query_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit fnc, QueryOption options)
+template<typename C, typename Submit>
+void query_box(std::shared_ptr<C> target, std::string_view const &prompt, Submit fnc, QueryOption options)
 {
     using pC = std::shared_ptr<C>;
-    struct QueryBox : public ListBox<QueryOption,false,false,true> {
-        pC target;
+    struct QueryBox : public ListBox<QueryOption, false, false, true> {
+        pC     target;
         Submit submit_fnc;
 
-        explicit QueryBox(pC const& target, std::string_view prompt, Submit submit, QueryOption options = QueryOptionOK)
+        explicit QueryBox(pC const &target, std::string_view prompt, Submit submit, QueryOption options = QueryOptionOK)
             : ListBox(prompt)
             , target(target)
             , submit_fnc(std::move(submit))
@@ -426,16 +482,15 @@ void query_box(std::shared_ptr<C> target, std::string_view const& prompt, Submit
             submit_fnc(target, selected);
         }
     };
-    auto const& qbox = Widget::make<QueryBox>(target, prompt, fnc, options);
+    auto const &qbox = Widget::make<QueryBox>(target, prompt, fnc, options);
     qbox->show();
 }
 
-inline static void message_box(std::string_view const& prompt, QueryOption options = QueryOptionOK)
+inline static void message_box(std::string_view const &prompt, QueryOption options = QueryOptionOK)
 {
-    auto dummy = [](auto const&, auto) {
+    auto dummy = [](auto const &, auto) {
     };
     pWidget p { nullptr };
     query_box<Widget>(p, prompt, dummy, options);
 }
-
 }

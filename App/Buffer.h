@@ -62,7 +62,7 @@ struct Buffer : public Widget {
     //    Mode                            *mode;
     std::vector<BufferEventListener> listeners {};
 
-                                      Buffer();
+                                      Buffer(pWidget const& parent);
     static Result<pBuffer, LibCError> open(std::string_view const &name);
     static pBuffer                    new_buffer();
     void                              close();

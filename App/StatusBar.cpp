@@ -13,8 +13,8 @@
 namespace Eddy {
 
 struct FileName : public Label {
-    FileName()
-        : Label("", RAYWHITE)
+    explicit FileName(pWidget const& parent)
+        : Label(parent, "", RAYWHITE)
     {
         policy_size = 40;
     }
@@ -44,8 +44,8 @@ struct FileName : public Label {
 };
 
 struct Cursor : public Label {
-    Cursor()
-        : Label("", DARKGRAY)
+    explicit Cursor(pWidget const& parent)
+        : Label(parent, "", DARKGRAY)
     {
         policy_size = 21;
     }
@@ -72,8 +72,8 @@ struct Cursor : public Label {
 };
 
 struct FPS : public Label {
-    FPS()
-        : Label("", GREEN)
+    explicit FPS(pWidget const& parent)
+        : Label(parent, "", GREEN)
     {
         policy_size = 4;
     }
@@ -93,10 +93,9 @@ struct FPS : public Label {
     }
 };
 
-StatusBar::StatusBar()
-    : Layout()
+StatusBar::StatusBar(pWidget const& parent)
+    : Layout(parent, ContainerOrientation::Horizontal)
 {
-    orientation = ContainerOrientation::Horizontal;
     policy = SizePolicy::Characters;
     policy_size = 1.0f;
 }

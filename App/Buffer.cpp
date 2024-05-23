@@ -16,7 +16,8 @@ namespace Eddy {
 
 using namespace LibCore;
 
-Buffer::Buffer()
+Buffer::Buffer(pWidget const& parent)
+    : Widget(parent)
 {
     //    widget_register(
     //        buffer,
@@ -26,7 +27,7 @@ Buffer::Buffer()
 
 Result<pBuffer> Buffer::open(std::string_view const& name)
 {
-    auto buffer = Widget::make<Buffer>();
+    auto buffer = Widget::make<Buffer>(Eddy::the());
     buffer->name = name;
     buffer->text = TRY_EVAL(read_file_by_name(name));
     buffer->lines.clear();
@@ -40,7 +41,7 @@ Result<pBuffer> Buffer::open(std::string_view const& name)
 
 pBuffer Buffer::new_buffer()
 {
-    auto buffer = Widget::make<Buffer>();
+    auto buffer = Widget::make<Buffer>(Eddy::the());
     buffer->lines.clear();
     buffer->build_indices();
     //    mode = eddy_get_mode_for_buffer(&eddy, name);

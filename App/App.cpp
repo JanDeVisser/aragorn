@@ -71,7 +71,7 @@ void App::on_resize()
 }
 
 App::App()
-    : Layout()
+    : Layout(nullptr)
 {
 }
 
@@ -105,45 +105,64 @@ void App::on_process_input()
     monitor = GetCurrentMonitor();
 }
 
-void App::handle_characters(pWidget const &focus)
+void App::handle_keyboard(pWidget const &focus)
 {
-    while (!queue.empty()) {
-        int ch = queue.front();
-        for (auto w = focus; w != nullptr; w = w->parent) {
-            if (w->character(ch)) {
-                break;
-            }
-        }
-        queue.pop_front();
-    }
 }
 
 void App::process_input()
 {
-    auto execute_pending_command = [](pWidget const &w) -> bool {
-        return w->execute();
+    {
+        auto lg = std::lock_guard(commands_mutex);
+        if (!pending_commands.empty()) {
+            auto cmd = pending_commands.front();
+            pending_commands.pop_front();
+            trace(CMD, "Executing {}({})", cmd.command.command, cmd.arguments.serialize());
+            cmd.command.execute(cmd.arguments);
+            return;
+        }
+    }
+
+    auto handle_keyboard = [this](pWidget const &f) {
+        KeyboardModifier modifier = modifier_current();
+        for (int ch = GetCharPressed(); ch != 0; ch = GetCharPressed()) {
+            for (auto w = f; w != nullptr; w = w->parent) {
+                if (w->character(ch)) {
+                    break;
+                }
+            }
+        }
+        for (int key = GetKeyPressed(); key != 0; key = GetKeyPressed()) {
+            f->bubble_up([key, modifier](pWidget const &w) {
+                for (auto const &[name, cmd] : w->commands) {
+                    for (auto const &binding : cmd.bindings) {
+                        if (binding.key == key && binding.modifier == modifier) {
+                            JSONValue key_combo = JSONValue::object();
+                            set(key_combo, "key", key);
+                            set(key_combo, "modifier", modifier);
+                            w->submit(name, key_combo);
+                            return true;
+                        }
+                    }
+                }
+                return w->process_key(modifier, key);
+            });
+        }
     };
-    if (find_by_predicate(execute_pending_command) != nullptr) {
-        return;
-    }
-    for (int ch = GetCharPressed(); ch != 0; ch = GetCharPressed()) {
-        queue.push_back(ch);
-    }
-    if (!modals.empty()) {
+
+    if (!modals.empty())
+    {
         pWidget modal = modals.back();
-        handle_characters(modal);
+        handle_keyboard(modal);
         modal->process_input();
         return;
     }
+
     pWidget f = focus;
     if (!f) {
         f = self();
     }
-    KeyboardModifier modifier = modifier_current();
-    if (!f->find_and_run_shortcut(modifier)) {
-        handle_characters(f);
-        Layout::process_input();
-    }
+    handle_keyboard(f);
+    Layout::process_input();
 }
 
 void App::push_modal(pWidget const &modal)
@@ -162,5 +181,4 @@ void App::change_font_size(int increment)
 {
     set_font(font_path, font_size + increment);
 }
-
 }

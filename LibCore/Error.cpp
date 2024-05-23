@@ -118,7 +118,7 @@ constexpr int ENOERROR = 0;
     S(ENOPOLICY, "No such policy registered")                          \
     S(ENOTRECOVERABLE, "State not recoverable")                        \
     S(EOWNERDEAD, "Previous owner died")                               \
-    S(EQFULL, "Interface output queue is full")
+    S(EQFULL, "Interface output char_queue is full")
 #endif
 
 #ifdef IS_LINUX

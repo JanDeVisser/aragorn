@@ -87,25 +87,25 @@ struct FileSelector : public ListBox<DirEntry> {
         submit_fnc(self());
     }
 
-    void process_input() override
+    bool process_key(KeyboardModifier modifier, int key) override
     {
-        if (IsKeyPressed(KEY_LEFT)) {
+        if (key == KEY_LEFT) {
             dir = dir / "..";
             populate();
-            return;
+            return true;
         }
-        if (IsKeyPressed(KEY_RIGHT)) {
+        if (key == KEY_RIGHT) {
             auto const& entry = entries[selection].payload.entry;
             if (entry.is_directory()) {
                 dir = dir / entry.path();
                 populate();
-                return;
             }
+            return true;
         }
-        if ((options & FSCreateDirectory) && IsKeyPressed(KEY_N) && is_modifier_down(KeyboardModifier::Control)) {
+        if ((options & FSCreateDirectory) && key == KEY_N && modifier == KModControl) {
             // TODO
         }
-        ListBox::process_input();
+        return ListBox::process_key(key);
     }
 };
 

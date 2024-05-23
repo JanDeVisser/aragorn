@@ -61,21 +61,24 @@ std::string modifier_string(KeyboardModifier modifier)
 {
     std::string ret {};
 #undef S
-#define S(mod, ord, str)                                                                                       \
+#define S(mod, ord, str)                       \
     if ((KMod##mod & modifier) == KMod##mod) { \
-        ret += (str);                                                                                          \
+        ret += (str);                          \
     }
     KEYBOARDMODIFIERS(S)
 #undef S
     return ret;
 }
 
-Widget::Widget(SizePolicy policy, float policy_size)
+std::deque<Widget::PendingCommand> Widget::pending_commands {};
+std::mutex                         Widget::commands_mutex {};
+
+Widget::Widget(pWidget parent, SizePolicy policy, float policy_size)
     : policy(policy)
     , policy_size(policy_size)
+    , parent(std::move(parent))
 {
 }
-
 
 void Widget::render_text(float x, float y, std::string_view const &text, Font font, Color color) const
 {
@@ -199,41 +202,18 @@ std::optional<Vec<int>> Widget::coordinates(Vector2 world_coordinates) const
     return ret;
 }
 
-bool Widget::find_and_run_shortcut(KeyboardModifier modifier)
-{
-    for (pWidget w = self(); w; w = w->parent) {
-        for (auto const &[name, cmd] : w->commands) {
-            for (auto const &binding : cmd.bindings) {
-                auto key = binding.key;
-                if ((IsKeyPressed(key) || IsKeyPressedRepeat(key)) && binding.modifier == modifier) {
-                    JSONValue key_combo = JSONValue::object();
-                    set(key_combo, "key", key);
-                    set(key_combo, "modifier", modifier);
-                    w->submit(name, key_combo);
-                    return true;
-                }
-            }
-            if (w->delegate && w->delegate->find_and_run_shortcut(modifier)) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-Spacer::Spacer()
-    : Widget(SizePolicy::Stretch, 1.0f)
+Spacer::Spacer(pWidget const &parent)
+    : Widget(parent, SizePolicy::Stretch, 1.0f)
 {
 }
 
-Spacer::Spacer(SizePolicy policy, float policy_size)
-    : Widget(policy, policy_size)
+Spacer::Spacer(pWidget const &parent, SizePolicy policy, float policy_size)
+    : Widget(parent, policy, policy_size)
 {
 }
 
-
-Label::Label(std::string_view const &text, Color color)
-    : Widget(SizePolicy::Characters, 1.0f)
+Label::Label(pWidget const &parent, std::string_view const &text, Color color)
+    : Widget(parent, SizePolicy::Characters, 1.0f)
     , text(text)
     , color(color)
 {
@@ -245,4 +225,5 @@ void Label::draw()
         render_text(0, 0, text, App::the()->font.value(), color);
     }
 }
+
 }

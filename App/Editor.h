@@ -28,7 +28,7 @@ public:
     std::string replacement {};
     pWidget     mode { nullptr };
 
-    BufferView(pEditor editor, pBuffer buf);
+    BufferView(pEditor const& editor, pBuffer buf);
     pBuffer const &buffer() const;
     void           initialize() override;
     void           draw() override;
@@ -62,7 +62,7 @@ private:
 
 class Editor : public Widget {
 public:
-    Editor();
+    explicit Editor(pWidget const &parent);
     void        initialize() override;
     void        draw() override;
     void        resize() override;

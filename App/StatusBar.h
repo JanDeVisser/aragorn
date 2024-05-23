@@ -11,7 +11,7 @@
 namespace Eddy {
 
 struct StatusBar : public Layout {
-    StatusBar();
+    explicit StatusBar(pWidget const& parent);
     void initialize() override;
     void on_draw() override;
 };

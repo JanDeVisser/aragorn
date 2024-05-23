@@ -27,7 +27,7 @@ Result<pProject, EddyError> Project::open(pEddy const &eddy, std::string_view co
         return EddyError { LibCError() };
     }
 
-    pProject ret = Widget::make<Project>();
+    pProject ret = Widget::make<Project>(eddy);
 
     ret->project_dir = d.string();
     auto dot_eddy = d / ".eddy";

@@ -10,10 +10,9 @@
 namespace Eddy {
 
 Gutter::Gutter(pEditor editor)
-    : Widget(SizePolicy::Characters, 5)
+    : Widget(editor->parent, SizePolicy::Characters, 5)
     , editor(std::move(editor))
 {
-    parent = editor;
     padding = Rect { PADDING };
     background = DARKGRAY; // colour_to_color(Eddy::the()->theme.gutter.bg);
 }

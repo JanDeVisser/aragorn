@@ -155,6 +155,9 @@ constexpr auto DefaultPadding = Rect<float> { 5.0 };
 
 using pWidget = std::shared_ptr<struct Widget>;
 
+template<typename T>
+concept Application = std::derived_from<T, struct App>;
+
 class Widget : public std::enable_shared_from_this<Widget> {
 private:
     struct Private {
@@ -220,13 +223,31 @@ public:
     pWidget                              delegate { nullptr };
     pWidget                              memo { nullptr };
     std::map<std::string, WidgetCommand> commands;
-    std::deque<PendingCommand>           pending_commands;
-    std::mutex                           commands_mutex {};
+    static std::deque<PendingCommand>    pending_commands;
+    static std::mutex                    commands_mutex;
+
+    template<typename Pred>
+    bool bubble_up(Pred const &predicate)
+    {
+        if (predicate(self())) {
+            return true;
+        }
+        if (delegate) {
+            if (delegate->bubble_up(predicate)) {
+                return true;
+            }
+        }
+        if (parent) {
+            return parent->bubble_up(predicate);
+        }
+        return false;
+    }
 
     virtual void initialize() { }
     virtual void draw() { }
     virtual void resize() { }
     virtual bool character(int) { return false; }
+    virtual bool process_key(KeyboardModifier, int) { return false; }
     virtual void process_input() { }
 
     void render_text(float x, float y, std::string_view const &text, Font font, Color color) const;
@@ -237,11 +258,20 @@ public:
     void draw_line(float x0, float y0, float x1, float y1, Color color) const;
     void draw_hover_panel(float x, float y, std::vector<std::string> text, Color bgcolor, Color textcolor) const;
 
-    template<class C, typename... Args>
-        requires std::derived_from<C, Widget>
+    template<typename C, typename... Args>
+        requires(std::derived_from<C, Widget> && !std::derived_from<C, struct App>)
     static std::shared_ptr<C> make(Args &&...args)
     {
         auto ret = std::make_shared<C>(std::forward<Args>(args)...);
+        ret->initialize();
+        return ret;
+    }
+
+    template<Application A, typename... Args>
+        requires std::derived_from<A, Widget>
+    static std::shared_ptr<A> make(Args &&...args)
+    {
+        auto ret = std::make_shared<A>(std::forward<Args>(args)...);
         return ret;
     }
 
@@ -314,6 +344,7 @@ public:
     {
         auto lg = std::lock_guard(commands_mutex);
         auto name = std::string { command };
+        trace(CMD, "Submitting {}::{}({})", typeid(this).name(), name, args.serialize());
         if (!commands.contains(name)) {
             return;
         }
@@ -321,39 +352,29 @@ public:
         pending_commands.emplace_back(cmd, args);
     }
 
-    virtual bool execute()
-    {
-        auto lg = std::lock_guard(commands_mutex);
-        if (pending_commands.empty()) {
-            return false;
-        }
-        auto cmd = pending_commands.front();
-        pending_commands.pop_front();
-        cmd.command.execute(cmd.arguments);
-        return true;
-    }
-
     [[nodiscard]] bool                    contains(Vector2 world_coordinates) const;
     [[nodiscard]] std::optional<Vec<int>> coordinates(Vector2 world_coordinates) const;
-    bool                                  find_and_run_shortcut(KeyboardModifier modifier);
 
     void draw_rectangle_no_normalize(float x, float y, float width, float height, Color color) const;
     void draw_outline_no_normalize(float x, float y, float width, float height, Color color) const;
 
-    Widget(Widget const &) = delete;
     Widget(Widget &&) = delete;
-    Widget() = default;
-    Widget(SizePolicy policy, float policy_size);
+    Widget() = delete;
+    Widget(pWidget parent)
+        : parent(std::move(parent))
+    {
+    }
+    Widget(pWidget parent, SizePolicy policy, float policy_size);
     virtual ~Widget() = default;
 };
 
 struct Layout : public Widget {
-    ContainerOrientation orientation { ContainerOrientation::Vertical };
+    ContainerOrientation orientation;
     std::vector<pWidget> widgets {};
 
-             Layout() = default;
-    explicit Layout(ContainerOrientation orientation)
-        : Widget()
+    Layout() = delete;
+    Layout(pWidget const &parent, ContainerOrientation orientation = ContainerOrientation::Vertical)
+        : Widget(parent)
         , orientation(orientation)
     {
     }
@@ -383,8 +404,7 @@ struct Layout : public Widget {
         requires std::derived_from<Cls, Widget>
     std::shared_ptr<Cls> add_widget(Args &&...args)
     {
-        auto widget = Widget::make<Cls>(std::forward<Args>(args)...);
-        widget->parent = self();
+        auto widget = Widget::make<Cls>(self(), std::forward<Args>(args)...);
         widgets.push_back(widget);
         return std::dynamic_pointer_cast<Cls>(widget);
     }
@@ -395,7 +415,7 @@ struct Layout : public Widget {
     {
         auto widget = Widget::make<Cls>(std::forward<Args>(args)...);
         widget->parent = self();
-        widgets.insert(widgets.begin() + ix, widget);
+        widgets.insert(widgets.begin() + static_cast<ptrdiff_t>(ix), widget);
         return std::dynamic_pointer_cast<Cls>(widget);
     }
 
@@ -447,15 +467,15 @@ struct Layout : public Widget {
 };
 
 struct Spacer : public Widget {
-    Spacer();
-    Spacer(SizePolicy policy, float policy_size);
+    Spacer(pWidget const &parent);
+    Spacer(pWidget const &parent, SizePolicy policy, float policy_size);
 };
 
 struct Label : public Widget {
     Color       color;
     std::string text;
 
-         Label(std::string_view const &text, Color color);
+    Label(pWidget const &parent, std::string_view const &text, Color color);
     void draw() override;
 };
 

@@ -416,8 +416,8 @@ void cmd_save(pBufferView const &view, JSONValue const &dummy)
     Eddy::the()->set_message("Buffer saved");
 }
 
-BufferView::BufferView(pEditor editor, pBuffer buf)
-    : Widget()
+BufferView::BufferView(pEditor const& editor, pBuffer buf)
+    : Widget(editor)
     , m_buf(std::move(buf))
 {
     viewport = editor->viewport;

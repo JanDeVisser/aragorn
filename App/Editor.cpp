@@ -185,8 +185,8 @@ void cmd_close_view(pEditor const &editor, JSONValue const &)
  * ---------------------------------------------------------------------------
  */
 
-Editor::Editor()
-    : Widget(SizePolicy::Stretch, 0.0)
+Editor::Editor(pWidget const& parent)
+    : Widget(parent, SizePolicy::Stretch, 0.0)
 {
     background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
     padding = Rect<float>(PADDING);
@@ -200,7 +200,6 @@ void Editor::initialize()
         .bind(KeyCombo { KEY_W, KModControl });
     add_command<Editor>("editor-close-view", cmd_close_view)
         .bind(KeyCombo { KEY_W, KModControl | KModShift });
-    new_buffer();
 }
 
 void Editor::resize()

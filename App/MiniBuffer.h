@@ -18,8 +18,8 @@ struct MiniBuffer : public Widget {
     double      time { 0.0 };
     pWidget     current_query { nullptr };
 
-    MiniBuffer()
-        : Widget(SizePolicy::Characters, 1.0f)
+    MiniBuffer(pWidget const& parent)
+        : Widget(parent, SizePolicy::Characters, 1.0f)
         , message()
     {
     }
@@ -107,8 +107,8 @@ struct MiniBuffer : public Widget {
             Query                       query { nullptr };
             std::shared_ptr<MiniBuffer> minibuffer { nullptr };
 
-            MiniBufferQuery(Query query, std::string_view const &prompt, std::shared_ptr<C> target)
-                : Widget(SizePolicy::Characters, 1.0f)
+            MiniBufferQuery(pWidget const& minibuffer, Query query, std::string_view const &prompt, std::shared_ptr<C> target)
+                : Widget(minibuffer, SizePolicy::Characters, 1.0f)
                 , query(std::move(query))
                 , prompt(prompt)
                 , target(std::move(target))
@@ -116,32 +116,50 @@ struct MiniBuffer : public Widget {
                 assert(query != nullptr);
             }
 
-            void process_input() override
+            bool process_key(KeyboardModifier modifier, int key) override
             {
-                if (IsKeyPressed(KEY_ESCAPE)) {
+                switch (key) {
+                case KEY_ESCAPE: {
                     Eddy::the()->pop_modal();
                     minibuffer->current_query = nullptr;
-                } else if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+                    return true;
+                }
+                case KEY_ENTER:
+                case KEY_KP_ENTER: {
                     Eddy::the()->pop_modal();
                     minibuffer->current_query = nullptr;
                     query(target, text);
-                } else if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+                    return true;
+                }
+                case KEY_BACKSPACE: {
                     if (cursor > 0) {
                         text.erase(cursor - 1, 1);
                         --cursor;
                     }
-                } else if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
+                    return true;
+                }
+                case KEY_LEFT: {
                     if (cursor > 0) {
                         --cursor;
                     }
-                } else if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
+                    return true;
+                }
+                case KEY_RIGHT: {
                     if (!text.empty() && cursor < text.length() - 1) {
                         ++cursor;
                     }
-                } else if (IsKeyPressed(KEY_HOME) || IsKeyPressedRepeat(KEY_HOME)) {
+                    return true;
+                }
+                case KEY_HOME: {
                     cursor = 0;
-                } else if (IsKeyPressed(KEY_END) || IsKeyPressedRepeat(KEY_END)) {
+                    return true;
+                }
+                case KEY_END: {
                     cursor = text.length() - 1;
+                    return true;
+                }
+                default:
+                    return false;
                 }
             }
 
@@ -175,7 +193,7 @@ struct MiniBuffer : public Widget {
             return;
         }
         minibuffer->clear();
-        auto const &q = Widget::make<MiniBufferQuery>(fnc, prompt, target);
+        auto const &q = Widget::make<MiniBufferQuery>(minibuffer, fnc, prompt, target);
         q->minibuffer = minibuffer;
         minibuffer->current_query = q;
         Eddy::the()->push_modal(minibuffer->current_query);

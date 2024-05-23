@@ -174,25 +174,6 @@ void Eddy::initialize()
     }
     load_font();
 
-    auto editor_pane = Widget::make<Layout>(ContainerOrientation::Horizontal);
-    editor_pane->parent = self();
-    editor_pane->policy = SizePolicy::Stretch;
-    auto editor = editor_pane->add_widget<Editor>();
-    editor_pane->insert_widget<Gutter>(0, editor);
-    auto main_area = Widget::make<Layout>(ContainerOrientation::Vertical);
-    main_area->policy = SizePolicy::Stretch;
-    main_area->append(editor_pane);
-    main_area->add_widget<StatusBar>();
-    main_area->add_widget<MiniBuffer>();
-    append(main_area);
-
-    add_command<Eddy>("eddy-force-quit", cmd_force_quit)
-        .bind(KeyCombo { KEY_Q, KModControl | KModShift });
-    add_command<Eddy>("eddy-quit", cmd_quit)
-        .bind(KeyCombo { KEY_Q, KModControl });
-    add_command<Eddy>("eddy-run-command", cmd_run_command)
-        .bind(KeyCombo { KEY_P, KModSuper | KModShift });
-
     std::string project_dir { "." };
     if (!arguments.empty()) {
         auto project_dir_maybe = arguments.front();
@@ -217,6 +198,25 @@ void Eddy::initialize()
     if (buffers.empty()) {
         new_buffer();
     }
+
+    auto editor_pane = Widget::make<Layout>(self(), ContainerOrientation::Horizontal);
+    editor_pane->policy = SizePolicy::Stretch;
+    auto editor = editor_pane->add_widget<Editor>();
+    editor->select_buffer(buffers[0]);
+    editor_pane->insert_widget<Gutter>(0, editor);
+    auto main_area = Widget::make<Layout>(Eddy::the(), ContainerOrientation::Vertical);
+    main_area->policy = SizePolicy::Stretch;
+    main_area->append(editor_pane);
+    main_area->add_widget<StatusBar>();
+    main_area->add_widget<MiniBuffer>();
+    append(main_area);
+
+    add_command<Eddy>("eddy-force-quit", cmd_force_quit)
+        .bind(KeyCombo { KEY_Q, KModControl | KModShift });
+    add_command<Eddy>("eddy-quit", cmd_quit)
+        .bind(KeyCombo { KEY_Q, KModControl });
+    add_command<Eddy>("eddy-run-command", cmd_run_command)
+        .bind(KeyCombo { KEY_P, KModSuper | KModShift });
 }
 
 pBuffer Eddy::new_buffer()
@@ -229,8 +229,6 @@ pBuffer Eddy::new_buffer()
     }
     pBuffer b = Buffer::new_buffer();
     buffers.push_back(b);
-    auto const &editor = find_by_class<Editor>();
-    editor->select_buffer(b);
     return b;
 }
 
@@ -244,8 +242,6 @@ Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
     }
     pBuffer b = TRY_EVAL(Buffer::open(file));
     buffers.push_back(b);
-    auto const &editor = find_by_class<Editor>();
-    editor->select_buffer(b);
     return b;
 }
 

@@ -96,10 +96,14 @@ public:
         std::string build_dir { "build" };
     };
 
-    Project() = default;
     std::string project_dir {};
     StringList  source_dirs {};
     CMake       cmake {};
+
+    Project(pWidget const &parent)
+        : Widget(parent)
+    {
+    }
 
     static Result<pProject, EddyError> open(pEddy const &eddy, std::string_view const &dir);
     void                               close(pEddy const &eddy) const;
