@@ -125,7 +125,7 @@ struct ListBox : public Modal {
             if (sv.length() > maxlen) {
                 sv = sv.substr(0, maxlen);
             }
-            render_sized_text(10, y_offset, sv, Eddy::the()->font.value(), textsize, text_color);
+            render_sized_text(10ul, y_offset, sv, Eddy::the()->font.value(), textsize, text_color);
             y_offset += (cell.y * textsize) + 2;
         };
 
@@ -151,7 +151,7 @@ struct ListBox : public Modal {
         auto bg = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
         auto fg = RAYWHITE; // colour_to_color(Eddy::the()->theme.editor.fg);
         draw_rectangle(0.0f, 0.0f, 0.0f, 0.0, bg);
-        draw_outline(2, 2, -2.0f, -2.0f, fg);
+        draw_outline(2ul, 2ul, -2.0f, -2.0f, fg);
         render_text(8, 8, prompt, Eddy::the()->font.value(), fg);
         render_text(-8, 8, search, Eddy::the()->font.value(), fg);
         draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, fg);

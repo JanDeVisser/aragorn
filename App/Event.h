@@ -24,8 +24,8 @@ enum class BufferEventType {
 };
 
 struct EventRange {
-    Vec<int> start {};
-    Vec<int> end {};
+    Vec<size_t> start {};
+    Vec<size_t> end {};
 };
 
 struct Buffer;

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <algorithm>
+#include <concepts>
 #include <deque>
 #include <functional>
 #include <memory>
@@ -74,7 +75,9 @@ template<typename T, typename Min, typename Max>
     requires std::convertible_to<Min, T> && std::convertible_to<Max, T>
 constexpr T clamp(T v, Min low, Max high)
 {
-    return min(max(v, low), high);
+    T h = max(low, high);
+    T l = min(low, high);
+    return min(max(v, l), h);
 }
 
 template<typename T, typename Min, typename Max>
@@ -91,8 +94,8 @@ union Vec {
         T y;
     };
     struct {
-        T line;
         T column;
+        T line;
     };
     T coords[2];
 };
@@ -250,13 +253,82 @@ public:
     virtual bool process_key(KeyboardModifier, int) { return false; }
     virtual void process_input() { }
 
-    void render_text(float x, float y, std::string_view const &text, Font font, Color color) const;
-    void render_sized_text(float x, float y, std::string_view const &text, Font font, float size, Color color) const;
-    void render_text_bitmap(float x, float y, std::string_view const &text, Color color) const;
-    void draw_rectangle(float x, float y, float width, float height, Color color) const;
-    void draw_outline(float x, float y, float width, float height, Color color) const;
-    void draw_line(float x0, float y0, float x1, float y1, Color color) const;
-    void draw_hover_panel(float x, float y, std::vector<std::string> text, Color bgcolor, Color textcolor) const;
+    void render_sized_text_(float x, float y, std::string_view const &text, Font font, float size, Color color) const;
+    void render_text_bitmap_(float x, float y, std::string_view const &text, Color color) const;
+    void draw_rectangle_(float x, float y, float width, float height, Color color) const;
+    void draw_outline_(float x, float y, float width, float height, Color color) const;
+    void draw_line_(float x0, float y0, float x1, float y1, Color color) const;
+    void draw_hover_panel_(float x, float y, StringList const& text, Color bgcolor, Color textcolor) const;
+    void draw_rectangle_no_normalize_(float x, float y, float width, float height, Color color) const;
+    void draw_outline_no_normalize_(float x, float y, float width, float height, Color color) const;
+
+    template<typename Tx, typename Ty>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
+    void render_text(Tx x, Ty y, std::string_view const &text, Font font, Color color) const
+    {
+        render_sized_text_(x, y, text, font, 1.0, color);
+    }
+
+    template<typename Tx, typename Ty, typename Ts>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Ts, float>)
+    void render_sized_text(Tx x, Ty y, std::string_view const &text, Font font, Ts size, Color color) const
+    {
+        render_sized_text_(x, y, text, font, size, color);
+    }
+
+    template<typename Tx, typename Ty>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
+    void render_text_bitmap(Tx x, Ty y, std::string_view const &text, Color color) const
+    {
+        render_text_bitmap_(x, y, text, color);
+    }
+
+    template<typename Tx, typename Ty, typename Tw, typename Th>
+        requires(
+            std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Tw, float> && std::convertible_to<Th, float>)
+    void draw_rectangle(Tx x, Ty y, Tw width, Th height, Color color) const
+    {
+        draw_rectangle_(x, y, width, height, color);
+    }
+
+    template<typename Tx, typename Ty, typename Tw, typename Th>
+        requires(
+            std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Tw, float> && std::convertible_to<Th, float>)
+    void draw_outline(Tx x, Ty y, Tw width, Th height, Color color) const
+    {
+        draw_outline_(x, y, width, height, color);
+    }
+
+    template<typename Tx0, typename Ty0, typename Tx1, typename Ty1>
+        requires(
+            std::convertible_to<Tx0, float> && std::convertible_to<Ty0, float> && std::convertible_to<Tx1, float> && std::convertible_to<Ty1, float>)
+    void draw_line(Tx0 x0, Ty0 y0, Tx1 x1, Ty1 y1, Color color) const
+    {
+        draw_line_(x0, y0, x1, y1, color);
+    }
+
+    template<typename Tx, typename Ty>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
+    void draw_hover_panel(Tx x, Ty y, StringList const& text, Color bgcolor, Color textcolor) const
+    {
+        draw_hover_panel_(x, y, text, bgcolor, textcolor);
+    }
+
+    template<typename Tx, typename Ty, typename Tw, typename Th>
+        requires(
+            std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Tw, float> && std::convertible_to<Th, float>)
+    void draw_rectangle_no_normalize(Tx x, Ty y, Tw width, Th height, Color color) const
+    {
+        draw_rectangle_no_normalize_(x, y, width, height, color);
+    }
+
+    template<typename Tx, typename Ty, typename Tw, typename Th>
+        requires(
+            std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Tw, float> && std::convertible_to<Th, float>)
+    void draw_outline_no_normalize(Tx x, Ty y, Tw width, Th height, Color color) const
+    {
+        draw_outline_no_normalize_(x, y, width, height, color);
+    }
 
     template<typename C, typename... Args>
         requires(std::derived_from<C, Widget> && !std::derived_from<C, struct App>)
@@ -354,9 +426,6 @@ public:
 
     [[nodiscard]] bool                    contains(Vector2 world_coordinates) const;
     [[nodiscard]] std::optional<Vec<int>> coordinates(Vector2 world_coordinates) const;
-
-    void draw_rectangle_no_normalize(float x, float y, float width, float height, Color color) const;
-    void draw_outline_no_normalize(float x, float y, float width, float height, Color color) const;
 
     Widget(Widget &&) = delete;
     Widget() = delete;

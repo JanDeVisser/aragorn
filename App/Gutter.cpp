@@ -45,14 +45,15 @@ void Gutter::draw()
     auto const &view = editor->current_view();
     auto        buffer = view->buffer();
 
-    for (auto row = 0; row < editor->lines && view->top_line + row < buffer->lines.size(); ++row) {
-        auto lineno = view->top_line + row;
+    auto offset = view->view_offset();
+    for (auto row = 0; row < editor->lines && offset.line + row < buffer->lines.size(); ++row) {
+        auto lineno = offset.line + row;
         render_text(0, Eddy::the()->cell.y * row,
             std::format("{:4}", lineno + 1),
             Eddy::the()->font.value(),
             RAYWHITE /*colour_to_color(Eddy::the()->theme.gutter.fg)*/);
-        auto &line = buffer->lines[lineno];
 #if 0
+        auto &line = buffer->lines[lineno];
         if (line->num_diagnostics > 0) {
             widget_draw_rectangle(gutter, -6, Eddy::the()->cell.y * row, 6, Eddy::the()->cell.y, RED);
         }
@@ -76,7 +77,7 @@ void Gutter::process_input()
         int         row = gutter_coords.y / Eddy::the()->cell.y;
         auto const &view = editor->current_view();
         auto const &buffer = view->buffer();
-        auto        lineno = view->top_line + row;
+        auto        lineno = view->view_offset().line + row;
         auto       &line = buffer->lines[lineno];
         if (line.num_diagnostics > 0) {
             row_diagnostic_hover = row;

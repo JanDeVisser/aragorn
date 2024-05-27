@@ -29,8 +29,6 @@ target_link_libraries(
         m
 )
 
-include_directories(.)
-
 install(TARGETS Eddy
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin

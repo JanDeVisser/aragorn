@@ -65,8 +65,9 @@ struct Cursor : public Label {
         assert(editor != nullptr);
         auto const& view = editor->current_view();
         auto const& buffer = view->buffer();
-        float       where = ((float) view->cursor_pos.line / (float) buffer->lines.size()) * 100.0f;
-        text = std::format("ln {} ({}%) col {}", view->cursor_pos.line + 1, (int) roundf(where), view->cursor_pos.column + 1);
+        auto pos = view->cursor_position();
+        float       where = ((float) pos.line / (float) buffer->lines.size()) * 100.0f;
+        text = std::format("ln {} ({}%) col {}", pos.line + 1, (int) roundf(where), pos.column + 1);
         Label::draw();
     }
 };

@@ -58,20 +58,19 @@ void Buffer::close()
     apply(event);
 }
 
-void Buffer::build_indices()
+bool Buffer::build_indices()
 {
     assert(indexed_version <= version);
     trace(EDIT, "buffer_build_indices('{}')", name);
     if (indexed_version == version && !lines.empty() > 0) {
         trace(EDIT, "buffer_build_indices('{}'): clean. indexed_version = {} version = {} lines = {}",
             name, indexed_version, version, lines.size());
-        return;
+        return false;
     }
     lines.clear();
     tokens.clear();
     Lexer<true, true, true> lexer {};
     lexer.push_source(text, name);
-    std::string_view txt_view { text };
     Index current { 0, 0 };
     size_t lineno { 0 };
     trace(EDIT, "Buffer length: {}", text.length());
@@ -104,9 +103,10 @@ void Buffer::build_indices()
     for (auto &listener : listeners) {
         listener(std::dynamic_pointer_cast<Buffer>(self()), event);
     }
+    return true;
 }
 
-size_t Buffer::line_for_index(int index) const
+size_t Buffer::line_for_index(size_t index) const
 {
     if (lines.empty()) {
         return 0;
@@ -114,27 +114,28 @@ size_t Buffer::line_for_index(int index) const
     size_t line_min = 0;
     size_t line_max = lines.size() - 1;
     while (true) {
-        size_t line = line_min + (line_max - line_min) / 2;
-        if ((line < lines.size() - 1 && lines[line].index_of <= index && index < lines[line + 1].index_of) || (line == lines.size() - 1 && lines[line].index_of <= index)) {
-            return line;
+        size_t lineno = line_min + (line_max - line_min) / 2;
+        auto const &line = lines[lineno];
+        if ((lineno < lines.size() - 1 && line.index_of <= index && index <= line.index_of + line.length) || (lineno == lines.size() - 1 && line.index_of <= index)) {
+            return lineno;
         }
-        if (lines[line].index_of > index) {
-            line_max = line;
+        if (line.index_of > index) {
+            line_max = lineno;
         } else {
-            line_min = line + 1;
+            line_min = lineno + 1;
         }
     }
 }
 
-Vec<int> Buffer::index_to_position(int index) const
+Vec<size_t> Buffer::index_to_position(size_t index) const
 {
-    Vec<int> ret {};
-    ret.line = static_cast<int>(line_for_index(index));
-    ret.column = index - static_cast<int>(lines[ret.line].index_of);
+    Vec<size_t> ret {};
+    ret.line = line_for_index(index);
+    ret.column = index - lines[ret.line].index_of;
     return ret;
 }
 
-size_t Buffer::position_to_index(Vec<int> position) const
+size_t Buffer::position_to_index(Vec<size_t> position) const
 {
     Index const& line = lines[position.line];
     return line.index_of + position.column;
@@ -275,7 +276,7 @@ void Buffer::replace(size_t at, size_t num, std::string_view const &replacement)
     edit(BufferEvent::make_replacement(range, at, overwritten, replacement));
 }
 
-void Buffer::merge_lines(int top_line)
+void Buffer::merge_lines(size_t top_line)
 {
     if (top_line > lines.size() - 1) {
         return;

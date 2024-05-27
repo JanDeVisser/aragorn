@@ -80,12 +80,7 @@ Widget::Widget(pWidget parent, SizePolicy policy, float policy_size)
 {
 }
 
-void Widget::render_text(float x, float y, std::string_view const &text, Font font, Color color) const
-{
-    render_sized_text(x, y, text, font, 1.0, color);
-}
-
-void Widget::render_sized_text(float x, float y, std::string_view const &text, Font font, float size, Color color) const
+void Widget::render_sized_text_(float x, float y, std::string_view const &text, Font font, float size, Color color) const
 {
     if (text.empty()) {
         return;
@@ -104,7 +99,7 @@ void Widget::render_sized_text(float x, float y, std::string_view const &text, F
     DrawTextEx(font, t.c_str(), pos, (float) font.baseSize * size, 2, color);
 }
 
-void Widget::render_text_bitmap(float x, float y, std::string_view const &text, Color color) const
+void Widget::render_text_bitmap_(float x, float y, std::string_view const &text, Color color) const
 {
     if (text.empty()) {
         return;
@@ -120,7 +115,7 @@ void Widget::render_text_bitmap(float x, float y, std::string_view const &text, 
     DrawText(t.c_str(), (float) viewport.x + PADDING + x, viewport.y + PADDING + y, 20, color);
 }
 
-void Widget::draw_line(float x0, float y0, float x1, float y1, Color color) const
+void Widget::draw_line_(float x0, float y0, float x1, float y1, Color color) const
 {
     if (x0 < 0) {
         x0 = viewport.width + x0;
@@ -143,30 +138,30 @@ void Widget::draw_line(float x0, float y0, float x1, float y1, Color color) cons
         color);
 }
 
-void Widget::draw_rectangle(float x, float y, float width, float height, Color color) const
+void Widget::draw_rectangle_(float x, float y, float width, float height, Color color) const
 {
     auto const r = normalize(x, y, width, height);
     DrawRectangleRec(r, color);
 }
 
-void Widget::draw_rectangle_no_normalize(float x, float y, float width, float height, Color color) const
+void Widget::draw_rectangle_no_normalize_(float x, float y, float width, float height, Color color) const
 {
     Rectangle const r = { .x = viewport.x + x, .y = viewport.y + y, .width = width, .height = height };
     DrawRectangleRec(r, color);
 }
 
-void Widget::draw_outline(float x, float y, float width, float height, Color color) const
+void Widget::draw_outline_(float x, float y, float width, float height, Color color) const
 {
     DrawRectangleLinesEx(normalize(x, y, width, height), 1, color);
 }
 
-void Widget::draw_outline_no_normalize(float x, float y, float width, float height, Color color) const
+void Widget::draw_outline_no_normalize_(float x, float y, float width, float height, Color color) const
 {
     Rectangle r = { .x = viewport.x + x, .y = viewport.y + y, .width = width, .height = height };
     DrawRectangleLinesEx(r, 1, color);
 }
 
-void Widget::draw_hover_panel(float x, float y, std::vector<std::string> text, Color bgcolor, Color textcolor) const
+void Widget::draw_hover_panel_(float x, float y, StringList const& text, Color bgcolor, Color textcolor) const
 {
     assert(!text.empty());
     size_t longest_line = 0;

@@ -29,14 +29,13 @@ void Editor::new_buffer()
 void Editor::select_view(int view_ix)
 {
     assert(view_ix >= 0 && view_ix < views.size());
+    if (current_view_ix >= 0 && current_view_ix < views.size()) {
+        views[current_view_ix]->unselected();
+    }
     auto view = views[view_ix];
     assert(view != nullptr);
     current_view_ix = view_ix;
-    view->cursor_flash = Eddy::the()->time;
-    Eddy::the()->focus = view;
-    if (view->mode) {
-        Eddy::the()->focus = view->mode;
-    }
+    view->selected();
     SetWindowTitle(view->buffer()->name.c_str());
 }
 

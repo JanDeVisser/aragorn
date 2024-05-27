@@ -43,6 +43,8 @@ struct Index {
         , first_token(first_token)
     {
     }
+
+    size_t end() const { return index_of + length; }
 };
 
 using pBuffer = std::shared_ptr<Buffer>;
@@ -62,11 +64,11 @@ struct Buffer : public Widget {
     //    Mode                            *mode;
     std::vector<BufferEventListener> listeners {};
 
-                                      Buffer(pWidget const& parent);
+    Buffer(pWidget const &parent);
     static Result<pBuffer, LibCError> open(std::string_view const &name);
     static pBuffer                    new_buffer();
     void                              close();
-    void                              build_indices();
+    bool                              build_indices();
     void                              apply(BufferEvent const &event);
     void                              edit(BufferEvent const &event);
     void                              undo();
@@ -74,16 +76,26 @@ struct Buffer : public Widget {
     void                              insert(size_t at, std::string_view const &text);
     void                              del(size_t at, size_t count);
     void                              replace(size_t at, size_t num, std::string_view const &replacement);
-    size_t                            line_for_index(int index) const;
-    Vec<int>                          index_to_position(int index) const;
-    size_t                            position_to_index(Vec<int> position) const;
-    void                              merge_lines(int top_line);
+    size_t                            line_for_index(size_t index) const;
+    Vec<size_t>                       index_to_position(size_t index) const;
+    size_t                            position_to_index(Vec<size_t> position) const;
+    void                              merge_lines(size_t top_line);
     void                              save();
     void                              save_as(std::string_view const &new_name);
     size_t                            word_boundary_left(size_t index) const;
     size_t                            word_boundary_right(size_t index) const;
     void                              add_listener(BufferEventListener const &listener);
     std::string const                &uri();
+
+    size_t length() const
+    {
+        return text.length();
+    }
+
+    auto operator[](size_t ix) const
+    {
+        return text[ix];
+    }
 
 private:
     std::string m_uri {};

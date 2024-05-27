@@ -6,59 +6,9 @@
 
 #include <LibCore/JSON.h>
 
-#include <App/Buffer.h>
-#include <App/Widget.h>
+#include <App/BufferView.h>
 
 namespace Eddy {
-
-using pEditor = std::shared_ptr<class Editor>;
-using pBufferView = std::shared_ptr<class BufferView>;
-
-class BufferView : public Widget {
-public:
-    size_t      cursor { 0 };
-    Vec<int>    cursor_pos {};
-    int         cursor_col { 0 };
-    size_t      new_cursor { 0 };
-    int         top_line { 0 };
-    int         left_column { 0 };
-    size_t      selection { 0 };
-    double      cursor_flash { 0.0 };
-    std::string find_text {};
-    std::string replacement {};
-    pWidget     mode { nullptr };
-
-    BufferView(pEditor const& editor, pBuffer buf);
-    pBuffer const &buffer() const;
-    void           initialize() override;
-    void           draw() override;
-    void           process_input() override;
-    bool           character(int ch) override;
-    void           manage_selection(bool sel);
-    bool           find_next();
-    void           insert(size_t at, std::string_view const &text);
-    void           insert_string(std::string_view const &sv);
-    void           del(size_t at, size_t count);
-    void           lines_up(int count);
-    void           lines_down(int count);
-    void           selection_to_clipboard();
-    void           select_line();
-    void           word_left();
-    void           word_right();
-    void           select_word();
-    void           backspace();
-    void           delete_current_char();
-    void           move(int line, int col);
-    void           update_cursor();
-    int            delete_selection();
-    int            lines() const;
-    int            columns() const;
-
-private:
-    pBuffer m_buf { nullptr };
-    double  clicks[3] { 0.0, 0.0, 0.0 };
-    int     num_clicks { 0 };
-};
 
 class Editor : public Widget {
 public:
@@ -76,8 +26,8 @@ public:
     void        close_view();
     void        close_buffer();
 
-    int columns { 0 };
-    int lines { 0 };
+    size_t columns { 0 };
+    size_t lines { 0 };
 
 private:
     std::vector<pBufferView> views {};

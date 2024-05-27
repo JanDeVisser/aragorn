@@ -6,6 +6,7 @@
 
 #include <App/Eddy.h>
 #include <App/Editor.h>
+#include <App/BufferView.h>
 #include <App/MiniBuffer.h>
 #include <App/Modal.h>
 
@@ -31,8 +32,7 @@ bool do_select(JSONValue const &key_combo)
 
 void cmd_up(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->manage_selection(do_select(key_combo));
-    view->lines_up(1);
+    view->move_up(do_select(key_combo));
 }
 
 void cmd_select_word(pBufferView const &view, JSONValue const &)
@@ -42,108 +42,57 @@ void cmd_select_word(pBufferView const &view, JSONValue const &)
 
 void cmd_down(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->manage_selection(do_select(key_combo));
-    view->lines_down(1);
+    view->move_down(do_select(key_combo));
 }
 
 void cmd_left(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->manage_selection(do_select(key_combo));
-    if (view->new_cursor > 0) {
-        --view->new_cursor;
-    }
-    view->cursor_col = -1;
+    view->move_left(do_select(key_combo));
 }
 
 void cmd_word_left(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->manage_selection(do_select(key_combo));
-    if (view->new_cursor > 0) {
-        auto const &buffer = view->buffer();
-        while (0 < ((int) view->new_cursor) && !isalnum(buffer->text[view->new_cursor])) {
-            --view->new_cursor;
-        }
-        while (0 < ((int) view->new_cursor) && isalnum(buffer->text[view->new_cursor])) {
-            --view->new_cursor;
-        }
-        view->new_cursor = ((int) view->new_cursor >= 0) ? view->new_cursor + 1 : 0;
-    }
-    view->cursor_col = -1;
+    view->move_word_left(do_select(key_combo));
 }
 
 void cmd_right(pBufferView const &view, JSONValue const &key_combo)
 {
-    auto const &buffer = view->buffer();
-    view->manage_selection(do_select(key_combo));
-    if (view->new_cursor < buffer->text.length() - 1) {
-        ++view->new_cursor;
-    }
-    view->cursor_col = -1;
+    view->move_right(do_select(key_combo));
 }
 
 void cmd_word_right(pBufferView const &view, JSONValue const &key_combo)
 {
-    auto const &buffer = view->buffer();
-    view->manage_selection(do_select(key_combo));
-    size_t len = buffer->text.length();
-    if (view->new_cursor < len - 1) {
-        while (view->new_cursor < len - 1 && !isalnum(buffer->text[view->new_cursor])) {
-            ++view->new_cursor;
-        }
-        while (view->new_cursor < len - 1 && isalnum(buffer->text[view->new_cursor])) {
-            ++view->new_cursor;
-        }
-    }
-    view->cursor_col = -1;
+    view->move_word_right(do_select(key_combo));
 }
 
-void cmd_begin_of_line(pBufferView const &view, JSONValue const &)
+void cmd_begin_of_line(pBufferView const &view, JSONValue const &key_combo)
 {
-    auto const &buffer = view->buffer();
-    assert(view->cursor_pos.y < buffer->lines.size());
-    Index const &line = buffer->lines[view->cursor_pos.y];
-    view->new_cursor = line.index_of;
-    view->cursor_col = -1;
+    view->move_begin_of_line(do_select(key_combo));
 }
 
-void cmd_top_of_buffer(pBufferView const &view, JSONValue const &)
+void cmd_top_of_buffer(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->new_cursor = 0;
-    view->cursor_col = -1;
-    view->top_line = 0;
-    view->left_column = 0;
+    view->move_top(do_select(key_combo));
 }
 
-void cmd_end_of_line(pBufferView const &view, JSONValue const &)
+void cmd_bottom_of_buffer(pBufferView const &view, JSONValue const &key_combo)
 {
-    auto const &buffer = view->buffer();
-    assert(view->cursor_pos.y < buffer->lines.size());
-    Index const &line = buffer->lines[view->cursor_pos.y];
-    view->new_cursor = line.index_of + line.length;
-    view->cursor_col = -1;
+    view->move_bottom(do_select(key_combo));
 }
 
-void cmd_page_up(pBufferView const &view, JSONValue const &)
+void cmd_end_of_line(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->lines_up(view->lines());
+    view->move_begin_of_line(do_select(key_combo));
 }
 
-void cmd_page_down(pBufferView const &view, JSONValue const &)
+void cmd_page_up(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->lines_down(view->lines());
+    view->lines_up(view->lines(), do_select(key_combo));
 }
 
-void cmd_top(pBufferView const &view, JSONValue const &)
+void cmd_page_down(pBufferView const &view, JSONValue const &key_combo)
 {
-    view->new_cursor = 0;
-    view->cursor_col = -1;
-}
-
-void cmd_bottom(pBufferView const &view, JSONValue const &)
-{
-    auto const &buffer = view->buffer();
-    view->new_cursor = buffer->text.length();
-    view->cursor_col = -1;
+    view->lines_down(view->lines(), do_select(key_combo));
 }
 
 void cmd_split_line(pBufferView const &view, JSONValue const &)
@@ -154,29 +103,28 @@ void cmd_split_line(pBufferView const &view, JSONValue const &)
 void cmd_merge_lines(pBufferView const &view, JSONValue const &)
 {
     auto const  &buffer = view->buffer();
-    Index const &line = buffer->lines[view->cursor_pos.y];
-    view->new_cursor = line.index_of + line.length;
-    buffer->merge_lines(view->cursor_pos.y);
-    view->cursor_col = -1;
+    auto         pos = view->cursor_position();
+    Index const &line = buffer->lines[pos.y];
+    buffer->merge_lines(pos.y);
+    view->move_cursor(BufferView::CursorMovement::by_index(line.index_of + line.length, true, false));
 }
 
 void find_closing_brace(pBufferView const &view, size_t index, bool selection)
 {
     auto const &buffer = view->buffer();
-    int         brace = buffer->text[index];
-    int         matching = get_closing_brace_code(brace);
+    auto        brace = buffer->text[index];
+    auto        matching = get_closing_brace_code(brace);
     assert(matching > 0);
     if (selection) {
-        view->selection = index;
+        view->set_mark(index);
     }
-    int depth = 1;
+    auto depth = 1;
     while (++index < buffer->text.length()) {
         if (buffer->text[index] == matching) {
             --depth;
         }
         if (!depth) {
-            view->new_cursor = ++index;
-            view->cursor_col = -1;
+            view->move_cursor(BufferView::CursorMovement::by_index(++index, true, false));
             return;
         }
         if (buffer->text[index] == brace) {
@@ -187,9 +135,8 @@ void find_closing_brace(pBufferView const &view, size_t index, bool selection)
 
 void find_opening_brace(pBufferView const &view, size_t index, bool selection)
 {
-    auto const &buffer = view->buffer();
-    int         brace = buffer->text[index];
-    char        matching = 0;
+    auto brace = (*view)[index];
+    char matching = 0;
     for (size_t ix = 0; ix < 3; ++ix) {
         if (CLOSE_BRACES[ix] == brace) {
             matching = OPEN_BRACES[ix];
@@ -197,20 +144,19 @@ void find_opening_brace(pBufferView const &view, size_t index, bool selection)
         }
     }
     if (selection) {
-        view->selection = index;
+        view->set_mark(index);
     }
     assert(matching);
     int depth = 1;
     while (--index != -1) {
-        if (buffer->text[index] == matching) {
+        if ((*view)[index] == matching) {
             --depth;
         }
         if (!depth) {
-            view->new_cursor = index;
-            view->cursor_col = -1;
+            view->move_cursor(BufferView::CursorMovement::by_index(index, selection, false));
             return;
         }
-        if (buffer->text[index] == brace) {
+        if ((*view)[index] == brace) {
             ++depth;
         }
     }
@@ -218,22 +164,22 @@ void find_opening_brace(pBufferView const &view, size_t index, bool selection)
 
 void cmd_matching_brace(pBufferView const &view, JSONValue const &key_combo)
 {
-    auto const &buffer = view->buffer();
-    bool        selection = do_select(key_combo);
-    if (strchr(OPEN_BRACES, buffer->text[view->cursor])) {
-        find_closing_brace(view, view->cursor, selection);
+    bool selection = do_select(key_combo);
+    auto index = view->index();
+    if (strchr(OPEN_BRACES, (*view)[index])) {
+        find_closing_brace(view, index, selection);
         return;
     }
-    if (strchr(OPEN_BRACES, buffer->text[view->cursor - 1])) {
-        find_closing_brace(view, view->cursor - 1, selection);
+    if ((index > 0) && strchr(OPEN_BRACES, (*view)[index - 1])) {
+        find_closing_brace(view, index - 1, selection);
         return;
     }
-    if (strchr(CLOSE_BRACES, buffer->text[view->cursor])) {
-        find_opening_brace(view, view->cursor, selection);
+    if (strchr(CLOSE_BRACES, (*view)[index])) {
+        find_opening_brace(view, index, selection);
         return;
     }
-    if (strchr(CLOSE_BRACES, buffer->text[view->cursor - 1])) {
-        find_opening_brace(view, view->cursor - 1, selection);
+    if ((index > 0) && strchr(CLOSE_BRACES, (*view)[index - 1])) {
+        find_opening_brace(view, index - 1, selection);
         return;
     }
 }
@@ -250,32 +196,22 @@ void cmd_delete_current_char(pBufferView const &view, JSONValue const &)
 
 void cmd_clear_selection(pBufferView const &view, JSONValue const &)
 {
-    view->selection = -1;
+    view->clear_selection();
 }
 
 void cmd_copy(pBufferView const &view, JSONValue const &)
 {
-    if (view->selection == -1) {
-        view->select_line();
-    }
-    view->selection_to_clipboard();
+    view->copy();
 }
 
 void cmd_cut(pBufferView const &view, JSONValue const &)
 {
-    if (view->selection == -1) {
-        view->select_line();
-    }
-    view->selection_to_clipboard();
-    view->new_cursor = view->delete_selection();
-    view->cursor_col = -1;
-    view->selection = -1;
+    view->cut();
 }
 
 void cmd_paste(pBufferView const &view, JSONValue const &)
 {
-    char const *text = GetClipboardText();
-    view->insert_string(text);
+    view->paste();
 }
 
 void cmd_undo(pBufferView const &view, JSONValue const &)
@@ -290,22 +226,16 @@ void cmd_redo(pBufferView const &view, JSONValue const &)
 
 void do_find(pBufferView const &view, std::string const &query)
 {
-    view->find_text = query;
-    view->find_next();
+    view->find_first(query);
 }
 
 void cmd_find(pBufferView const &view, JSONValue const &)
 {
-    view->find_text = {};
-    view->replacement = {};
     MiniBuffer::query(view, "Find", do_find);
 }
 
 void cmd_find_next(pBufferView const &view, JSONValue const &)
 {
-    if (view->find_text.empty()) {
-        return;
-    }
     view->find_next();
 }
 
@@ -317,15 +247,13 @@ void do_ask_replace(pBufferView const &view, std::string const &reply)
     }
     switch (cmd) {
     case 'Y': {
-        view->delete_selection();
-        view->insert_string(view->replacement);
+        view->replace();
     } break;
     case 'N':
         break;
     case 'A': {
         do {
-            view->delete_selection();
-            view->insert_string(view->replacement);
+            view->replace();
         } while (view->find_next());
         return;
     }
@@ -344,24 +272,21 @@ void do_ask_replace(pBufferView const &view, std::string const &reply)
 
 void do_replacement_query(pBufferView const &view, std::string const &replacement)
 {
-    view->replacement = replacement;
-    if (!view->find_next()) {
-        Eddy::the()->set_message("Not found");
-        return;
-    }
+    view->replacement(replacement);
     MiniBuffer::query(view, "Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
 }
 
 void do_find_query(pBufferView const &view, std::string const &query)
 {
-    view->find_text = query;
+    if (!view->find_first(query)) {
+        Eddy::the()->set_message("Not found");
+        return;
+    }
     MiniBuffer::query(view, "Replace with", do_replacement_query);
 }
 
 void cmd_find_replace(pBufferView const &view, JSONValue const &)
 {
-    view->find_text = {};
-    view->replacement = {};
     MiniBuffer::query(view, "Find", do_find_query);
 }
 
@@ -383,7 +308,12 @@ void do_goto(pBufferView const &view, std::string const &query)
         }
     }
     if (line >= 1) {
-        view->move(line - 1, (col >= 1) ? col - 1 : col);
+        BufferView::CursorMovement movement = BufferView::CursorMovement::by_position(
+            line, view->cursor_position().column, true, false);
+        if (col >= 1) {
+            movement.pos->column = col - 1;
+        }
+        view->move_cursor(movement);
     }
 }
 
@@ -416,13 +346,13 @@ void cmd_save(pBufferView const &view, JSONValue const &dummy)
     Eddy::the()->set_message("Buffer saved");
 }
 
-BufferView::BufferView(pEditor const& editor, pBuffer buf)
-    : Widget(editor)
+BufferView::BufferView(pEditor const &editor, pBuffer buf)
+    : Widget(std::dynamic_pointer_cast<Widget>(editor))
     , m_buf(std::move(buf))
 {
     viewport = editor->viewport;
     padding = editor->padding;
-    parent = std::move(editor);
+    parent = editor;
 }
 
 void BufferView::initialize()
@@ -470,10 +400,10 @@ void BufferView::initialize()
         .bind(KeyCombo { KEY_END, KModShift })
         .bind(KeyCombo { KEY_RIGHT, KModSuper })
         .bind(KeyCombo { KEY_RIGHT, KModSuper | KModShift });
-    add_command<BufferView>("cursor-top", cmd_top)
+    add_command<BufferView>("cursor-top", cmd_top_of_buffer)
         .bind(KeyCombo { KEY_HOME, KModControl })
         .bind(KeyCombo { KEY_HOME, KModControl | KModShift });
-    add_command<BufferView>("cursor-bottom", cmd_bottom)
+    add_command<BufferView>("cursor-bottom", cmd_bottom_of_buffer)
         .bind(KeyCombo { KEY_END, KModControl })
         .bind(KeyCombo { KEY_END, KModControl | KModShift });
     add_command<BufferView>("split-line", cmd_split_line)
@@ -514,206 +444,137 @@ void BufferView::initialize()
         .bind(KeyCombo { KEY_S, KModControl | KModAlt });
 }
 
+void BufferView::unselected()
+{
+}
+
+void BufferView::selected()
+{
+    cursor_flash = Eddy::the()->time;
+    Eddy::the()->focus = self();
+    if (mode) {
+        Eddy::the()->focus = mode;
+    }
+}
+
 pBuffer const &BufferView::buffer() const
 {
     return m_buf;
 }
 
-void BufferView::manage_selection(bool sel)
-{
-    if (sel) {
-        if (selection == -1) {
-            selection = cursor;
-        }
-    } else {
-        selection = -1;
-    }
-}
-
-bool BufferView::find_next()
-{
-    assert(!find_text.empty());
-    auto const &b = buffer();
-    auto        pos = b->text.find(find_text, new_cursor);
-    if (pos == std::string::npos) {
-        pos = b->text.find(find_text);
-    }
-    if (pos != std::string::npos) {
-        selection = pos;
-        new_cursor = pos + find_text.length();
-        cursor_col = -1;
-        return true;
-    }
-    return false;
-}
-
-int BufferView::lines() const
+size_t BufferView::lines() const
 {
     pEditor editor = std::dynamic_pointer_cast<Editor>(parent);
-    return editor->lines;
+    return static_cast<size_t>(editor->lines);
 }
 
-int BufferView::columns() const
+size_t BufferView::columns() const
 {
     pEditor editor = std::dynamic_pointer_cast<Editor>(parent);
-    return editor->columns;
+    return static_cast<size_t>(editor->columns);
 }
 
-void BufferView::update_cursor()
+void BufferView::lines_up(size_t count, bool select)
 {
-    if (new_cursor == cursor) {
-        return;
-    }
-
-    if (new_cursor != -1) {
-        cursor_pos.line = m_buf->line_for_index(new_cursor);
-    }
-    auto &current_line = m_buf->lines[cursor_pos.line];
-    if (new_cursor == -1) {
-        assert(cursor_col >= 0);
-        if (((int) current_line.length) <= (cursor_col - 1)) {
-            cursor_pos.column = current_line.length;
-        } else {
-            cursor_pos.column = cursor_col;
-        }
-        new_cursor = current_line.index_of + cursor_pos.column;
-    } else {
-        cursor_pos.column = new_cursor - current_line.index_of;
-    }
-    cursor = new_cursor;
-
-    if (cursor_pos.line < top_line) {
-        top_line = cursor_pos.line;
-    }
-    if (cursor_pos.line >= top_line + lines()) {
-        top_line = cursor_pos.line - lines() + 1;
-    }
-    if (cursor_pos.column < left_column) {
-        left_column = cursor_pos.column;
-    }
-    if (cursor_pos.column >= left_column + columns()) {
-        left_column = cursor_pos.column - columns() + 1;
-    }
-    cursor_flash = 0;
+    move_cursor(CursorMovement::by_position(
+        cursor_pos.y - min(count, cursor_pos.y),
+        cursor_pos.x,
+        select, true));
 }
 
-void BufferView::lines_up(int count)
+void BufferView::lines_down(size_t count, bool select)
 {
-    if (cursor_pos.y == 0) {
-        return;
-    }
-    new_cursor = -1;
-    if (cursor_col < 0) {
-        cursor_col = cursor_pos.x;
-    }
-    cursor_pos.y = clamp(cursor_pos.y - count, 0, cursor_pos.y);
+    move_cursor(CursorMovement::by_position(
+        cursor_pos.y + min(count, m_buf->lines.size() - min(count, m_buf->lines.size())),
+        cursor_pos.x,
+        select, true));
 }
 
-void BufferView::lines_down(int count)
+void BufferView::move(size_t line, size_t col, bool select)
 {
-    if (cursor_pos.y >= m_buf->lines.size() - 1) {
-        return;
-    }
-    new_cursor = -1;
-    if (cursor_col < 0) {
-        cursor_col = cursor_pos.x;
-    }
-    cursor_pos.y = clamp(cursor_pos.y + count, 0, max(0, m_buf->lines.size() - 1));
-}
-
-void BufferView::move(int line, int col)
-{
-    new_cursor = -1;
-    cursor_pos.y = clamp(line, 0, m_buf->lines.size() - 1);
-    cursor_col = clamp(col, 0, max(0, m_buf->lines[cursor_pos.y].length - 1));
+    move_cursor(CursorMovement::by_position(line, col, select, true));
 }
 
 void BufferView::select_line()
 {
     size_t lineno = m_buf->line_for_index(cursor);
     Index &line = m_buf->lines[lineno];
-    selection = line.index_of;
-    new_cursor = cursor = line.index_of + line.length + 1;
+    set_mark(line.index_of);
+    move_cursor(CursorMovement::by_index(line.index_of + line.length + 1, true, false));
 }
 
 void BufferView::word_left()
 {
-    while (0 < ((int) cursor) && !isalnum(m_buf->text[cursor])) {
-        ++cursor;
+    auto new_cursor = cursor;
+    while (0 < new_cursor && !isalnum(m_buf->text[new_cursor])) {
+        --new_cursor;
     }
-    while (0 < ((int) cursor) && isalnum(m_buf->text[cursor])) {
-        ++cursor;
+    while (0 < new_cursor && isalnum(m_buf->text[new_cursor])) {
+        --new_cursor;
     }
-    ++cursor;
+    if (new_cursor > 0 || !isalnum(m_buf->text[0])) {
+        ++new_cursor;
+    }
+    move_cursor(CursorMovement::by_index(new_cursor, true, false));
 }
 
 void BufferView::word_right()
 {
-    while (cursor < m_buf->text.length() - 1 && !isalnum(m_buf->text[cursor])) {
-        ++cursor;
+    auto new_cursor = cursor;
+    while (new_cursor < m_buf->text.length() - 1 && !isalnum(m_buf->text[new_cursor])) {
+        ++new_cursor;
     }
-    while (cursor < m_buf->text.length() - 1 && isalnum(m_buf->text[cursor])) {
-        ++cursor;
+    while (new_cursor < m_buf->text.length() - 1 && isalnum(m_buf->text[new_cursor])) {
+        ++new_cursor;
     }
+    move_cursor(CursorMovement::by_index(new_cursor, true, false));
 }
 
 void BufferView::select_word()
 {
-    selection = m_buf->word_boundary_left(cursor);
-    new_cursor = m_buf->word_boundary_right(cursor);
+    set_mark(m_buf->word_boundary_left(cursor));
+    move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true, false));
 }
 
 void BufferView::insert(size_t at, std::string_view const &text)
 {
     m_buf->insert(at, text);
+    move_cursor(CursorMovement::by_index(at + text.length(), false, false));
 }
 
 void BufferView::del(size_t at, size_t count)
 {
     m_buf->del(at, count);
-    new_cursor = at;
-    cursor_col = -1;
-    selection = -1;
+    move_cursor(CursorMovement::by_index(at, false, false));
 }
 
-int BufferView::delete_selection()
+void BufferView::delete_selection()
 {
-    int selection_start = -1;
-    if (selection != -1) {
-        selection_start = min(selection, new_cursor);
-        int selection_end = max(selection, new_cursor);
-        del(selection_start, selection_end - selection_start);
-        new_cursor = selection_start;
-        selection = -1;
-    }
-    return selection_start;
+    assert(has_selection());
+    auto sel = selection();
+    del(sel->coords[0], sel->coords[1] - sel->coords[0]);
+    move_cursor(CursorMovement::by_index(sel->coords[0], false, false));
 }
 
 void BufferView::backspace()
 {
-    if (selection == -1) {
+    if (!has_selection()) {
         if (cursor != 0) {
             del(cursor - 1, 1);
-            new_cursor = cursor - 1;
-            cursor_col = -1;
         }
     } else {
-        new_cursor = delete_selection();
-        cursor_col = -1;
+        delete_selection();
     }
 }
 
 void BufferView::delete_current_char()
 {
-    if (selection == -1) {
+    if (!has_selection()) {
         if (cursor < m_buf->text.length()) {
             del(cursor, 1);
-            new_cursor = cursor;
-            cursor_col = -1;
         }
     } else {
-        new_cursor = delete_selection();
-        cursor_col = -1;
+        delete_selection();
     }
 }
 
@@ -729,86 +590,80 @@ int get_closing_brace_code(int brace)
 
 bool BufferView::character(int ch)
 {
-    size_t at = new_cursor;
-    if (selection != -1) {
+    size_t at = cursor;
+    if (auto sel = selection(); sel.has_value()) {
         switch (ch) {
         case '(':
         case '[':
         case '{': {
             int close = get_closing_brace_code(ch);
-            int selection_start = min((int) selection, (int) new_cursor);
-            int selection_end = max((int) selection, (int) new_cursor);
-            insert(selection_start, std::string_view { (char const *) &ch, 1 });
-            insert(selection_end + 1, std::string_view { (char const *) &close, 1 });
-            if (cursor == selection_end) {
-                new_cursor = selection_end + 1;
-                selection = selection_start + 1;
-            } else {
-                new_cursor = selection_start + 1;
-                selection = selection_end + 1;
+            insert(sel->coords[0], std::string_view { (char const *) &ch, 1 });
+            insert(sel->coords[1] + 1, std::string_view { (char const *) &close, 1 });
+            auto new_cursor = sel->coords[0] + 1;
+            set_mark(sel->coords[1] + 1);
+            if (cursor == sel->coords[1]) {
+                set_mark(sel->coords[0] + 1);
+                new_cursor = sel->coords[1] + 1;
             }
-            cursor_col = -1;
+            move_cursor(CursorMovement::by_index(new_cursor, false, false));
             return true;
-        }
+        };
         default:
-            at = new_cursor = (size_t) delete_selection();
+            delete_selection();
+            return true;
         }
     }
     insert(at, std::string_view { (char const *) &ch, 1 });
-    new_cursor = at + 1;
-    cursor_col = -1;
     return true;
 }
 
 void BufferView::insert_string(std::string_view const &sv)
 {
-    int at = new_cursor;
-    if (selection != -1) {
-        at = new_cursor = delete_selection();
+    auto at = cursor;
+    if (has_selection()) {
+        delete_selection();
     }
     insert(at, sv);
-    new_cursor = at + sv.length();
-    cursor_col = -1;
+    move_cursor(CursorMovement::by_index(at + sv.length(), false, false));
 }
 
 void BufferView::selection_to_clipboard()
 {
-    if (selection != -1) {
-        int selection_start = min(selection, new_cursor);
-        int selection_end = max(selection, new_cursor);
-        SetClipboardText(m_buf->text.substr(selection_start, selection_end - selection_start).c_str());
+    if (auto sel = selection(); sel.has_value()) {
+        SetClipboardText(m_buf->text.substr(sel->coords[0], sel->coords[1] - sel->coords[0]).c_str());
     }
 }
 
 void BufferView::draw()
 {
-    static size_t frame = 1;
-    update_cursor();
+    if (buffer()->build_indices()) {
+        cursor_pos = m_buf->index_to_position(cursor);
+    }
+    static size_t frame { 1 };
     draw_rectangle(0, 0, 0, 0, DARKGRAY /*colour_to_color(Eddy::the()->theme.editor.bg)*/);
 
-    int selection_start = -1, selection_end = -1;
-    if (selection != -1) {
-        selection_start = min(selection, cursor);
-        selection_end = max(selection, cursor);
-    }
     std::string_view txt { buffer()->text };
 
     for (int row = 0; row < lines() && top_line + row < m_buf->lines.size(); ++row) {
         auto        lineno = top_line + row;
         auto const &line = m_buf->lines[lineno];
         auto        line_len = min(line.length - 1, left_column + columns());
-        if (selection != -1) {
+        if (has_selection()) {
+            auto sel = selection();
             auto line_start = line.index_of + left_column;
             auto line_end = min(line.index_of + line.length - 1, line_start + columns());
-            auto selection_offset = clamp(selection_start - line_start, 0, line_end);
+            auto selection_offset = clamp(sel->coords[0] - min(sel->coords[0], line_start), 0, line_end);
 
-            if (selection_start < line_end && selection_end > line.index_of) {
-                auto width = selection_end - max(selection_start, line_start);
+            if (sel->coords[0] < line_end && sel->coords[1] > line.index_of) {
+                auto width = sel->coords[1] - max(sel->coords[0], line_start);
                 if (width > line_len - selection_offset) {
                     width = columns() - selection_offset;
                 }
-                draw_rectangle(Eddy::the()->cell.x * selection_offset, Eddy::the()->cell.y * row,
-                    width * Eddy::the()->cell.x, Eddy::the()->cell.y + 5,
+                draw_rectangle(
+                    Eddy::the()->cell.x * selection_offset,
+                    Eddy::the()->cell.y * row,
+                    width * Eddy::the()->cell.x,
+                    Eddy::the()->cell.y + 5.0f,
                     DARKGRAY /*colour_to_color(Eddy::the()->theme.selection.bg)*/);
             }
         }
@@ -823,7 +678,7 @@ void BufferView::draw()
         //        }
         for (size_t ix = line.first_token; ix < line.first_token + line.num_tokens; ++ix) {
             DisplayToken &token = m_buf->tokens[ix];
-            int           start_col = (int) token.index - (int) line.index_of;
+            auto          start_col = token.index - line.index_of;
 
             // token ends before left edge
             if (start_col + (int) token.length <= (int) left_column) {
@@ -848,15 +703,13 @@ void BufferView::draw()
             }
 
             std::string_view text { txt.substr(line.index_of + start_col, length) };
-            //            if (frame == 0) {
-            //                trace_nonl(EDIT, "[%zu %.*s]", ix, SV_ARG(text));
-            //            }
-            render_text(Eddy::the()->cell.x * (start_col - left_column), Eddy::the()->cell.y * row,
-                text, Eddy::the()->font.value(), RAYWHITE /*token->color*/);
+            render_text(
+                Eddy::the()->cell.x * static_cast<float>(start_col - left_column),
+                Eddy::the()->cell.y * row,
+                text,
+                Eddy::the()->font.value(),
+                RAYWHITE /*token->color*/);
         }
-        //        if (frame == 0) {
-        //            trace_nl(EDIT);
-        //        }
     }
 
 #if 0
@@ -868,16 +721,26 @@ void BufferView::draw()
 
     double time = Eddy::the()->time - cursor_flash;
     if (time - floor(time) < 0.5) {
-        int x = cursor_pos.x - left_column;
-        int y = cursor_pos.y - top_line;
-        draw_rectangle(x * Eddy::the()->cell.x, y * Eddy::the()->cell.y, 2, Eddy::the()->cell.y + 1,
+        auto x = cursor_pos.x - left_column;
+        auto y = cursor_pos.y - top_line;
+        draw_rectangle(
+            x * Eddy::the()->cell.x,
+            y * Eddy::the()->cell.y,
+            2,
+            Eddy::the()->cell.y + 1,
             RAYWHITE /*colour_to_color(Eddy::the()->theme.editor.fg)*/);
     }
-    DrawLine(viewport.x + 80 * Eddy::the()->cell.x, viewport.y,
-        viewport.x + 80 * Eddy::the()->cell.x, viewport.y + viewport.height,
+    DrawLine(
+        viewport.x + 80 * Eddy::the()->cell.x,
+        viewport.y,
+        viewport.x + 80 * Eddy::the()->cell.x,
+        viewport.y + viewport.height,
         RAYWHITE /*colour_to_color(Eddy::the()->theme.editor.fg)*/);
-    DrawLine(viewport.x + 120 * Eddy::the()->cell.x, viewport.y,
-        viewport.x + 120 * Eddy::the()->cell.x, viewport.y + viewport.height,
+    DrawLine(
+        viewport.x + 120 * Eddy::the()->cell.x,
+        viewport.y,
+        viewport.x + 120 * Eddy::the()->cell.x,
+        viewport.y + viewport.height,
         RAYWHITE /*colour_to_color(Eddy::the()->theme.editor.fg)*/);
     ++frame;
 }
@@ -890,25 +753,25 @@ void BufferView::process_input()
     }
     float mouse_move = GetMouseWheelMove();
     if (mouse_move != 0.0) {
-        if (IsKeyDown(KEY_LEFT_SUPER) || IsKeyDown(KEY_RIGHT_SUPER)) {
+        if (is_modifier_down(KModSuper)) {
             Eddy::the()->change_font_size((int) -mouse_move);
         } else {
             if (mouse_move < 0) {
-                lines_down((int) -mouse_move);
+                lines_down((int) -mouse_move, is_modifier_down(KModShift));
             }
             if (mouse_move > 0) {
-                lines_up((int) mouse_move);
+                lines_up((int) mouse_move, is_modifier_down(KModShift));
             }
         }
         return;
     }
     if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
-        int lineno = min((GetMouseY() - viewport.y) / Eddy::the()->cell.y + top_line,
-            m_buf->lines.size() - 1);
-        int col = min((GetMouseX() - viewport.x) / Eddy::the()->cell.x + left_column,
-            m_buf->lines[lineno].length);
-        new_cursor = m_buf->lines[lineno].index_of + col;
-        cursor_col = -1;
+        bool select = is_modifier_down(KModShift);
+        auto mouse_line = static_cast<size_t>((static_cast<float>(GetMouseY()) - viewport.y) / Eddy::the()->cell.y);
+        auto mouse_col = static_cast<size_t>((static_cast<float>(GetMouseX()) - viewport.x) / Eddy::the()->cell.x);
+        auto lineno = min(mouse_line + top_line, m_buf->lines.size() - 1);
+        auto col = min(mouse_col + left_column, m_buf->lines[lineno].length);
+        move_cursor(CursorMovement::by_position(lineno, col, false, false));
         if (num_clicks > 0 && (Eddy::the()->time - clicks[num_clicks - 1]) > 0.5) {
             num_clicks = 0;
         }
@@ -916,17 +779,16 @@ void BufferView::process_input()
         ++num_clicks;
         switch (num_clicks) {
         case 1:
-            selection = -1;
             break;
         case 2:
-            selection = m_buf->word_boundary_left(new_cursor);
-            new_cursor = m_buf->word_boundary_right(new_cursor);
+            set_mark(m_buf->word_boundary_left(cursor));
+            move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true, false));
             break;
         case 3: {
-            lineno = m_buf->line_for_index(new_cursor);
+            lineno = m_buf->line_for_index(cursor);
             Index &line = m_buf->lines[lineno];
-            selection = line.index_of;
-            new_cursor = line.index_of + line.length + 1;
+            set_mark(line.index_of);
+            move_cursor(CursorMovement::by_index(line.index_of + line.length + 1, true, false));
         }
             // Fall through
         default:
@@ -934,6 +796,231 @@ void BufferView::process_input()
         }
     }
     assert(num_clicks >= 0 && num_clicks < 3);
+}
+
+void BufferView::copy()
+{
+    if (!has_selection()) {
+        select_line();
+    }
+    selection_to_clipboard();
+}
+
+void BufferView::cut()
+{
+    copy();
+    delete_selection();
+}
+
+void BufferView::paste()
+{
+    insert_string(GetClipboardText());
+}
+
+void BufferView::move_up(bool select)
+{
+    lines_up(1, select);
+}
+
+void BufferView::move_down(bool select)
+{
+    lines_down(1, select);
+}
+
+void BufferView::move_left(bool select)
+{
+    if (cursor > 0) {
+        move_cursor(CursorMovement::by_index(cursor - 1, select, false));
+    }
+}
+
+void BufferView::move_word_left(bool select)
+{
+    auto new_cursor = cursor;
+    if (new_cursor > 0) {
+        while (new_cursor > 0 && !isalnum(m_buf->text[new_cursor])) {
+            --new_cursor;
+        }
+        while (new_cursor > 0 && isalnum(m_buf->text[new_cursor])) {
+            --new_cursor;
+        }
+        if (new_cursor > 0 || !isalnum(m_buf->text[0])) {
+            ++new_cursor;
+        }
+    }
+    move_cursor(CursorMovement::by_index(new_cursor, select, false));
+}
+
+void BufferView::move_right(bool select)
+{
+    if (cursor < m_buf->text.length() - 1) {
+        move_cursor(CursorMovement::by_index(cursor + 1, select, false));
+    }
+}
+
+void BufferView::move_word_right(bool select)
+{
+    size_t len = m_buf->text.length();
+    auto   new_cursor = cursor;
+    if (new_cursor < len - 1) {
+        while (new_cursor < len - 1 && !isalnum(m_buf->text[new_cursor])) {
+            ++new_cursor;
+        }
+        while (new_cursor < len - 1 && isalnum(m_buf->text[new_cursor])) {
+            ++new_cursor;
+        }
+    }
+    move_cursor(CursorMovement::by_index(new_cursor, select, false));
+}
+
+void BufferView::move_begin_of_line(bool select)
+{
+    Index const &line = m_buf->lines[cursor_pos.y];
+    move_cursor(CursorMovement::by_index(line.index_of, select, false));
+}
+
+void BufferView::move_end_of_line(bool select)
+{
+    Index const &line = m_buf->lines[cursor_pos.y];
+    move_cursor(CursorMovement::by_index(line.index_of + line.length, select, false));
+}
+
+void BufferView::move_top(bool select)
+{
+    move_cursor(CursorMovement::by_index(0, select, false));
+}
+
+void BufferView::move_bottom(bool select)
+{
+    move_cursor(CursorMovement::by_index(m_buf->text.length(), select, false));
+}
+
+void BufferView::move_cursor(BufferView::CursorMovement const &move)
+{
+    if (move.index) {
+        cursor = *move.index;
+        cursor_pos = m_buf->index_to_position(cursor);
+        Index const &line = m_buf->lines[cursor_pos.line];
+        cursor = clamp(cursor, line.index_of, line.end());
+    } else if (move.pos) {
+        auto col = move.pos->column;
+        if (move.with_virtual_column && cursor_col) {
+            col = cursor_col.value();
+        }
+        cursor_pos.line = clamp(move.pos->y, 0, m_buf->lines.size() - 1);
+        Index const &line = m_buf->lines[cursor_pos.line];
+        cursor_pos.column = clamp(col, 0, max(1, line.length) - 1);
+        cursor = line.index_of + cursor_pos.column;
+    } else {
+        assert(false);
+    }
+    if (move.extend_selection) {
+        if (!m_selection.has_value()) {
+            set_mark(cursor);
+        }
+    } else {
+        clear_selection();
+    }
+    if (!move.with_virtual_column) {
+        cursor_col.reset();
+    }
+    if (cursor_pos.line < top_line) {
+        top_line = cursor_pos.line;
+    }
+    if (cursor_pos.line >= top_line + lines()) {
+        top_line = cursor_pos.line - lines() + 1;
+    }
+    if (cursor_pos.column < left_column) {
+        left_column = cursor_pos.column;
+    }
+    if (cursor_pos.column >= left_column + columns()) {
+        left_column = cursor_pos.column - columns() + 1;
+    }
+    cursor_flash = 0;
+}
+
+bool BufferView::has_selection() const
+{
+    if (m_selection.has_value()) {
+        if (cursor != *m_selection) {
+            return true;
+        }
+    }
+    return false;
+}
+
+Vec<size_t> BufferView::cursor_position() const
+{
+    return cursor_pos;
+}
+
+Vec<size_t> BufferView::view_offset() const
+{
+    return Vec<size_t> { .line = top_line, .column = left_column };
+}
+
+size_t BufferView::index() const
+{
+    return cursor;
+}
+
+std::optional<Vec<size_t>> BufferView::selection() const
+{
+    if (has_selection()) {
+        auto selection_start = min(m_selection.value(), cursor);
+        auto selection_end = max(m_selection.value(), cursor);
+        return Vec<size_t> { selection_start, selection_end };
+    }
+    return {};
+}
+
+void BufferView::clear_selection()
+{
+    m_selection.reset();
+}
+
+void BufferView::set_mark(size_t at)
+{
+    m_selection = at;
+}
+
+bool BufferView::find_first(std::string_view const &pattern)
+{
+    m_find_text = pattern;
+    return find_next();
+}
+
+bool BufferView::find_next()
+{
+    assert(!m_find_text.empty());
+    auto const &b = buffer();
+    auto        pos = b->text.find(m_find_text, cursor);
+    if (pos == std::string::npos) {
+        pos = b->text.find(m_find_text);
+    }
+    if (pos != std::string::npos) {
+        set_mark(pos);
+        move_cursor(CursorMovement::by_index(pos + m_find_text.length(), true, false));
+        return true;
+    }
+    return false;
+}
+
+void BufferView::replacement(std::string_view const &replacement)
+{
+    m_replacement = replacement;
+}
+
+void BufferView::clear_replacement()
+{
+    m_replacement = "";
+}
+
+void BufferView::replace()
+{
+    assert(!m_replacement.empty());
+    delete_selection();
+    insert(cursor, m_replacement);
 }
 
 }
