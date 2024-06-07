@@ -31,7 +31,7 @@ struct App : public Layout {
     };
 
     std::deque<std::string>   arguments;
-    int                       monitor {0};
+    int                       monitor { 0 };
     std::optional<Font>       font {};
     std::string               font_path {};
     int                       font_size { 20 };
@@ -42,7 +42,7 @@ struct App : public Layout {
     double                    time { 0.0 };
     std::vector<pWidget>      modals {};
     std::mutex                commands_mutex {};
-    size_t                    frame_count {0};
+    size_t                    frame_count { 0 };
     std::vector<DrawFloating> floatings;
     std::string               title_string { "Eddy" };
     std::string               icon_file { "eddy.png" };
@@ -81,7 +81,6 @@ struct App : public Layout {
         std::shared_ptr<App> app = Widget::make<AppClass>();
         for (auto ix = app_args; ix < argc; ++ix) {
             app->arguments.emplace_back(argv[ix]);
-
         }
         app->time = GetTime();
 
@@ -110,6 +109,7 @@ struct App : public Layout {
 
 private:
     static std::shared_ptr<App> s_app;
+    std::set<int>               m_pressed_keys;
 };
 
 }
