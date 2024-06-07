@@ -3,3 +3,8 @@
 .eddy
 build
 cmake-build-debug
+*~
+\#*\#
+.\#*
+.DS_Store
+*.ede

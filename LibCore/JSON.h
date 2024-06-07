@@ -241,8 +241,9 @@ public:
     using Object = std::map<std::string, JSONValue>;
 
     JSONValue() = default;
+    JSONValue(JSONValue const &) = default;
 
-    explicit JSONValue(JSONType type)
+    JSONValue(JSONType type)
         : m_type(type)
     {
         switch (m_type) {
@@ -268,28 +269,40 @@ public:
         }
     }
 
-    explicit JSONValue(std::string_view const &value)
+    JSONValue(std::string_view const &value)
+        : m_type(JSONType::String)
+        , m_value(std::string(value))
+    {
+    }
+
+    JSONValue(std::string value)
+        : m_type(JSONType::String)
+        , m_value(std::move(value))
+    {
+    }
+
+    JSONValue(char const *value)
         : m_type(JSONType::String)
         , m_value(std::string(value))
     {
     }
 
     template<Integer Int>
-    explicit JSONValue(Int value)
+    JSONValue(Int value)
         : m_type(JSONType::Integer)
         , m_value(static_cast<int64_t>(value))
     {
     }
 
     template<Boolean B>
-    explicit JSONValue(B value)
+    JSONValue(B value)
         : m_type(JSONType::Boolean)
         , m_value(value)
     {
     }
 
     template<std::floating_point Float>
-    explicit JSONValue(Float value)
+    JSONValue(Float value)
         : m_type(JSONType::Double)
         , m_value(value)
     {
@@ -773,21 +786,21 @@ template<typename T>
 }
 
 template<typename T>
-inline JSONValue to_json(T const &)
+inline JSONValue to_json(T const &value)
 {
     return {};
 }
 
 template<>
-inline JSONValue to_json(JSONValue const &json)
+inline JSONValue to_json(JSONValue const &value)
 {
-    return json;
+    return value;
 }
 
 template<String Str>
-inline JSONValue to_json(Str const &obj)
+inline JSONValue to_json(Str const &value)
 {
-    return JSONValue { obj };
+    return JSONValue { value };
 }
 
 template<Integer Int>
@@ -806,6 +819,12 @@ template<std::floating_point Float>
 inline JSONValue to_json(Float const &value)
 {
     return JSONValue { value };
+}
+
+template<typename T>
+inline JSONValue to_json(std::shared_ptr<T> const &value)
+{
+    return to_json(*value);
 }
 
 template<typename Element>
@@ -865,10 +884,10 @@ inline void set(JSONValue &obj, std::string const &key, std::optional<T> const &
 }
 
 template<typename T>
-inline Error<JSONError> decode_value(JSONValue const &, T &)
+inline Error<JSONError> decode_value(JSONValue const &json, T &target)
 {
-    UNREACHABLE();
-    return JSONError { JSONError::Code::TypeMismatch, "Template override" };
+    target = TRY_EVAL(T::decode(json));
+    return {};
 }
 
 template<Integer Int>

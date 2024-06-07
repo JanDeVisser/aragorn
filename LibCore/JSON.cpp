@@ -132,9 +132,17 @@ using namespace std::literals;
     UNREACHABLE();
 }
 
-constexpr static int JSONKeywordTrue = 0;
-constexpr static int JSONKeywordFalse = 1;
-constexpr static int JSONKeywordNull = 2;
+#define JSONKEYWORD(S) \
+    S(True, "true")    \
+    S(False, "false")  \
+    S(Null, "null")
+
+enum class JSONKeyword {
+#undef S
+#define S(kw, str) kw,
+    JSONKEYWORD(S)
+#undef S
+};
 
 Result<JSONValue, JSONValue::ReadError> JSONValue::read_file(std::string_view const &file_name)
 {
@@ -152,9 +160,10 @@ Result<JSONValue, JSONValue::ReadError> JSONValue::read_file(std::string_view co
     return json_maybe.value();
 }
 
-using JSONLexer = Lexer<false, false, false>;
+using JSONLexer = Lexer<JSONKeyword>;
+using JSONToken = Token<JSONKeyword>;
 
-Result<std::string, JSONError> decode_string(Token const &token)
+Result<std::string, JSONError> decode_string(JSONToken const &token)
 {
     if (token != TokenKind::QuotedString) {
         return JSONError {
@@ -164,7 +173,7 @@ Result<std::string, JSONError> decode_string(Token const &token)
             static_cast<int>(token.location.column),
         };
     }
-    if (!token.quoted_string.terminated) {
+    if (!token.quoted_string().terminated) {
         return JSONError {
             JSONError::Code::SyntaxError,
             "Unterminated string",
@@ -205,7 +214,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
     trace(JSON, "decode_value token: {}", token);
     switch (token.kind) {
     case TokenKind::Symbol: {
-        switch (token.symbol_code) {
+        switch (token.symbol_code()) {
         case '{': {
             auto result = JSONValue::object();
             if (!lexer.accept_symbol('}')) {
@@ -230,7 +239,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
             auto result = JSONValue::array();
             if (!lexer.accept_symbol(']')) {
                 while (true) {
-                    auto        value = TRY_EVAL(decode_value(lexer));
+                    auto value = TRY_EVAL(decode_value(lexer));
                     trace(JSON, "Array elem: {}", value.to_string());
                     result.append(value);
                     if (!lexer.accept_symbol(',')) {
@@ -244,7 +253,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
         default:
             return JSONError {
                 JSONError::Code::SyntaxError,
-                std::format("Unexpected symbol '{:c}'", token.symbol_code),
+                std::format("Unexpected symbol '{:c}'", token.symbol_code()),
                 static_cast<int>(token.location.line),
                 static_cast<int>(token.location.column),
             };
@@ -255,7 +264,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
         return JSONValue { TRY_EVAL(decode_string(token)) };
     }
     case TokenKind::Number: {
-        switch (token.number_type) {
+        switch (token.number_type()) {
         case NumberType::Decimal: {
             auto dbl_maybe = string_to_double(token.text);
             assert(dbl_maybe.has_value());
@@ -269,12 +278,12 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
         }
     }
     case TokenKind::Keyword: {
-        switch (static_cast<int>(token.keyword_code)) {
-        case JSONKeywordFalse:
+        switch (token.keyword_code()) {
+        case JSONKeyword::False:
             return JSONValue(false);
-        case JSONKeywordTrue:
+        case JSONKeyword::True:
             return JSONValue(true);
-        case JSONKeywordNull:
+        case JSONKeyword::Null:
             return JSONValue();
         default:
             UNREACHABLE();
@@ -286,21 +295,23 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
             std::format("Invalid token '{:}' ({:})", token.text, TokenKind_name(token.kind)),
             static_cast<int>(token.location.line),
             static_cast<int>(token.location.column),
-    };
+        };
     }
+}
+
+template<>
+std::map<std::string_view, JSONKeyword> get_keywords()
+{
+    return {
+        { "true", JSONKeyword::True },
+        { "false", JSONKeyword::False },
+        { "null", JSONKeyword::Null },
+    };
 }
 
 Result<JSONValue, JSONError> JSONValue::deserialize(std::string_view const &str)
 {
-    Language json_language {};
-    json_language.name = "JSON";
-    json_language.keywords = {
-        { "true", JSONKeywordTrue },
-        { "false", JSONKeywordFalse },
-        { "null", JSONKeywordNull },
-    };
-
-    JSONLexer lexer { json_language };
+    JSONLexer lexer;
     lexer.push_source(str, "string");
     return decode_value(lexer);
 }

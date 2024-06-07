@@ -7,7 +7,6 @@
 #include <cctype>
 
 #include <LibCore/IO.h>
-#include <LibCore/Lexer.h>
 
 #include <App/Buffer.h>
 #include <App/Eddy.h>
@@ -16,7 +15,7 @@ namespace Eddy {
 
 using namespace LibCore;
 
-Buffer::Buffer(pWidget const& parent)
+Buffer::Buffer(pWidget const &parent)
     : Widget(parent)
 {
     //    widget_register(
@@ -25,17 +24,17 @@ Buffer::Buffer(pWidget const& parent)
     //        (WidgetCommandHandler) buffer_semantic_tokens_response);
 }
 
-Result<pBuffer> Buffer::open(std::string_view const& name)
+Result<pBuffer> Buffer::open(std::string_view const &name)
 {
     auto buffer = Widget::make<Buffer>(Eddy::the());
     buffer->name = name;
+    buffer->m_mode = Eddy::the()->get_mode_for_buffer(buffer);
+    if (auto listener = buffer->m_mode->event_listener(); listener) {
+        buffer->add_listener(listener);
+    }
     buffer->text = TRY_EVAL(read_file_by_name(name));
     buffer->lines.clear();
     buffer->build_indices();
-    //    mode = eddy_get_mode_for_buffer(&eddy, name);
-    //    if (mode) {
-    //        buffer_add_listener(buffer, mode->event_listener);
-    //    }
     return buffer;
 }
 
@@ -58,41 +57,52 @@ void Buffer::close()
     apply(event);
 }
 
+/*
+ * A line is a sequence of tokens. Last token is EOL (end of line)
+ * - m_index_of is index of first char of the line.
+ * - m_length includes the EOL
+ * - Last line may not have a terminating EOL.
+ * - EOF is not added to last line.
+ */
 bool Buffer::build_indices()
 {
     assert(indexed_version <= version);
-    trace(EDIT, "buffer_build_indices('{}')", name);
     if (indexed_version == version && !lines.empty() > 0) {
-        trace(EDIT, "buffer_build_indices('{}'): clean. indexed_version = {} version = {} lines = {}",
-            name, indexed_version, version, lines.size());
         return false;
     }
     lines.clear();
     tokens.clear();
-    Lexer<true, true, true> lexer {};
-    lexer.push_source(text, name);
-    Index current { 0, 0 };
+
+    mode()->initialize_source();
+
+    Index  current { 0, 0 };
     size_t lineno { 0 };
-    trace(EDIT, "Buffer length: {}", text.length());
+    trace(EDIT, "build_indices. version {} indexed_version {} length: {}", version, indexed_version, text.length());
     bool done = false;
+    std::stringstream ss;
     do {
-        auto const t = lexer.lex();
-        switch (t.kind) {
+        auto const t = mode()->lex();
+        switch (t.kind()) {
         case TokenKind::EndOfFile:
             trace(EDIT, "[EOF]");
             done = true;
             break;
-        case TokenKind::EndOfLine:
-            assert(t.location.index <= text.length());
-            current.length = t.location.index - current.index_of;
+        case TokenKind::EndOfLine: {
+            assert(t <= text.length());
+            current.extend(t);
+            tokens.emplace_back(t);
             lines.push_back(current);
-            trace(EDIT, "[EOL]-{}-", text.substr(current.index_of, current.length));
+            trace(EDIT, "{}[EOL] index: {} length: {} end: {} first {} num {}", ss.view(), current.begin(), current.length(), current.end(), current.first_token(), current.tokens());
+	    ss = std::stringstream {};
             ++lineno;
-            current = Index { t.location.index + 1, tokens.size() };
-            break;
+            auto index = current.end();
+            current = Index { index, tokens.size() };
+        } break;
         default:
-            ++current.num_tokens;
-            tokens.emplace_back(t.location.index, t.text.length(), lineno, /*colour_to_color(colour) */ RAYWHITE);
+	    ss << "[" << TokenKind_name(t.kind()) << "]{" << text.substr(t, t.length()) << "}";
+            current.extend(t);
+            tokens.emplace_back(t);
+            break;
         }
     } while (!done);
     lines.push_back(current);
@@ -114,12 +124,12 @@ size_t Buffer::line_for_index(size_t index) const
     size_t line_min = 0;
     size_t line_max = lines.size() - 1;
     while (true) {
-        size_t lineno = line_min + (line_max - line_min) / 2;
+        auto        lineno = line_min + (line_max - line_min) / 2;
         auto const &line = lines[lineno];
-        if ((lineno < lines.size() - 1 && line.index_of <= index && index <= line.index_of + line.length) || (lineno == lines.size() - 1 && line.index_of <= index)) {
+        if ((lineno < lines.size() - 1 && line.contains(index)) || (lineno == lines.size() - 1 && line.begin() <= index)) {
             return lineno;
         }
-        if (line.index_of > index) {
+        if (line.begin() > index) {
             line_max = lineno;
         } else {
             line_min = lineno + 1;
@@ -131,17 +141,17 @@ Vec<size_t> Buffer::index_to_position(size_t index) const
 {
     Vec<size_t> ret {};
     ret.line = line_for_index(index);
-    ret.column = index - lines[ret.line].index_of;
+    ret.column = index - lines[ret.line].begin();
     return ret;
 }
 
 size_t Buffer::position_to_index(Vec<size_t> position) const
 {
-    Index const& line = lines[position.line];
-    return line.index_of + position.column;
+    Index const &line = lines[position.line];
+    return line.begin() + position.column;
 }
 
-void Buffer::apply(BufferEvent const& event)
+void Buffer::apply(BufferEvent const &event)
 {
     switch (event.type) {
     case BufferEventType::Insert: {
@@ -211,7 +221,7 @@ void Buffer::apply(BufferEvent const& event)
     }
 }
 
-void Buffer::edit(BufferEvent const& event)
+void Buffer::edit(BufferEvent const &event)
 {
     apply(event);
     undo_stack.push_back(event);
@@ -270,7 +280,7 @@ void Buffer::replace(size_t at, size_t num, std::string_view const &replacement)
         return;
     }
     std::string_view overwritten = { text.begin() + at, text.begin() + at + num };
-    EventRange range;
+    EventRange       range;
     range.start = index_to_position(static_cast<int>(at));
     range.end = index_to_position(static_cast<int>(at + num));
     edit(BufferEvent::make_replacement(range, at, overwritten, replacement));
@@ -284,8 +294,8 @@ void Buffer::merge_lines(size_t top_line)
     if (top_line < 0) {
         top_line = 0;
     }
-    Index& line = lines[top_line];
-    replace(line.index_of + line.length, 1, " ");
+    Index &line = lines[top_line];
+    replace(line.end(), 1, " ");
 }
 
 void Buffer::save()
@@ -317,7 +327,7 @@ size_t Buffer::word_boundary_left(size_t index) const
 
 size_t Buffer::word_boundary_right(size_t index) const
 {
-    index = clamp(index, 0, text.length()-1);
+    index = clamp(index, 0, text.length() - 1);
     size_t max_index = text.length();
     if (isalnum(text[index]) || text[index] == '_') {
         while (index < max_index && (isalnum(text[index]) || text[index] == '_')) {
@@ -331,12 +341,12 @@ size_t Buffer::word_boundary_right(size_t index) const
     return index;
 }
 
-void Buffer::add_listener(BufferEventListener const& listener)
+void Buffer::add_listener(BufferEventListener const &listener)
 {
     listeners.emplace_back(listener);
 }
 
-std::string const& Buffer::uri()
+std::string const &Buffer::uri()
 {
     if (m_uri.empty() && !name.empty()) {
         m_uri = std::format("file://{}/{}", Eddy::the()->project->project_dir, name);

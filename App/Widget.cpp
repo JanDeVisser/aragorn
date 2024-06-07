@@ -95,7 +95,7 @@ void Widget::render_sized_text_(float x, float y, std::string_view const &text, 
             y = viewport.height - m.y + y;
         }
     }
-    Vector2 pos = { viewport.x + x, viewport.y + y };
+    Vector2 pos { viewport.x + x, viewport.y + y };
     DrawTextEx(font, t.c_str(), pos, (float) font.baseSize * size, 2, color);
 }
 
@@ -140,13 +140,13 @@ void Widget::draw_line_(float x0, float y0, float x1, float y1, Color color) con
 
 void Widget::draw_rectangle_(float x, float y, float width, float height, Color color) const
 {
-    auto const r = normalize(x, y, width, height);
+    auto const r { normalize(x, y, width, height) };
     DrawRectangleRec(r, color);
 }
 
 void Widget::draw_rectangle_no_normalize_(float x, float y, float width, float height, Color color) const
 {
-    Rectangle const r = { .x = viewport.x + x, .y = viewport.y + y, .width = width, .height = height };
+    Rectangle const r { .x = viewport.x + x, .y = viewport.y + y, .width = width, .height = height };
     DrawRectangleRec(r, color);
 }
 
@@ -157,15 +157,15 @@ void Widget::draw_outline_(float x, float y, float width, float height, Color co
 
 void Widget::draw_outline_no_normalize_(float x, float y, float width, float height, Color color) const
 {
-    Rectangle r = { .x = viewport.x + x, .y = viewport.y + y, .width = width, .height = height };
+    Rectangle r { .x = viewport.x + x, .y = viewport.y + y, .width = width, .height = height };
     DrawRectangleLinesEx(r, 1, color);
 }
 
 void Widget::draw_hover_panel_(float x, float y, StringList const& text, Color bgcolor, Color textcolor) const
 {
     assert(!text.empty());
-    size_t longest_line = 0;
-    size_t maxlen = 0;
+    size_t longest_line {0};
+    size_t maxlen {0};
     for (auto ix = 0; ix < text.size(); ++ix) {
         auto const &line = text.at(ix);
         if (line.length() > maxlen) {
@@ -173,9 +173,9 @@ void Widget::draw_hover_panel_(float x, float y, StringList const& text, Color b
             longest_line = ix;
         }
     }
-    auto text_size = MeasureTextEx(App::the()->font.value(), text.at(longest_line).c_str(), App::the()->font.value().baseSize, 2);
-    auto width = static_cast<float>(text_size.x + 12);
-    auto height = static_cast<float>(App::the()->cell.y + 2) * text.size() + 12;
+    auto text_size { MeasureTextEx(App::the()->font.value(), text.at(longest_line).c_str(), App::the()->font.value().baseSize, 2) };
+    auto width { static_cast<float>(text_size.x + 12) };
+    auto height { static_cast<float>(App::the()->cell.y + 2) * text.size() + 12 };
     draw_rectangle_no_normalize(x, y, width, height, bgcolor);
     draw_outline_no_normalize(x + 2, y + 2, width - 4, height - 4, textcolor);
     for (size_t ix = 0; ix < text.size(); ++ix) {

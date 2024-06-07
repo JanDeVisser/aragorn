@@ -9,42 +9,48 @@
 #include <LibCore/Result.h>
 
 #include <App/Event.h>
+#include <App/Mode.h>
+#include <App/Theme.h>
 #include <App/Widget.h>
 
 namespace Eddy {
 
 using namespace LibCore;
 
-struct DisplayToken {
-    size_t index;
-    size_t length;
-    size_t line;
-    Color  color;
-
-    DisplayToken(size_t index, size_t length, size_t line, Color color)
-        : index(index)
-        , length(length)
-        , line(line)
-        , color(color)
-    {
-    }
-};
-
-struct Index {
-    size_t index_of;
-    size_t length { 0 };
-    size_t first_token;
-    size_t num_tokens { 0 };
-    size_t first_diagnostic { 0 };
-    size_t num_diagnostics { 0 };
-
+class Index {
+public:
     explicit Index(size_t index_of, size_t first_token = 0)
-        : index_of(index_of)
-        , first_token(first_token)
+        : m_index_of(index_of)
+        , m_first_token(first_token)
     {
     }
 
-    size_t end() const { return index_of + length; }
+    operator size_t() const { return m_index_of; }
+    size_t length() const { return m_length; }
+    size_t begin() const { return m_index_of; }
+    size_t end() const { return begin() + length(); }
+    auto   operator<=>(Index const &other) const { return m_index_of <=> other.m_index_of; }
+    bool   contains(size_t ix) const
+    {
+        return ix >= begin() && ix <= end();
+    }
+
+    size_t tokens() const { return m_num_tokens; }
+    size_t first_token() const { return m_first_token; }
+
+    void extend(DisplayToken const &token)
+    {
+        ++m_num_tokens;
+        m_length += token.length();
+    }
+
+private:
+    size_t m_index_of;
+    size_t m_length { 0 };
+    size_t m_first_token;
+    size_t m_num_tokens { 0 };
+    size_t m_first_diagnostic { 0 };
+    size_t m_num_diagnostics { 0 };
 };
 
 using pBuffer = std::shared_ptr<Buffer>;
@@ -61,7 +67,7 @@ struct Buffer : public Widget {
     size_t                    version { 0 };
     size_t                    undo_pointer { 0 };
     //    std::vector<Diagnostic>          diagnostics;
-    //    Mode                            *mode;
+    pMode const                     &mode() { return m_mode; }
     std::vector<BufferEventListener> listeners {};
 
     Buffer(pWidget const &parent);
@@ -99,6 +105,7 @@ struct Buffer : public Widget {
 
 private:
     std::string m_uri {};
+    pMode       m_mode;
 };
 
 // extern void          lsp_on_open(Buffer *buffer);

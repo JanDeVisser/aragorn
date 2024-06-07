@@ -4,14 +4,17 @@ add_executable(
         Eddy
         App.cpp
         Buffer.cpp
+	Colour.cpp
         BufferView.cpp
         Eddy.cpp
         Editor.cpp
         FileSelector.h
         Gutter.cpp
         Layout.cpp
+	LexerMode.h
         MiniBuffer.h
         Modal.h
+	Mode.cpp
         StatusBar.cpp
         Theme.cpp
         Widget.cpp

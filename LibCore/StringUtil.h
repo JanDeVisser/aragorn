@@ -23,19 +23,21 @@ namespace LibCore {
 using StringList = std::vector<std::string>;
 using StringViewList = std::vector<std::string_view>;
 
+int isbdigit(int ch);
+
 // int stricmp(const char*, const char*);
 // std::string to_upper(std::string const&);
 // std::string to_lower(std::string const&);
-std::size_t replace_all(std::string&, std::string_view, std::string_view);
-StringList split(std::string_view const& s, std::string_view const& sep);
-StringList split(std::string_view const& s, char sep);
-StringList split_by_whitespace(std::string_view const& s);
+std::size_t replace_all(std::string &, std::string_view, std::string_view);
+StringList  split(std::string_view const &s, std::string_view const &sep);
+StringList  split(std::string_view const &s, char sep);
+StringList  split_by_whitespace(std::string_view const &s);
 //
 // std::string c_escape(std::string const& s);
 // std::string join(StringList const& collection, char sep);
-std::string_view strip(std::string_view const& s);
-std::string_view rstrip(std::string_view const& s);
-std::string_view lstrip(std::string_view const& s);
+std::string_view strip(std::string_view const &s);
+std::string_view rstrip(std::string_view const &s);
+std::string_view lstrip(std::string_view const &s);
 // std::vector<std::pair<std::string, std::string>> parse_pairs(std::string const& s, char pair_sep = ';', char name_value_sep = '=');
 // std::string dequote(std::string const& s, char = '"');
 

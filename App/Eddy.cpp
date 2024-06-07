@@ -16,6 +16,7 @@
 
 #include <App/Eddy.h>
 #include <App/Editor.h>
+#include <App/LexerMode.h>
 #include <App/MiniBuffer.h>
 #include <App/Modal.h>
 #include <App/StatusBar.h>
@@ -311,7 +312,7 @@ EError Eddy::load_theme(std::string_view const &name)
     if (theme_maybe.is_error()) {
         return EddyError { theme_maybe.error() };
     }
-    theme = theme_maybe.value();
+    m_theme = theme_maybe.value();
     for (auto const &buffer : buffers) {
         bool is_saved = buffer->version == buffer->saved_version;
         ++buffer->version;
@@ -402,6 +403,15 @@ EError Eddy::open_dir(std::string_view const &dir)
         return project_maybe.error();
     }
     return {};
+}
+
+pMode Eddy::get_mode_for_buffer(pBuffer const &buffer)
+{
+    auto const&name = buffer->name;
+    if (name.ends_with(".cpp") || name.ends_with(".c") || name.ends_with(".h")) {
+        return Widget::make<CMode>(buffer);
+    }
+    return Widget::make<PlainText>(buffer);
 }
 
 void Eddy::set_message(std::string_view const &text)

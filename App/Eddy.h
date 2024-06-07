@@ -116,7 +116,6 @@ struct Eddy : public App {
     JSONValue            settings;
     pProject             project;
     StringList           font_dirs;
-    Theme                theme;
 
     Eddy();
     static pEddy the();
@@ -136,12 +135,18 @@ struct Eddy : public App {
     StringList      get_font_dirs();
     EError          open_dir(std::string_view const &dir);
     void            terminate();
+    pMode           get_mode_for_buffer(pBuffer const &buffer);
 
     pBuffer const &buffer(int buffer_num)
     {
         assert(buffer_num >= 0 && buffer_num < buffers.size());
         return buffers[buffer_num];
     }
+
+    Theme &theme() { return m_theme; }
+
+private:
+    Theme m_theme;
 };
 
 }

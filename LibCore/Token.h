@@ -21,20 +21,23 @@ struct NoSuchEnumValue {
 template<typename ResultType>
 using EnumResult = Result<ResultType, NoSuchEnumValue>;
 
-#define TOKENKINDS(S) \
-    S(Unknown)        \
-    S(EndOfFile)      \
-    S(EndOfLine)      \
-    S(Symbol)         \
-    S(Keyword)        \
-    S(Identifier)     \
-    S(Number)         \
-    S(QuotedString)   \
-    S(Comment)        \
-    S(Whitespace)     \
-    S(Program)        \
-    S(Directive)      \
-    S(DirectiveArg)   \
+#define VALUE_TOKENKINDS(S) \
+    S(Symbol)               \
+    S(Keyword)              \
+    S(Number)               \
+    S(QuotedString)         \
+    S(Comment)              \
+    S(Directive)
+
+#define TOKENKINDS(S)   \
+    S(Unknown)          \
+    VALUE_TOKENKINDS(S) \
+    S(EndOfFile)        \
+    S(EndOfLine)        \
+    S(Identifier)       \
+    S(Whitespace)       \
+    S(Program)          \
+    S(DirectiveArg)     \
     S(Module)
 
 enum class TokenKind {
@@ -210,81 +213,40 @@ inline Error<JSONError> decode_value(JSONValue const &json, TokenLocation &locat
     return {};
 }
 
-template<int CodeType>
-struct TokenCode {
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "google-explicit-constructor"
-    TokenCode(int c)
-        : code(c)
-    {
-    }
-
-    operator int() const { return code; }
-    operator bool() const { return code != 0; }
-#pragma clang diagnostic pop
-    TokenCode() = default;
-    TokenCode(TokenCode const &) = default;
-
-    int  code = { 0 };
-    bool operator==(TokenCode const &other) const = default;
+struct QuotedString {
+    QuoteType quote_type;
+    bool      triple;
+    bool      terminated;
 };
 
-template<int CodeType>
-inline JSONValue to_json(TokenCode<CodeType> const &code)
-{
-    return JSONValue { code.code };
-}
-
-template<int CodeType>
-inline Error<JSONError> decode_value(JSONValue const &json, TokenCode<CodeType> &code)
-{
-    if (!json.is_integer()) {
-        return JSONError { JSONError::Code::TypeMismatch, "" };
-    }
-    code = *(value<int>(json));
-    return {};
+struct CommentText {
+    CommentType comment_type;
+    bool        terminated;
 };
 
-using KeywordCode = TokenCode<0>;
-
-struct Keyword {
-    std::string_view keyword {};
-    KeywordCode      code {};
+enum class NoKeyword {
 };
 
-using DirectiveCode = TokenCode<1>;
+enum class NoDirective {
+};
 
+template<typename KeywordCodeType = NoKeyword, typename DirectiveCodeType = NoDirective>
 struct Token {
-    Token()
-    {
-    }
+    using TokenValue = std::variant<bool, NumberType, QuotedString, CommentText, KeywordCodeType, DirectiveCodeType, int>;
 
+    Token() = default;
     Token(Token const &) = default;
 
     TokenKind     kind { TokenKind::Unknown };
     std::string   text {};
     TokenLocation location {};
-    union {
-        NumberType number_type { NumberType::Integer };
-        struct {
-            QuoteType quote_type;
-            bool      triple;
-            bool      terminated;
-        } quoted_string;
-        struct {
-            CommentType comment_type;
-            bool        terminated;
-        } comment_text;
-        KeywordCode   keyword_code;
-        DirectiveCode directive_code;
-        int           symbol_code;
-    };
+    TokenValue    value;
 
     static Token number(NumberType type, std::string_view const &text)
     {
         Token ret;
         ret.kind = TokenKind::Number;
-        ret.number_type = type;
+        ret.value = type;
         ret.text = std::string { text };
         return ret;
     }
@@ -293,17 +255,17 @@ struct Token {
     {
         Token ret;
         ret.kind = TokenKind::Symbol;
-        ret.symbol_code = sym;
+        ret.value = TokenValue { std::in_place_index<6>, sym };
         ret.text = std::string { "x" };
         ret.text[0] = static_cast<char>(sym);
         return ret;
     }
 
-    static Token keyword(KeywordCode const &code, std::string_view const &text)
+    static Token keyword(KeywordCodeType const &code, std::string_view const &text)
     {
         Token ret;
         ret.kind = TokenKind::Keyword;
-        ret.keyword_code = code;
+        ret.value = TokenValue { std::in_place_index<4>, code };
         ret.text = std::string { text };
         return ret;
     }
@@ -324,11 +286,11 @@ struct Token {
         return ret;
     }
 
-    static Token directive(DirectiveCode const &code, std::string_view const &text)
+    static Token directive(DirectiveCodeType const &code, std::string_view const &text)
     {
         Token ret;
         ret.kind = TokenKind::Directive;
-        ret.directive_code = code;
+        ret.value = TokenValue { std::in_place_index<5>, code };
         ret.text = std::string { text };
         return ret;
     }
@@ -337,8 +299,7 @@ struct Token {
     {
         Token ret;
         ret.kind = TokenKind::Comment;
-        ret.comment_text.comment_type = type;
-        ret.comment_text.terminated = terminated;
+        ret.value = CommentText { .comment_type = type, .terminated = terminated };
         ret.text = std::string { text };
         return ret;
     }
@@ -364,10 +325,48 @@ struct Token {
         Token ret;
         ret.kind = TokenKind::QuotedString;
         ret.text = std::string { text };
-        ret.quoted_string.quote_type = type;
-        ret.quoted_string.terminated = terminated;
-        ret.quoted_string.triple = triple;
+        ret.value = QuotedString {
+            .quote_type = type,
+            .terminated = terminated,
+            .triple = triple
+        };
         return ret;
+    }
+
+    NumberType number_type() const
+    {
+        assert(kind == TokenKind::Number);
+        return std::get<1>(value);
+    }
+
+    int symbol_code() const
+    {
+        assert(kind == TokenKind::Symbol);
+        return std::get<6>(value);
+    }
+
+    KeywordCodeType keyword_code() const
+    {
+        assert(kind == TokenKind::Keyword);
+        return std::get<4>(value);
+    }
+
+    DirectiveCodeType directive_code() const
+    {
+        assert(kind == TokenKind::Directive);
+        return std::get<5>(value);
+    }
+
+    QuotedString const &quoted_string() const
+    {
+        assert(kind == TokenKind::QuotedString);
+        return std::get<QuotedString>(value);
+    }
+
+    CommentText const &comment_text() const
+    {
+        assert(kind == TokenKind::Comment);
+        return std::get<CommentText>(value);
     }
 
     bool operator==(TokenKind const &k) const
@@ -390,89 +389,74 @@ struct Token {
         return !matches(s);
     }
 
-    bool operator==(KeywordCode const &code) const
+    bool operator==(KeywordCodeType const &code) const
     {
         return matches(code);
     }
 
-    bool operator!=(KeywordCode const &code) const
+    bool operator!=(KeywordCodeType const &code) const
     {
         return !matches(code);
     }
 
     [[nodiscard]] bool matches(TokenKind k) const { return kind == k; }
-    [[nodiscard]] bool matches(int symbol) const { return matches(TokenKind::Symbol) && this->symbol_code == symbol; }
-    [[nodiscard]] bool matches(KeywordCode code) const { return matches(TokenKind::Keyword) && this->keyword_code == code; }
-    [[nodiscard]] bool matches(DirectiveCode code) const { return matches(TokenKind::Directive) && this->directive_code == code; }
+    [[nodiscard]] bool matches_symbol(int symbol) const { return matches(TokenKind::Symbol) && this->symbol_code() == symbol; }
+    [[nodiscard]] bool matches_keyword(KeywordCodeType code) const { return matches(TokenKind::Keyword) && this->keyword_code() == code; }
+    [[nodiscard]] bool matches_directive(DirectiveCodeType code) const { return matches(TokenKind::Directive) && this->directive_code() == code; }
     [[nodiscard]] bool is_identifier() const { return matches(TokenKind::Identifier); }
 
     friend Error<JSONError> decode_value(JSONValue const &json, Token &token);
     friend Error<JSONError> decode_token(JSONValue const &json, Token &token);
 };
 
-template<TokenKind K>
-inline void to_json_token(Token const &token, JSONValue &json)
-{
-    // By default nothing
-}
-
-template<>
-inline void to_json_token<TokenKind::Number>(Token const &token, JSONValue &json)
-{
-    set(json, "number_type", NumberType_name(token.number_type));
-}
-
-template<>
-inline void to_json_token<TokenKind::QuotedString>(Token const &token, JSONValue &json)
-{
-    auto quote = JSONValue::object();
-    set(quote, "quote_type", token.quoted_string.quote_type);
-    set(quote, "triple", token.quoted_string.triple);
-    set(quote, "terminated", token.quoted_string.terminated);
-    set(json, "quoted_string", quote);
-}
-
-template<>
-inline void to_json_token<TokenKind::Comment>(Token const &token, JSONValue &json)
-{
-    auto comment = JSONValue::object();
-    set(comment, "comment_type", token.comment_text.comment_type);
-    set(comment, "terminated", token.comment_text.terminated);
-    set(json, "comment", comment);
-}
-
-template<>
-inline void to_json_token<TokenKind::Keyword>(Token const &token, JSONValue &json)
-{
-    set(json, "code", token.keyword_code);
-}
-
-template<>
-inline void to_json_token<TokenKind::Directive>(Token const &token, JSONValue &json)
-{
-    set(json, "directive", token.directive_code);
-}
-
-template<>
-inline void to_json_token<TokenKind::Symbol>(Token const &token, JSONValue &json)
-{
-    set(json, "symbol", token.symbol_code);
-}
-
-template<>
-inline JSONValue to_json(Token const &token)
+template<typename KeywordCodeType = int, typename DirectiveCodeType = int>
+inline JSONValue to_json(Token<KeywordCodeType, DirectiveCodeType> const &token)
 {
     auto ret = JSONValue::object();
     set(ret, "kind", TokenKind_name(token.kind));
     set(ret, "text", token.text);
     set(ret, "location", token.location);
+
+    auto to_json_token_Number = [&ret, &token]() -> void {
+        set(ret, "number_type", NumberType_name(token.number_type));
+    };
+
+    auto to_json_token_QuotedString = [&ret, &token]() -> void {
+        auto quote = JSONValue::object();
+        auto quoted_string = std::get<QuotedString>(token.value);
+        set(quote, "quote_type", quoted_string.quote_type);
+        set(quote, "triple", quoted_string.triple);
+        set(quote, "terminated", quoted_string.terminated);
+        set(ret, "quoted_string", quote);
+    };
+
+    auto to_json_token_Comment = [&ret, &token]() -> void {
+        auto comment = JSONValue::object();
+        auto comment_text = std::get<CommentText>(token.value);
+        set(comment, "comment_type", comment_text.comment_type);
+        set(comment, "terminated", comment_text.terminated);
+        set(ret, "comment", comment);
+    };
+
+    auto to_json_token_Keyword = [&ret, &token]() -> void {
+        set(ret, "directive", std::get<4>(token.value));
+    };
+
+    auto to_json_token_Directive = [&ret, &token]() -> void {
+        set(ret, "directive", std::get<5>(token.value));
+    };
+
+    auto to_json_token_Symbol = [&ret, &token]() -> void {
+        set(ret, "symbol", std::get<6>(token.value));
+    };
+
     switch (token.kind) {
 #undef S
-#define S(K)                                     \
-    case TokenKind::K:                           \
-        to_json_token<TokenKind::K>(token, ret); \
+#define S(K)                 \
+    case TokenKind::K:       \
+        to_json_token_##K(); \
         break;
-        TOKENKINDS(S)
+        VALUE_TOKENKINDS(S)
 #undef S
     default:
         UNREACHABLE();
@@ -480,76 +464,63 @@ inline JSONValue to_json(Token const &token)
     return ret;
 }
 
-template<TokenKind K>
-inline Error<JSONError> decode_token(JSONValue const &json, Token &token)
+template<typename KeywordCodeType, typename DirectiveCodeType>
+inline Error<JSONError> decode_value(JSONValue const &json, Token<KeywordCodeType, DirectiveCodeType> &token)
 {
-    // By default nothing
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_token<TokenKind::Number>(JSONValue const &json, Token &token)
-{
-    token.number_type = TRY_EVAL(json.try_get<NumberType>("number_type"));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_token<TokenKind::QuotedString>(JSONValue const &json, Token &token)
-{
-    auto quote = TRY_EVAL(json.try_get<JSONValue>("quoted_string"));
-    token.quoted_string.quote_type = TRY_EVAL(quote.try_get<QuoteType>("quote_type"));
-    token.quoted_string.triple = TRY_EVAL(quote.try_get<bool>("triple"));
-    token.quoted_string.terminated = TRY_EVAL(quote.try_get<bool>("terminated"));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_token<TokenKind::Comment>(JSONValue const &json, Token &token)
-{
-    auto comment = TRY_EVAL(json.try_get<JSONValue>("comment"));
-    token.comment_text.comment_type = TRY_EVAL(comment.try_get<CommentType>("comment_type"));
-    token.comment_text.terminated = TRY_EVAL(comment.try_get<bool>("terminated"));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_token<TokenKind::Keyword>(JSONValue const &json, Token &token)
-{
-    token.keyword_code = TRY_EVAL(json.try_get<KeywordCode>("code"));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_token<TokenKind::Directive>(JSONValue const &json, Token &token)
-{
-    token.directive_code = TRY_EVAL(json.try_get<DirectiveCode>("directive"));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_token<TokenKind::Symbol>(JSONValue const &json, Token &token)
-{
-    token.symbol_code = TRY_EVAL(json.try_get<int>("symbol"));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_value(JSONValue const &json, Token &token)
-{
+    using T = Token<KeywordCodeType, DirectiveCodeType>;
     if (!json.is_object()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     token.kind = TRY_EVAL(json.try_get<TokenKind>("kind"));
     token.text = TRY_EVAL(json.try_get<std::string>("text"));
     token.location = TRY_EVAL(json.try_get<TokenLocation>("location"));
+
+    auto decode_token_Number = [&json, &token]() -> Error<JSONError> {
+        token.number_type = TRY_EVAL(json.try_get<NumberType>("number_type"));
+        return {};
+    };
+
+    auto decode_token_QuotedString = [&json, &token]() -> Error<JSONError> {
+        auto quote = TRY_EVAL(json.try_get<JSONValue>("quoted_string"));
+        token.value = QuotedString {
+            .quote_type = TRY_EVAL(quote.try_get<QuoteType>("quote_type")),
+            .triple = TRY_EVAL(quote.try_get<bool>("triple")),
+            .terminated = TRY_EVAL(quote.try_get<bool>("terminated")),
+        };
+        return {};
+    };
+
+    auto decode_token_Comment = [&json, &token]() -> Error<JSONError> {
+        auto comment = TRY_EVAL(json.try_get<JSONValue>("comment"));
+        token.value = CommentText {
+            .comment_type = TRY_EVAL(comment.try_get<CommentType>("comment_type")),
+            .terminated = TRY_EVAL(comment.try_get<bool>("terminated")),
+        };
+        return {};
+    };
+
+    auto decode_token_Keyword = [&json, &token]() -> Error<JSONError> {
+        token.keyword_code = TRY_EVAL(json.try_get<KeywordCodeType>("code"));
+        return {};
+    };
+
+    auto decode_token_Directive = [&json, &token]() -> Error<JSONError> {
+        token.directive_code = TRY_EVAL(json.try_get<DirectiveCodeType>("directive"));
+        return {};
+    };
+
+    auto decode_token_Symbol = [&json, &token]() -> Error<JSONError> {
+        token.symbol_code = TRY_EVAL(json.try_get<int>("symbol"));
+        return {};
+    };
+
     switch (token.kind) {
 #undef S
-#define S(K)                                          \
-    case TokenKind::K:                                \
-        TRY(decode_token<TokenKind::K>(json, token)); \
+#define S(K)                     \
+    case TokenKind::K:           \
+        TRY(decode_token_##K()); \
         break;
-        TOKENKINDS(S)
+        VALUE_TOKENKINDS(S)
 #undef S
     default:
         UNREACHABLE();
@@ -559,14 +530,13 @@ inline Error<JSONError> decode_value(JSONValue const &json, Token &token)
 
 }
 
-template<>
-struct std::formatter<LibCore::Token, char>
-{
-    using Token = LibCore::Token;
+template<typename KeywordCodeType, typename DirectiveCodeType>
+struct std::formatter<LibCore::Token<KeywordCodeType, DirectiveCodeType>, char> {
+    using Token = LibCore::Token<KeywordCodeType, DirectiveCodeType>;
     bool quoted = false;
 
     template<class ParseContext>
-    constexpr ParseContext::iterator parse(ParseContext& ctx)
+    constexpr ParseContext::iterator parse(ParseContext &ctx)
     {
         auto it = ctx.begin();
         if (it != ctx.end() && *it != '}') {
@@ -576,7 +546,7 @@ struct std::formatter<LibCore::Token, char>
     }
 
     template<class FmtContext>
-    FmtContext::iterator format(Token const& token, FmtContext& ctx) const
+    FmtContext::iterator format(Token const &token, FmtContext &ctx) const
     {
         std::ostringstream out;
         out << "[" << LibCore::TokenKind_name(token.kind) << "]";
@@ -586,4 +556,3 @@ struct std::formatter<LibCore::Token, char>
         return std::ranges::copy(std::move(out).str(), ctx.out()).out;
     }
 };
-

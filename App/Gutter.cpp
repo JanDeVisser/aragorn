@@ -79,11 +79,13 @@ void Gutter::process_input()
         auto const &buffer = view->buffer();
         auto        lineno = view->view_offset().line + row;
         auto       &line = buffer->lines[lineno];
+#if 0
         if (line.num_diagnostics > 0) {
             row_diagnostic_hover = row;
             first_diagnostic_hover = line.first_diagnostic;
             num_diagnostics_hover = line.num_diagnostics;
         }
+#endif
     }
 }
 

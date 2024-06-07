@@ -13,138 +13,70 @@
 #include <LibCore/JSON.h>
 #include <LibCore/Token.h>
 
+#include <App/Colour.h>
+
 namespace Eddy {
 
 using namespace LibCore;
 
-struct Colour {
-    struct ColourParseError {
-        std::string message;
-    };
-
-    union {
-        Color         color;
-        unsigned char components[4];
-        uint32_t      rgba;
-    };
-
-    Colour(Colour const &) = default;
-
-    explicit Colour(uint32_t rgba = 0x000000FF)
-        : rgba(rgba)
-    {
-    }
-
-    Colour(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-    {
-        color.r = r;
-        color.g = g;
-        color.b = b;
-        color.a = a;
-    }
-
-    Colour(Color c)
-        : color(c)
-    {
-    }
-
-    [[nodiscard]] std::string               to_rgb() const;
-    [[nodiscard]] std::string               to_hex() const;
-    [[nodiscard]] Color                     to_color() const { return color; }
-    static Result<Colour, ColourParseError> parse_color(std::string_view const &color);
-    static Result<Colour, JSONError>        decode(JSONValue const &json);
-};
-
-struct Colours {
-    Colour bg { 0 };
-    Colour fg { 0 };
-
-    explicit Colours(uint32_t bg = 0x000000FF, uint32_t fg = 0xFFFFFFFF)
-        : bg(bg)
-        , fg(fg)
-    {
-    }
-    Colours(Colours const&) = default;
-
-    [[nodiscard]] std::string to_string() const;
-};
-
-struct TokenColour {
-    std::string name { "(root)" };
-    StringList  scope {};
-    Colours     colours {};
-    TokenColour() = default;
-    TokenColour(TokenColour const &) = default;
-
-    static Result<TokenColour, JSONError> decode(JSONValue const &json);
-};
-
-struct SemanticTokenColour {
-    SemanticTokenTypes                            token_type { SemanticTokenTypesVariable };
-    Colours                                       colours;
-    static Result<SemanticTokenColour, JSONError> decode(SemanticTokenTypes type, JSONValue const &json);
-};
-
-struct TokenThemeMapping {
-    TokenKind kind;
-    //    TokenCode code;
-    int theme_index;
-};
-
-struct SemanticMapping {
-    int semantic_index;
-    int semantic_theme_index;
-    int token_theme_index;
-};
+using Scope = size_t;
 
 class Theme {
 public:
-    Colours                          editor;
-    Colours                          selection;
-    Colours                          linehighlight;
-    Colours                          gutter;
-    std::vector<TokenColour>         token_colours;
-    std::vector<SemanticTokenColour> semantic_colours;
-    std::vector<TokenThemeMapping>   token_mappings;
-    std::vector<SemanticMapping>     semantic_mappings;
+    Colours get_colours(Scope scope_id) const
+    {
+        assert(scope_id < m_colours.size());
+        auto style = m_colours[scope_id];
+        return style.colours;
+    }
+    Scope  get_scope(TokenKind kind);
+    Scope  get_scope(SemanticTokenTypes semanticTokenTypes);
+    Scope  get_scope(std::string_view const &name);
+    Colour fg() const { return m_default_colours.fg(); }
+    Colour bg() const { return m_default_colours.bg(); }
+    Colour selection_fg() const
+    {
+        if (m_selection.fg() == 0u) {
+            return fg();
+        }
+        return m_selection.fg();
+    }
+    Colour selection_bg() const
+    {
+        if (m_selection.bg() == 0u) {
+            return bg();
+        }
+        return m_selection.bg();
+    }
+    Colours selection() const
+    {
+        return { selection_bg(), selection_fg() };
+    }
 
-    [[nodiscard]] std::optional<int>     index_for_scope(std::string_view const &scope) const;
-    [[nodiscard]] std::optional<Colours> colours(Token const &t) const;
-    [[nodiscard]] std::optional<Colours> get_semantic_colours(int semantic_index) const;
-    void                                 map_semantic_type(int semantic_index, SemanticTokenTypes type);
-    static Result<Theme, JSONError>      load(std::string_view const &name);
-    static Result<Theme, JSONError>      decode(JSONValue const &json);
+    static Result<Theme, JSONError> load(std::string_view const &name);
+    static Result<Theme, JSONError> decode(JSONValue const &json);
+    static Theme& the();
 
 private:
-    void get_mapping(TokenKind kind, std::string_view const &scope);
-    void build_theme_index_mappings();
+    struct ScopeStyle {
+        ScopeStyle(std::string_view const &s, Colours const &colours)
+            : scope(std::move(std::string(s)))
+            , colours(colours)
+        {
+        }
+
+        ScopeStyle(ScopeStyle const &) = default;
+
+        std::string scope;
+        Colours     colours;
+    };
+
+    std::vector<ScopeStyle>              m_colours;
+    std::map<std::string, size_t>        m_scope_ids;
+    std::map<TokenKind, size_t>          m_token_kind_to_scope_id;
+    std::map<SemanticTokenTypes, size_t> m_semantic_token_type_to_scope_id;
+    Colours                              m_default_colours;
+    Colours                              m_selection;
 };
-
-}
-
-namespace LibCore {
-
-using namespace Eddy;
-
-template<>
-inline Error<JSONError> decode_value(JSONValue const &json, Colour &target)
-{
-    target = TRY_EVAL(Colour::decode(json));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_value(JSONValue const &json, TokenColour &target)
-{
-    target = TRY_EVAL(TokenColour::decode(json));
-    return {};
-}
-
-template<>
-inline Error<JSONError> decode_value(JSONValue const &json, Theme &target)
-{
-    target = TRY_EVAL(Theme::decode(json));
-    return {};
-}
 
 }
