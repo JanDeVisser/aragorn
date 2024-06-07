@@ -353,6 +353,9 @@ BufferView::BufferView(pEditor const &editor, pBuffer buf)
     viewport = editor->viewport;
     padding = editor->padding;
     parent = editor;
+    if (m_buf->mode()) {
+        delegate = m_buf->mode();
+    }
 }
 
 void BufferView::initialize()
