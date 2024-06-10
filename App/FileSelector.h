@@ -21,31 +21,17 @@ enum FileSelectorOption : uint8_t {
     FSCreateDirectory = 0x08,
 };
 
-struct DirEntry {
-    fs::directory_entry entry;
-
-    explicit DirEntry(fs::directory_entry e)
-        : entry(std::move(e))
-    {
-    }
-    DirEntry(DirEntry const&) = default;
-    DirEntry(DirEntry &&) = default;
-
-    [[nodiscard]] fs::path const& path() const { return entry.path(); }
-    auto operator<=>(DirEntry const& other) const = default;
-    explicit operator std::string() const { return entry.path().string(); }
-};
-
-template <typename Submit>
-struct FileSelector : public ListBox<DirEntry> {
-    Submit submit_fnc;
-    fs::path dir;
+struct FileSelector : public ListBox<fs::directory_entry> {
+    using Submit = std::function<void(pWidget const &)>;
+    Submit             submit_fnc;
+    fs::path           dir;
     FileSelectorOption options;
 
-    FileSelector(std::string_view const& prompt, Submit const& submit, FileSelectorOption options)
+    FileSelector(std::string_view const &prompt, Submit const &submit, FileSelectorOption options)
         : ListBox(prompt)
         , submit_fnc(submit)
         , dir(".")
+        , options(options)
     {
         assert(submit_fnc != nullptr);
         populate();
@@ -56,8 +42,9 @@ struct FileSelector : public ListBox<DirEntry> {
         entries.clear();
         matches.clear();
         search = {};
-        for (auto const& e : fs::directory_iterator(dir)) {
-            if ((!e.is_directory() && !e.is_regular_file()) || (e.path().filename() == ".")) {
+        for (auto const &e : fs::directory_iterator(dir)) {
+            auto const &name = e.path().filename().string();
+            if ((!e.is_directory() && !e.is_regular_file()) || (name == ".")) {
                 continue;
             }
             if (e.is_directory() && !(options & FSDirectory)) {
@@ -66,21 +53,21 @@ struct FileSelector : public ListBox<DirEntry> {
             if (e.is_regular_file() && !(options & FSFile)) {
                 continue;
             }
-            auto const& name = e.path().filename().string();
             if (!(options & FSShowHidden) && name != ".." && name.starts_with(".")) {
                 continue;
             }
-            entries.emplace_back(name, DirEntry { e });
+            entries.emplace_back(name, e);
         }
     }
 
     void submit() override
     {
-        fs::directory_entry const& e = entries[selection].payload.entry;
+        auto const &e = entries[selection].payload;
         if (e.is_directory()) {
             assert(options & FSDirectory);
             dir = dir / e.path();
             populate();
+	    status = ModalStatus::Active;
             return;
         }
         assert(e.is_regular_file());
@@ -95,7 +82,7 @@ struct FileSelector : public ListBox<DirEntry> {
             return true;
         }
         if (key == KEY_RIGHT) {
-            auto const& entry = entries[selection].payload.entry;
+            auto const &entry = entries[selection].payload;
             if (entry.is_directory()) {
                 dir = dir / entry.path();
                 populate();
@@ -105,7 +92,7 @@ struct FileSelector : public ListBox<DirEntry> {
         if ((options & FSCreateDirectory) && key == KEY_N && modifier == KModControl) {
             // TODO
         }
-        return ListBox::process_key(key);
+        return ListBox::process_key(modifier, key);
     }
 };
 

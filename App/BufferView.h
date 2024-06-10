@@ -41,7 +41,7 @@ public:
         }
     };
 
-    BufferView(pEditor const &editor, pBuffer buf);
+    BufferView(pWidget const &editor, pBuffer buf);
     pBuffer const             &buffer() const;
     void                       initialize() override;
     void                       draw() override;

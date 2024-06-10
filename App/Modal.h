@@ -69,7 +69,6 @@ struct ListBox : public Modal {
     struct ListBoxEntry {
         std::string text;
         Payload     payload;
-        size_t      index { 0 };
 
         ListBoxEntry(std::string_view const &text, Payload const &payload)
             : text(text)
@@ -81,14 +80,14 @@ struct ListBox : public Modal {
     };
 
     using ListBoxEntries = std::vector<ListBoxEntry>;
-    ListBoxEntries      entries {};
-    std::vector<size_t> matches {};
-    std::string         search {};
-    int                 lines { 0 };
-    int                 top_line { 0 };
-    int                 selection { -1 };
-    ModalStatus         status { ModalStatus::Dormant };
-    ToString            to_string_fnc { nullptr };
+    ListBoxEntries entries {};
+    ListBoxEntries matches {};
+    std::string    search {};
+    int            lines { 0 };
+    int            top_line { 0 };
+    int            selection { -1 };
+    ModalStatus    status { ModalStatus::Dormant };
+    ToString       to_string_fnc { nullptr };
 
     explicit ListBox(std::string_view const &prompt, ToString to_string = nullptr)
         : Modal(prompt)
@@ -107,49 +106,38 @@ struct ListBox : public Modal {
     {
         auto const &cell = Eddy::the()->cell;
         size_t      maxlen = (viewport.width - 28) / (cell.x * textsize);
-        auto        draw_entry = [this, &y_offset, maxlen, &cell](ListBoxEntry const &e) -> void {
-            auto text_color = RAYWHITE; // colour_to_color(Eddy::the()->theme.editor.fg);
-            if (e.index == selection) {
-                draw_rectangle(8, y_offset - 1, -8, cell.y * textsize + 1, RAYWHITE /*colour_to_color(Eddy::the()->theme.selection.bg)*/);
-                text_color = DARKGRAY; // colour_to_color(Eddy::the()->theme.selection.fg);
+        auto       &entries_to_draw = entries;
+        if constexpr (Search) {
+            if (!search.empty()) {
+                entries_to_draw = matches;
             }
-            std::string_view sv;
+        }
+        for (auto ix = top_line; ix < top_line + lines && ix < entries_to_draw.size(); ++ix) {
+            auto const &e = entries_to_draw[ix];
+            auto        text_color = Theme::the().fg();
+            if (ix == selection) {
+                draw_rectangle(8, y_offset - 1, -8, cell.y * textsize + 1, Theme::the().selection_bg());
+                text_color = Theme::the().selection_fg();
+            }
+            std::string_view sv { e.text };
             if constexpr (!std::is_same<ToString, std::nullptr_t>::value) {
                 assert(to_string_fnc != nullptr);
                 sv = to_string_fnc(e.text, e.payload);
             } else if constexpr (std::is_convertible<Payload, std::string>()) {
                 sv = std::string { e.payload };
-            } else {
-                sv = e.text;
             }
             if (sv.length() > maxlen) {
                 sv = sv.substr(0, maxlen);
             }
             render_sized_text(10ul, y_offset, sv, Eddy::the()->font.value(), textsize, text_color);
             y_offset += (cell.y * textsize) + 2;
-        };
-
-        if constexpr (Search) {
-            if (search.empty()) {
-                for (auto const &e : entries) {
-                    draw_entry(e);
-                }
-            } else {
-                for (auto ix : matches) {
-                    draw_entry(entries[ix]);
-                }
-            }
-        } else {
-            for (auto const &e : entries) {
-                draw_entry(e);
-            }
         }
     }
 
     void draw() override
     {
-        auto bg = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
-        auto fg = RAYWHITE; // colour_to_color(Eddy::the()->theme.editor.fg);
+        auto bg = Theme::the().bg();
+        auto fg = Theme::the().fg();
         draw_rectangle(0.0f, 0.0f, 0.0f, 0.0, bg);
         draw_outline(2ul, 2ul, -2.0f, -2.0f, fg);
         render_text(8, 8, prompt, Eddy::the()->font.value(), fg);
@@ -220,7 +208,7 @@ struct ListBox : public Modal {
                 return true;
             }
             case KEY_UP: {
-                if (selection >= 0 && selection < sz) {
+                if (selection > 0 && selection < sz) {
                     --selection;
                     while (selection < top_line) {
                         --top_line;
@@ -278,9 +266,6 @@ struct ListBox : public Modal {
         if constexpr (Sort) {
             std::sort(entries.begin(), entries.end());
         }
-        for (size_t ix = 0; ix < entries.size(); ++ix) {
-            entries[ix].index = ix;
-        }
     }
 
     void filter()
@@ -291,8 +276,15 @@ struct ListBox : public Modal {
                 return;
             }
             for (auto const &e : entries) {
-                if (strcasestr(e.text.c_str(), search.c_str()) != nullptr) {
-                    matches.push_back(e.index);
+                std::string sv { e.text };
+                if constexpr (!std::is_same<ToString, std::nullptr_t>::value) {
+                    assert(to_string_fnc != nullptr);
+                    sv = to_string_fnc(e.text, e.payload);
+                } else if constexpr (std::is_convertible<Payload, std::string>()) {
+                    sv = std::string { e.payload };
+                }
+                if (strcasestr(sv.c_str(), search.c_str()) != nullptr) {
+                    matches.push_back(e);
                 }
             }
             selection = 0;
@@ -335,7 +327,7 @@ void input_box(std::shared_ptr<C> target, std::string_view const &prompt, Submit
             , dismiss_fnc(dismiss)
         {
             assert(submit_fnc != nullptr);
-            background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
+            background = Theme::the().bg();
         }
 
         void initialize() override
@@ -433,14 +425,14 @@ void input_box(std::shared_ptr<C> target, std::string_view const &prompt, Submit
 
         void draw() override
         {
-            draw_rectangle(0.0, 0.0, 0.0, 0.0, DARKGRAY /* colour_to_color(Eddy::the()->theme.editor.bg) */);
-            draw_outline(2, 2, -2.0, -2.0, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
-            render_text(8, 8, prompt, Eddy::the()->font.value(), RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
-            draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
-            render_text(10, Eddy::the()->cell.y + 14, text, Eddy::the()->font.value(), RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
+            draw_rectangle(0.0, 0.0, 0.0, 0.0, Theme::the().bg());
+            draw_outline(2, 2, -2.0, -2.0, Theme::the().fg());
+            render_text(8, 8, prompt, Eddy::the()->font.value(), Theme::the().fg());
+            draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, Theme::the().fg());
+            render_text(10, Eddy::the()->cell.y + 14, text, Eddy::the()->font.value(), Theme::the().fg());
             double t = GetTime();
             if ((t - floor(t)) < 0.5) {
-                draw_rectangle(10 + cursor * Eddy::the()->cell.x, Eddy::the()->cell.y + 12, 2, Eddy::the()->cell.y + 2, RAYWHITE /* colour_to_color(Eddy::the()->theme.editor.fg) */);
+                draw_rectangle(10 + cursor * Eddy::the()->cell.x, Eddy::the()->cell.y + 12, 2, Eddy::the()->cell.y + 2, Theme::the().fg());
             }
         }
     };
@@ -493,4 +485,5 @@ inline static void message_box(std::string_view const &prompt, QueryOption optio
     pWidget p { nullptr };
     query_box<Widget>(p, prompt, dummy, options);
 }
+
 }

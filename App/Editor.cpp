@@ -8,6 +8,7 @@
 
 #include <App/Eddy.h>
 #include <App/Editor.h>
+#include <App/FileSelector.h>
 #include <App/MiniBuffer.h>
 #include <App/Modal.h>
 
@@ -56,9 +57,8 @@ void Editor::select_buffer(pBuffer const &buffer)
             return;
         }
     }
-    auto const &view = Widget::make<BufferView>(self<Editor>(), buffer);
+    auto const &view = Widget::make<BufferView>(self(), buffer);
     views.push_back(view);
-    view->parent = self<Widget>();
     ++view->buffer()->version;
 #if 0
     if (buffer->mode) {
@@ -109,6 +109,22 @@ pBuffer Editor::current_buffer()
     assert(current_view_ix >= 0 && current_view_ix < views.size());
     auto &view = views[current_view_ix];
     return view->buffer();
+}
+
+void cmd_open_file(pEditor const &editor, JSONValue const &)
+{
+    auto file_selected = [editor](auto const &selector) -> void {
+        auto s = std::dynamic_pointer_cast<FileSelector>(selector);
+        auto e = s->entries[s->selection].payload;
+        if (auto open_maybe = editor->open(e.path().string()); open_maybe.is_error()) {
+            Eddy::set_message("Could not open file");
+        }
+    };
+    auto const &fs = Widget::make<FileSelector>(
+        "Open File",
+        file_selected,
+        static_cast<FileSelectorOption>(FSFile | FSDirectory));
+    fs->show();
 }
 
 void cmd_switch_buffer(pEditor const &editor, JSONValue const &)
@@ -184,7 +200,7 @@ void cmd_close_view(pEditor const &editor, JSONValue const &)
  * ---------------------------------------------------------------------------
  */
 
-Editor::Editor(pWidget const& parent)
+Editor::Editor(pWidget const &parent)
     : Widget(parent, SizePolicy::Stretch, 0.0)
 {
     background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
@@ -193,6 +209,8 @@ Editor::Editor(pWidget const& parent)
 
 void Editor::initialize()
 {
+    add_command<Editor>("editor-open-file", cmd_open_file)
+        .bind(KeyCombo { KEY_O, KModControl });
     add_command<Editor>("editor-switch-buffer", cmd_switch_buffer)
         .bind(KeyCombo { KEY_B, KModSuper });
     add_command<Editor>("editor-close-buffer", cmd_close_buffer)
@@ -205,7 +223,7 @@ void Editor::resize()
 {
     columns = (int) ((viewport.width - 2 * PADDING) / Eddy::the()->cell.x);
     lines = (int) ((viewport.height - 2 * PADDING) / Eddy::the()->cell.y);
-    for (auto& view : views) {
+    for (auto &view : views) {
         view->viewport = viewport;
     }
 }

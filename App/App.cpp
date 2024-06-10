@@ -132,19 +132,19 @@ void App::process_input()
             }
         }
         std::erase_if(m_pressed_keys, [](auto const &key) {
-	    return IsKeyUp(key);
+            return IsKeyUp(key);
         });
         std::vector<int> keys;
-	std::for_each(m_pressed_keys.begin(), m_pressed_keys.end(), [&keys](auto const& key) {
-	    if (IsKeyPressedRepeat(key)) {
+        std::for_each(m_pressed_keys.begin(), m_pressed_keys.end(), [&keys](auto const &key) {
+            if (IsKeyPressedRepeat(key)) {
                 keys.emplace_back(key);
-	    }
-	});
+            }
+        });
         for (int key = GetKeyPressed(); key != 0; key = GetKeyPressed()) {
             keys.emplace_back(key);
-	    m_pressed_keys.insert(key);
+            m_pressed_keys.insert(key);
         }
-	for (auto const key : keys) {
+        for (auto const key : keys) {
             f->bubble_up([key, modifier](pWidget const &w) {
                 for (auto const &[name, cmd] : w->commands) {
                     for (auto const &binding : cmd.bindings) {
@@ -162,8 +162,7 @@ void App::process_input()
         }
     };
 
-    if (!modals.empty())
-    {
+    if (!modals.empty()) {
         pWidget modal = modals.back();
         handle_keyboard(modal);
         modal->process_input();

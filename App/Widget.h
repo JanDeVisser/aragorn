@@ -258,7 +258,7 @@ public:
     void draw_rectangle_(float x, float y, float width, float height, Color color) const;
     void draw_outline_(float x, float y, float width, float height, Color color) const;
     void draw_line_(float x0, float y0, float x1, float y1, Color color) const;
-    void draw_hover_panel_(float x, float y, StringList const& text, Color bgcolor, Color textcolor) const;
+    void draw_hover_panel_(float x, float y, StringList const &text, Color bgcolor, Color textcolor) const;
     void draw_rectangle_no_normalize_(float x, float y, float width, float height, Color color) const;
     void draw_outline_no_normalize_(float x, float y, float width, float height, Color color) const;
 
@@ -309,7 +309,7 @@ public:
 
     template<typename Tx, typename Ty>
         requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
-    void draw_hover_panel(Tx x, Ty y, StringList const& text, Color bgcolor, Color textcolor) const
+    void draw_hover_panel(Tx x, Ty y, StringList const &text, Color bgcolor, Color textcolor) const
     {
         draw_hover_panel_(x, y, text, bgcolor, textcolor);
     }

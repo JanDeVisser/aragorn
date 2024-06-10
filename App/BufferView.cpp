@@ -346,13 +346,12 @@ void cmd_save(pBufferView const &view, JSONValue const &dummy)
     Eddy::the()->set_message("Buffer saved");
 }
 
-BufferView::BufferView(pEditor const &editor, pBuffer buf)
-    : Widget(std::dynamic_pointer_cast<Widget>(editor))
+BufferView::BufferView(pWidget const &editor, pBuffer buf)
+    : Widget(editor)
     , m_buf(std::move(buf))
 {
     viewport = editor->viewport;
     padding = editor->padding;
-    parent = editor;
     if (m_buf->mode()) {
         delegate = m_buf->mode();
     }
