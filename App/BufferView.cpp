@@ -642,7 +642,7 @@ void BufferView::draw()
         cursor_pos = m_buf->index_to_position(cursor);
     }
     static size_t frame { 1 };
-    draw_rectangle(0, 0, 0, 0, DARKGRAY /*colour_to_color(Eddy::the()->theme.editor.bg)*/);
+    draw_rectangle(0, 0, 0, 0, Theme::the().bg());
 
     std::string_view txt { buffer()->text };
 
@@ -728,20 +728,20 @@ void BufferView::draw()
             y * Eddy::the()->cell.y,
             2,
             Eddy::the()->cell.y + 1,
-            RAYWHITE /*colour_to_color(Eddy::the()->theme.editor.fg)*/);
+            Theme::the().fg());
     }
     DrawLine(
         viewport.x + 80 * Eddy::the()->cell.x,
         viewport.y,
         viewport.x + 80 * Eddy::the()->cell.x,
         viewport.y + viewport.height,
-        RAYWHITE /*colour_to_color(Eddy::the()->theme.editor.fg)*/);
+        Theme::the().fg());
     DrawLine(
         viewport.x + 120 * Eddy::the()->cell.x,
         viewport.y,
         viewport.x + 120 * Eddy::the()->cell.x,
         viewport.y + viewport.height,
-        RAYWHITE /*colour_to_color(Eddy::the()->theme.editor.fg)*/);
+        Theme::the().fg());
     ++frame;
 }
 

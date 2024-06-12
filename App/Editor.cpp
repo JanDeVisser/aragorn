@@ -203,7 +203,7 @@ void cmd_close_view(pEditor const &editor, JSONValue const &)
 Editor::Editor(pWidget const &parent)
     : Widget(parent, SizePolicy::Stretch, 0.0)
 {
-    background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
+    background = Theme::the().bg();
     padding = Rect<float>(PADDING);
 }
 
