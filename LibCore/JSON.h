@@ -414,6 +414,12 @@ public:
         array.push_back(value);
     }
 
+    JSONValue &operator+=(JSONValue const &value)
+    {
+        append(value);
+        return *this;
+    }
+
     void set(std::string_view const &key, JSONValue const &value)
     {
         if (m_type != JSONType::Object)
@@ -788,7 +794,7 @@ template<typename T>
 template<typename T>
 inline JSONValue to_json(T const &value)
 {
-    return {};
+    return value.encode();
 }
 
 template<>

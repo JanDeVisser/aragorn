@@ -179,6 +179,16 @@ template<std::integral Int, typename Str = std::string>
     return val * sign;
 }
 
+template<std::integral Int, typename Str = std::string>
+[[nodiscard]] inline Int must_string_to_integer(Str const &s, int radix = 0)
+{
+    auto ret = string_to_integer<Int>(s, radix);
+    if (ret.has_value()) {
+	return ret.value();
+    }
+    fatal("Could not convert '{}' to integer", s);
+}
+
 // -- to_string -------------------------------------------------------------
 
 template<typename T>

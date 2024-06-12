@@ -86,6 +86,7 @@ configure_file(
 include_directories("${PROJECT_BINARY_DIR}" "${PROJECT_SOURCE_DIR}")
 
 add_subdirectory(LibCore)
+add_subdirectory(LSP/TSParser)
 add_subdirectory(LSP/Schema)
 add_subdirectory(Util)
 add_subdirectory(App)

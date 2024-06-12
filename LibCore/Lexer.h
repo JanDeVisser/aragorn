@@ -25,8 +25,12 @@ inline std::map<std::string_view, KW> get_keywords()
 }
 
 struct LexerErrorMessage {
-    TokenLocation location;
-    std::string   message;
+    TokenLocation      location;
+    std::string        message;
+    std::string const &to_string() const
+    {
+        return message;
+    }
 };
 
 template<typename KW = NoKeyword, typename Directive = NoDirective, bool Whitespace = false, bool Comments = false, bool BackquotedStrings = false>
@@ -39,7 +43,7 @@ public:
     [[nodiscard]] std::optional<std::pair<KW, size_t>> match_keyword(std::string_view const &text) const
     {
         std::optional<std::pair<KW, size_t>> ret;
-        std::string_view  matched;
+        std::string_view                     matched;
         for (auto const &kw : m_keywords) {
             std::string_view keyword { kw.first };
             if (text.starts_with(keyword)) {
@@ -140,6 +144,39 @@ public:
         return lex();
     }
 
+    bool accept(TokenKind kind)
+    {
+        auto ret = peek();
+        if (ret.matches(kind)) {
+            lex();
+            return true;
+        }
+        return false;
+    }
+
+    LexerError expect_keyword(KW code)
+    {
+        auto ret = peek();
+        if (!ret.matches_keyword(code)) {
+            return LexerErrorMessage {
+                location(),
+                std::format("Expected keyword"), // FIXME need KW code -> text mechanism
+            };
+        }
+        lex();
+        return {};
+    }
+
+    bool accept_keyword(KW code)
+    {
+        auto ret = peek();
+        if (ret.matches_keyword(code)) {
+            lex();
+            return true;
+        }
+        return false;
+    }
+
     LexerError expect_symbol(int symbol)
     {
         auto ret = peek();
@@ -198,7 +235,7 @@ private:
         TokenLocation const &location() const
         {
             return m_location;
-	}
+        }
 
         Source(Lexer *lexer, std::string_view const &src, std::string_view const &name)
             : m_buffer(src)
