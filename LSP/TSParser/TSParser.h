@@ -17,6 +17,7 @@ using namespace LibCore;
     S(Boolean, "boolean")     \
     S(Const, "const")         \
     S(Decimal, "decimal")     \
+    S(Empty, "{}")            \
     S(Enum, "enum")           \
     S(Export, "export")       \
     S(Extends, "extends")     \
@@ -36,19 +37,26 @@ enum class TSKeyword {
 #undef S
 };
 
+#define TYPEKINDS(S) \
+    S(None)          \
+    S(Basic)         \
+    S(Constant)      \
+    S(Type)          \
+    S(Variant)       \
+    S(Struct)
+
 enum class TypeKind {
-    None = 0,
-    Basic,
-    Constant,
-    Type,
-    Variant,
-    Struct,
+#undef S
+#define S(kind) kind,
+    TYPEKINDS(S)
+#undef S
 };
 
 enum class BasicType {
     None,
     Any,
     Bool,
+    Empty,
     Int,
     Null,
     String,
@@ -163,6 +171,7 @@ struct Type {
     TypeKind       kind { TypeKind::None };
     bool           array { false };
     TypeDefinition definition;
+    std::string    synthetic_name;
 
     Type() = default;
 
@@ -314,42 +323,44 @@ public:
 
     static TypeDef &make_interface(std::string_view const &name)
     {
-        auto &td =  make(TypeDefKind::Interface, name);
+        auto &td = make(TypeDefKind::Interface, name);
         td.definition.emplace<Interface>();
-	return td;
+        return td;
     }
 
     static TypeDef &make_alias(std::string_view const &name, pType type)
     {
         auto &td = make(TypeDefKind::Alias, name);
         td.definition = std::move(type);
-	return td;
+        return td;
     }
 
     static TypeDef &make_enumeration(std::string_view const &name)
     {
-        auto &td =  make(TypeDefKind::Enumeration, name);
+        auto &td = make(TypeDefKind::Enumeration, name);
         td.definition.emplace<Enumeration>();
-	return td;
+        return td;
     }
 
     static TypeDef &make_enumeration(std::string_view const &name, Enumeration e)
     {
         auto &td = make_enumeration(name);
         td.definition = std::move(e);
-	return td;
+        return td;
     }
 
-    void      get_dependencies(pType const &type);
-    JSONValue encode() const;
+    void        get_dependencies(pType const &type);
+    JSONValue   encode() const;
+    static auto cbegin() { return s_typedefs.cbegin(); }
+    static auto cend() { return s_typedefs.cend(); }
 
 private:
     static TypeDef &make(TypeDefKind kind, std::string_view const &name)
     {
-	std::string n { name };
+        std::string n { name };
         if (s_typedefs.contains(n)) {
-	    fatal("Type '{}' already registered", n);
-	}
+            fatal("Type '{}' already registered", n);
+        }
         auto const &p = s_typedefs.try_emplace(std::string { name }, kind, name);
         assert(p.second);
         return (*(p.first)).second;
@@ -372,6 +383,10 @@ public:
     }
 
     JSONValue encode() const;
+    auto      cbegin() { return TypeDef::cbegin(); }
+    auto      cend() { return TypeDef::cend(); }
+    auto      begin() { return TypeDef::cbegin(); }
+    auto      end() { return TypeDef::cend(); }
 
     static Module &make(std::string_view const &modname);
 
@@ -398,9 +413,24 @@ private:
     TSLexer     m_lexer {};
 };
 
+class CPPOutputter {
+public:
+    CPPOutputter(TypeDef const &type)
+        : m_type(type)
+    {
+    }
+
+    void output();
+
+private:
+    TypeDef const &m_type;
+};
+
 extern char const *BasicType_name(BasicType basic_type);
+extern char const *TypeKind_name(TypeKind kind);
 extern char const *TypeDefKind_name(TypeDefKind kind);
-extern void        generate_typedef(std::string_view const &name);
+
+extern void generate_typedef(std::string_view const &name);
 
 }
 

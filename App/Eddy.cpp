@@ -351,12 +351,11 @@ StringList Eddy::get_font_dirs()
         if (directories.is_string()) {
             append_dir(directories.to_string());
         } else if (directories.is_array()) {
-            StringList dirs {};
-            if (auto const e = decode_value(directories, dirs); !e.is_error()) {
-                for (auto const &dir : dirs) {
+            if (auto dirs_maybe = decode_array<std::string>(directories); !dirs_maybe.is_error()) {
+                for (auto const &dir : dirs_maybe.value()) {
                     append_dir(dir);
                 }
-            }
+	    }
         }
     }
     return font_dirs;

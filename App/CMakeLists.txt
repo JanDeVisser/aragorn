@@ -2,6 +2,7 @@ find_package(Freetype)
 
 add_executable(
         Eddy
+        MACOSX_BUNDLE
         App.cpp
         Buffer.cpp
 	Colour.cpp
@@ -26,7 +27,7 @@ target_link_libraries(
         Eddy
         PRIVATE
         LibCore
-        LSPSchema
+#       LSPSchema
         ${raylib_LIBRARIES}
         ${FREETYPE_LIBRARIES}
         m
@@ -35,4 +36,5 @@ target_link_libraries(
 install(TARGETS Eddy
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib)
+        LIBRARY DESTINATION lib
+        BUNDLE DESTINATION bundle)

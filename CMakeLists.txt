@@ -7,7 +7,7 @@ message("System: ${CMAKE_SYSTEM_NAME}. Processor: ${CMAKE_SYSTEM_PROCESSOR}. Ver
 # message(FATAL_ERROR "Eddy requires Clang because it used C++ language extensions not supported in GCC")
 # endif()
 set(CMAKE_C_STANDARD 23)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 if(APPLE)
   set(IS_APPLE TRUE)
@@ -87,7 +87,7 @@ include_directories("${PROJECT_BINARY_DIR}" "${PROJECT_SOURCE_DIR}")
 
 add_subdirectory(LibCore)
 add_subdirectory(LSP/TSParser)
-add_subdirectory(LSP/Schema)
+#add_subdirectory(LSP/Schema)
 add_subdirectory(Util)
 add_subdirectory(App)
 

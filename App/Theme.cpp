@@ -184,53 +184,53 @@ Scope Theme::get_scope(SemanticTokenTypes type)
     if (m_semantic_token_type_to_scope_id.contains(type)) {
         return m_semantic_token_type_to_scope_id.at(type);
     }
-    auto scope_name = std::format("SemanticTokenTypes.{}", SemanticTokenTypes_to_string(type));
+    auto scope_name = std::format("SemanticTokenTypes.{}", as_string(type));
     if (auto scope_id = get_scope(scope_name); scope_id > 0) {
         m_semantic_token_type_to_scope_id[type] = scope_id;
 	return scope_id;
     }
     std::string scope;
     switch (type) {
-    case SemanticTokenTypesType:
+    case SemanticTokenTypes::Type:
         scope = "entity.name.type";
         break;
-    case SemanticTokenTypesClass:
+    case SemanticTokenTypes::Class:
         scope = "entity.name.type.class";
         break;
-    case SemanticTokenTypesEnum:
+    case SemanticTokenTypes::Enum:
         scope = "entity.name.type.enum";
         break;
-    case SemanticTokenTypesParameter:
+    case SemanticTokenTypes::Parameter:
         scope = "variable.parameter";
         break;
-    case SemanticTokenTypesVariable:
+    case SemanticTokenTypes::Variable:
         scope = "variable.other.readwrite";
         break;
-    case SemanticTokenTypesProperty:
+    case SemanticTokenTypes::Property:
         scope = "variable.other.property";
         break;
-    case SemanticTokenTypesEnumMember:
+    case SemanticTokenTypes::EnumMember:
         scope = "variable.other.enummember";
         break;
-    case SemanticTokenTypesFunction:
+    case SemanticTokenTypes::Function:
         scope = "entity.name.function";
         break;
-    case SemanticTokenTypesMacro:
+    case SemanticTokenTypes::Macro:
         scope = "entity.name.function.preprocessor";
         break;
-    case SemanticTokenTypesKeyword:
+    case SemanticTokenTypes::Keyword:
         scope = "keyword";
         break;
-    case SemanticTokenTypesComment:
+    case SemanticTokenTypes::Comment:
         scope = "comment";
         break;
-    case SemanticTokenTypesString:
+    case SemanticTokenTypes::String:
         scope = "string";
         break;
-    case SemanticTokenTypesNumber:
+    case SemanticTokenTypes::Number:
         scope = "constant.numeric";
         break;
-    case SemanticTokenTypesOperator:
+    case SemanticTokenTypes::Operator:
         scope = "keyword.operator";
         break;
     default:

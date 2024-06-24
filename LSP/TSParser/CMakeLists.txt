@@ -1,5 +1,7 @@
 add_executable(
-	TSParser
+        TSParser
+        CPPOutput.cpp
+	Parser.cpp
 	TSParser.cpp
 )
 

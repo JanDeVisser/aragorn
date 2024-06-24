@@ -51,13 +51,13 @@ extern std::string           TokenKind_name(TokenKind kind);
 extern EnumResult<TokenKind> TokenKind_from_string(std::string_view const &kind);
 
 template<>
-inline JSONValue to_json(TokenKind const &kind)
+inline JSONValue encode(TokenKind const &kind)
 {
     return JSONValue { TokenKind_name(kind) };
 }
 
 template<>
-inline Error<JSONError> decode_value(JSONValue const &json, TokenKind &kind)
+inline Result<TokenKind, JSONError> decode(JSONValue const &json)
 {
     if (!json.is_string()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
@@ -66,8 +66,7 @@ inline Error<JSONError> decode_value(JSONValue const &json, TokenKind &kind)
     if (kind_maybe.is_error()) {
         return JSONError { JSONError::Code::ProtocolError, std::format("Invalid token kind '{}'", json.to_string()) };
     }
-    kind = kind_maybe.value();
-    return {};
+    return kind_maybe.value();
 };
 
 #define QUOTETYPES(S)    \
@@ -86,13 +85,13 @@ extern std::string           QuoteType_name(QuoteType quote);
 extern EnumResult<QuoteType> QuoteType_from_string(std::string_view quote);
 
 template<>
-inline JSONValue to_json(QuoteType const &type)
+inline JSONValue encode(QuoteType const& type)
 {
     return JSONValue { QuoteType_name(type) };
 }
 
 template<>
-inline Error<JSONError> decode_value(JSONValue const &json, QuoteType &type)
+inline Result<QuoteType, JSONError> decode(JSONValue const &json)
 {
     if (!json.is_string()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
@@ -101,8 +100,7 @@ inline Error<JSONError> decode_value(JSONValue const &json, QuoteType &type)
     if (type_maybe.is_error()) {
         return JSONError { JSONError::Code::ProtocolError, std::format("Invalid quote type '{}'", json.to_string()) };
     }
-    type = type_maybe.value();
-    return {};
+    return type_maybe.value();
 };
 
 #define COMMENTTYPES(S) \
@@ -120,13 +118,13 @@ extern std::string             CommentType_name(CommentType quote);
 extern EnumResult<CommentType> CommentType_from_string(std::string_view comment);
 
 template<>
-inline JSONValue to_json(CommentType const &type)
+inline JSONValue encode(CommentType const &type)
 {
     return JSONValue { CommentType_name(type) };
 }
 
 template<>
-inline Error<JSONError> decode_value(JSONValue const &json, CommentType &type)
+inline Result<CommentType, JSONError> decode(JSONValue const &json)
 {
     if (!json.is_string()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
@@ -135,8 +133,7 @@ inline Error<JSONError> decode_value(JSONValue const &json, CommentType &type)
     if (type_maybe.is_error()) {
         return JSONError { JSONError::Code::ProtocolError, std::format("Invalid comment type '{}'", json.to_string()) };
     }
-    type = type_maybe.value();
-    return {};
+    return type_maybe.value();
 };
 
 #define NUMBERTYPES(S) \
@@ -156,13 +153,13 @@ extern std::string            NumberType_name(NumberType quote);
 extern EnumResult<NumberType> NumberType_from_string(std::string_view comment);
 
 template<>
-inline JSONValue to_json(NumberType const &type)
+inline JSONValue encode(NumberType const &type)
 {
     return JSONValue { NumberType_name(type) };
 }
 
 template<>
-inline Error<JSONError> decode_value(JSONValue const &json, NumberType &type)
+inline Result<NumberType, JSONError> decode(JSONValue const &json)
 {
     if (!json.is_string()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
@@ -171,8 +168,7 @@ inline Error<JSONError> decode_value(JSONValue const &json, NumberType &type)
     if (type_maybe.is_error()) {
         return JSONError { JSONError::Code::ProtocolError, std::format("Invalid number type '{}'", json.to_string()) };
     }
-    type = type_maybe.value();
-    return {};
+    return type_maybe.value();
 };
 
 struct TokenLocation {
@@ -190,7 +186,7 @@ struct TokenLocation {
 };
 
 template<>
-inline JSONValue to_json(TokenLocation const &location)
+inline JSONValue encode(TokenLocation const &location)
 {
     auto ret = JSONValue::object();
     set(ret, "index", location.index);
@@ -201,16 +197,17 @@ inline JSONValue to_json(TokenLocation const &location)
 }
 
 template<>
-inline Error<JSONError> decode_value(JSONValue const &json, TokenLocation &location)
+inline Result<TokenLocation, JSONError> decode(JSONValue const &json)
 {
     if (!json.is_object()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
     }
+    auto location = TokenLocation {};
     location.file = TRY_EVAL(json.try_get<std::string>("file"));
     location.index = TRY_EVAL(json.try_get<size_t>("index"));
     location.line = TRY_EVAL(json.try_get<size_t>("line"));
     location.column = TRY_EVAL(json.try_get<size_t>("column"));
-    return {};
+    return location;
 }
 
 struct QuotedString {
@@ -404,24 +401,21 @@ struct Token {
     [[nodiscard]] bool matches_keyword(KeywordCodeType code) const { return matches(TokenKind::Keyword) && this->keyword_code() == code; }
     [[nodiscard]] bool matches_directive(DirectiveCodeType code) const { return matches(TokenKind::Directive) && this->directive_code() == code; }
     [[nodiscard]] bool is_identifier() const { return matches(TokenKind::Identifier); }
-
-    friend Error<JSONError> decode_value(JSONValue const &json, Token &token);
-    friend Error<JSONError> decode_token(JSONValue const &json, Token &token);
 };
 
 template<typename KeywordCodeType = int, typename DirectiveCodeType = int>
-inline JSONValue to_json(Token<KeywordCodeType, DirectiveCodeType> const &token)
+inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
 {
     auto ret = JSONValue::object();
     set(ret, "kind", TokenKind_name(token.kind));
     set(ret, "text", token.text);
     set(ret, "location", token.location);
 
-    auto to_json_token_Number = [&ret, &token]() -> void {
+    auto encode_token_Number = [&ret, &token]() -> void {
         set(ret, "number_type", NumberType_name(token.number_type));
     };
 
-    auto to_json_token_QuotedString = [&ret, &token]() -> void {
+    auto encode_token_QuotedString = [&ret, &token]() -> void {
         auto quote = JSONValue::object();
         auto quoted_string = std::get<QuotedString>(token.value);
         set(quote, "quote_type", quoted_string.quote_type);
@@ -430,7 +424,7 @@ inline JSONValue to_json(Token<KeywordCodeType, DirectiveCodeType> const &token)
         set(ret, "quoted_string", quote);
     };
 
-    auto to_json_token_Comment = [&ret, &token]() -> void {
+    auto encode_token_Comment = [&ret, &token]() -> void {
         auto comment = JSONValue::object();
         auto comment_text = std::get<CommentText>(token.value);
         set(comment, "comment_type", comment_text.comment_type);
@@ -438,15 +432,15 @@ inline JSONValue to_json(Token<KeywordCodeType, DirectiveCodeType> const &token)
         set(ret, "comment", comment);
     };
 
-    auto to_json_token_Keyword = [&ret, &token]() -> void {
+    auto encode_token_Keyword = [&ret, &token]() -> void {
         set(ret, "directive", std::get<4>(token.value));
     };
 
-    auto to_json_token_Directive = [&ret, &token]() -> void {
+    auto encode_token_Directive = [&ret, &token]() -> void {
         set(ret, "directive", std::get<5>(token.value));
     };
 
-    auto to_json_token_Symbol = [&ret, &token]() -> void {
+    auto encode_token_Symbol = [&ret, &token]() -> void {
         set(ret, "symbol", std::get<6>(token.value));
     };
 
@@ -454,7 +448,7 @@ inline JSONValue to_json(Token<KeywordCodeType, DirectiveCodeType> const &token)
 #undef S
 #define S(K)                 \
     case TokenKind::K:       \
-        to_json_token_##K(); \
+        encode_token_##K(); \
         break;
         VALUE_TOKENKINDS(S)
 #undef S
@@ -465,18 +459,19 @@ inline JSONValue to_json(Token<KeywordCodeType, DirectiveCodeType> const &token)
 }
 
 template<typename KeywordCodeType, typename DirectiveCodeType>
-inline Error<JSONError> decode_value(JSONValue const &json, Token<KeywordCodeType, DirectiveCodeType> &token)
+inline Result<Token<KeywordCodeType, DirectiveCodeType>, JSONError> decode(JSONValue const &json)
 {
     using T = Token<KeywordCodeType, DirectiveCodeType>;
     if (!json.is_object()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
     }
+    auto token = Token {};
     token.kind = TRY_EVAL(json.try_get<TokenKind>("kind"));
     token.text = TRY_EVAL(json.try_get<std::string>("text"));
     token.location = TRY_EVAL(json.try_get<TokenLocation>("location"));
 
     auto decode_token_Number = [&json, &token]() -> Error<JSONError> {
-        token.number_type = TRY_EVAL(json.try_get<NumberType>("number_type"));
+        token.value = TRY_EVAL(json.try_get<NumberType>("number_type"));
         return {};
     };
 
@@ -500,17 +495,17 @@ inline Error<JSONError> decode_value(JSONValue const &json, Token<KeywordCodeTyp
     };
 
     auto decode_token_Keyword = [&json, &token]() -> Error<JSONError> {
-        token.keyword_code = TRY_EVAL(json.try_get<KeywordCodeType>("code"));
+        token.value = TRY_EVAL(json.try_get<KeywordCodeType>("code"));
         return {};
     };
 
     auto decode_token_Directive = [&json, &token]() -> Error<JSONError> {
-        token.directive_code = TRY_EVAL(json.try_get<DirectiveCodeType>("directive"));
+        token.value = TRY_EVAL(json.try_get<DirectiveCodeType>("directive"));
         return {};
     };
 
     auto decode_token_Symbol = [&json, &token]() -> Error<JSONError> {
-        token.symbol_code = TRY_EVAL(json.try_get<int>("symbol"));
+        token.value = TRY_EVAL(json.try_get<int>("symbol"));
         return {};
     };
 

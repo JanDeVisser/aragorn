@@ -9,11 +9,12 @@
 include_directories(.)
 
 add_library(
-        LSPSchema
-        STATIC
-        SemanticTokenTypes.cpp
+  LSPSchema
+  LSPBase.h
 )
 
+include(LSPSchemaSources.cmake)
+      
 set_target_properties(LSPSchema PROPERTIES LINKER_LANGUAGE CXX)
 target_link_libraries(LSPSchema LibCore)
 

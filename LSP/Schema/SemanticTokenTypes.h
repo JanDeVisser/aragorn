@@ -12,59 +12,155 @@
 
 namespace LSP {
 
-enum SemanticTokenTypes {
-    SemanticTokenTypesNamespace,
-    SemanticTokenTypesType,
-    SemanticTokenTypesClass,
-    SemanticTokenTypesEnum,
-    SemanticTokenTypesInterface,
-    SemanticTokenTypesStruct,
-    SemanticTokenTypesTypeParameter,
-    SemanticTokenTypesParameter,
-    SemanticTokenTypesVariable,
-    SemanticTokenTypesProperty,
-    SemanticTokenTypesEnumMember,
-    SemanticTokenTypesEvent,
-    SemanticTokenTypesFunction,
-    SemanticTokenTypesMethod,
-    SemanticTokenTypesMacro,
-    SemanticTokenTypesKeyword,
-    SemanticTokenTypesModifier,
-    SemanticTokenTypesComment,
-    SemanticTokenTypesString,
-    SemanticTokenTypesNumber,
-    SemanticTokenTypesRegexp,
-    SemanticTokenTypesOperator,
-    SemanticTokenTypesDecorator,
+enum class SemanticTokenTypes {
+    Namespace,
+    Type,
+    Class,
+    Enum,
+    Interface,
+    Struct,
+    TypeParameter,
+    Parameter,
+    Variable,
+    Property,
+    EnumMember,
+    Event,
+    Function,
+    Method,
+    Macro,
+    Keyword,
+    Modifier,
+    Comment,
+    String,
+    Number,
+    Regexp,
+    Operator,
+    Decorator,
 };
 
-[[nodiscard]] std::string_view                  SemanticTokenTypes_to_string(SemanticTokenTypes value);
-[[nodiscard]] std::optional<SemanticTokenTypes> SemanticTokenTypes_parse(std::string_view const &s);
-
+template<>
+inline std::string as_string(SemanticTokenTypes obj)
+{
+    switch (obj) {
+    case SemanticTokenTypes::Namespace:
+        return "namespace";
+    case SemanticTokenTypes::Type:
+        return "type";
+    case SemanticTokenTypes::Class:
+        return "class";
+    case SemanticTokenTypes::Enum:
+        return "enum";
+    case SemanticTokenTypes::Interface:
+        return "interface";
+    case SemanticTokenTypes::Struct:
+        return "struct";
+    case SemanticTokenTypes::TypeParameter:
+        return "typeParameter";
+    case SemanticTokenTypes::Parameter:
+        return "parameter";
+    case SemanticTokenTypes::Variable:
+        return "variable";
+    case SemanticTokenTypes::Property:
+        return "property";
+    case SemanticTokenTypes::EnumMember:
+        return "enumMember";
+    case SemanticTokenTypes::Event:
+        return "event";
+    case SemanticTokenTypes::Function:
+        return "function";
+    case SemanticTokenTypes::Method:
+        return "method";
+    case SemanticTokenTypes::Macro:
+        return "macro";
+    case SemanticTokenTypes::Keyword:
+        return "keyword";
+    case SemanticTokenTypes::Modifier:
+        return "modifier";
+    case SemanticTokenTypes::Comment:
+        return "comment";
+    case SemanticTokenTypes::String:
+        return "string";
+    case SemanticTokenTypes::Number:
+        return "number";
+    case SemanticTokenTypes::Regexp:
+        return "regexp";
+    case SemanticTokenTypes::Operator:
+        return "operator";
+    case SemanticTokenTypes::Decorator:
+        return "decorator";
+    default:
+        return "unknown";
+    }
 }
+
+template<>
+inline std::optional<SemanticTokenTypes> from_string<SemanticTokenTypes>(std::string_view const &s)
+{
+    if (s == "namespace")
+        return SemanticTokenTypes::Namespace;
+    if (s == "type")
+        return SemanticTokenTypes::Type;
+    if (s == "class")
+        return SemanticTokenTypes::Class;
+    if (s == "enum")
+        return SemanticTokenTypes::Enum;
+    if (s == "interface")
+        return SemanticTokenTypes::Interface;
+    if (s == "struct")
+        return SemanticTokenTypes::Struct;
+    if (s == "typeParameter")
+        return SemanticTokenTypes::TypeParameter;
+    if (s == "parameter")
+        return SemanticTokenTypes::Parameter;
+    if (s == "variable")
+        return SemanticTokenTypes::Variable;
+    if (s == "property")
+        return SemanticTokenTypes::Property;
+    if (s == "enumMember")
+        return SemanticTokenTypes::EnumMember;
+    if (s == "event")
+        return SemanticTokenTypes::Event;
+    if (s == "function")
+        return SemanticTokenTypes::Function;
+    if (s == "method")
+        return SemanticTokenTypes::Method;
+    if (s == "macro")
+        return SemanticTokenTypes::Macro;
+    if (s == "keyword")
+        return SemanticTokenTypes::Keyword;
+    if (s == "modifier")
+        return SemanticTokenTypes::Modifier;
+    if (s == "comment")
+        return SemanticTokenTypes::Comment;
+    if (s == "string")
+        return SemanticTokenTypes::String;
+    if (s == "number")
+        return SemanticTokenTypes::Number;
+    if (s == "regexp")
+        return SemanticTokenTypes::Regexp;
+    if (s == "operator")
+        return SemanticTokenTypes::Operator;
+    if (s == "decorator")
+        return SemanticTokenTypes::Decorator;
+    return {};
+}
+
+} /* namespace LSP */
 
 namespace LibCore {
 
 using namespace LSP;
 
 template<>
-inline JSONValue to_json(SemanticTokenTypes const &obj)
+inline JSONValue encode(SemanticTokenTypes const &obj)
 {
-    return JSONValue { SemanticTokenTypes_to_string(obj) };
+    return encode_string_enum<SemanticTokenTypes>(obj);
 }
 
 template<>
-inline Error<JSONError> decode_value(JSONValue const &json, SemanticTokenTypes &obj)
+inline Result<SemanticTokenTypes, JSONError> decode(JSONValue const &json)
 {
-    if (!json.is_string()) {
-        return JSONError { JSONError::Code::TypeMismatch, "SemanticTokenTypes" };
-    }
-    auto obj_maybe = SemanticTokenTypes_parse(json.to_string());
-    if (!obj_maybe) {
-        return JSONError { JSONError::Code::TypeMismatch, "SemanticTokenTypes" };
-    }
-    obj = *obj_maybe;
-    return {};
+    return decode_string_enum<SemanticTokenTypes>(json);
 }
 
-}
+} /* namespace LibCore */

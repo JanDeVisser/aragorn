@@ -27,7 +27,7 @@ int stricmp(char const *a, char const *b)
     return ca - cb;
 }
 
-std::string to_upper(std::string const &input)
+std::string to_upper(std::string_view const &input)
 {
     std::string ret;
     for (auto &ch : input) {
@@ -36,11 +36,20 @@ std::string to_upper(std::string const &input)
     return ret;
 }
 
-std::string to_lower(std::string const &input)
+std::string to_lower(std::string_view const &input)
 {
     std::string ret;
     for (auto &ch : input) {
         ret += (char) tolower((int) ch);
+    }
+    return ret;
+}
+
+std::string capitalize(std::string_view const &input)
+{
+    std::string ret { input };
+    if (!ret.empty()) {
+	ret[0] = (char) toupper(ret[0]);
     }
     return ret;
 }
