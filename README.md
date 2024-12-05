@@ -1,9 +1,10 @@
-# Eddy v2
+# Aragorn
 
 This is the second iteration of my text editor. Differences with v1 are that 
 it's implemented in `C` (instead of `C++`) using the 
 [raylib](https://github.com/raysan5/raylib) library (instead
-of SDL).
+of SDL). Also it's now called `aragorn` instead of `eddy` with the intention
+to integrate my `arwen` scripting language.
 
 ### Why?
 
@@ -26,8 +27,8 @@ more code in `vi` than you ever have before you were even born).
 
 ```shell
 $ cd ~/projects
-$ git clone git@github.com:JanDeVisser/eddy_v2.git
-$ cd eddy_v2
+$ git clone git@github.com:JanDeVisser/aragorn.git
+$ cd aragorn
 $ mkdir build
 $ cd build
 $ cmake ..
