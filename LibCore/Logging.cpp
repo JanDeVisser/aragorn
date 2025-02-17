@@ -76,19 +76,19 @@ Logger::Logger()
     };
     if (auto logfile = get_option("logfile"); logfile.has_value()) {
         m_logfile = logfile.value();
-    } else if (auto env_logfile = getenv("EDDY_LOGFILE"); env_logfile) {
+    } else if (auto env_logfile = getenv("LOGFILE"); env_logfile) {
         m_logfile = env_logfile;
     }
     if (auto loglevel = get_option("loglevel"); loglevel.has_value()) {
         set_level(loglevel.value());
-    } else if (auto env_level = getenv("EDDY_LOGLEVEL"); env_level && *env_level) {
+    } else if (auto env_level = getenv("LOGLEVEL"); env_level && *env_level) {
         set_level(env_level);
     }
     auto categories = get_option_values("trace");
     for (auto cat : categories) {
         add_categories(cat);
     }
-    if (auto env_trace = getenv("EDDY_TRACE"); env_trace != nullptr) {
+    if (auto env_trace = getenv("TRACE"); env_trace != nullptr) {
         std::string_view trace = env_trace;
         auto prev = 0ul;
         for (auto sep = trace.find_first_of(";,:", prev); sep != std::string_view::npos; prev = sep, sep = trace.find_first_of(";,:", prev + 1)) {

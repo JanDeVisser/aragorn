@@ -12,7 +12,7 @@
 #include <LibCore/Logging.h>
 #include <LibCore/Options.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 

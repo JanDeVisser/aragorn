@@ -1,6 +1,6 @@
 .cache
 .idea
-.eddy
+.aragorn
 build
 cmake-build-debug
 *~

@@ -10,7 +10,7 @@
 #include <App/Editor.h>
 #include <App/StatusBar.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 struct FileName : public Label {
     explicit FileName(pWidget const& parent)
@@ -21,8 +21,8 @@ struct FileName : public Label {
 
     void resize() override
     {
-        background = RAYWHITE; //colour_to_color(eddy.theme.selection.bg);
-        color = DARKGRAY; //colour_to_color(eddy.theme.selection.fg);
+        background = RAYWHITE; //colour_to_color(aragorn.theme.selection.bg);
+        color = DARKGRAY; //colour_to_color(aragorn.theme.selection.fg);
     }
 
     void draw() override
@@ -52,8 +52,8 @@ struct Cursor : public Label {
 
     void resize() override
     {
-        background = RAYWHITE; //colour_to_color(eddy.theme.selection.bg);
-        color = DARKGRAY; //colour_to_color(eddy.theme.selection.fg);
+        background = RAYWHITE; //colour_to_color(aragorn.theme.selection.bg);
+        color = DARKGRAY; //colour_to_color(aragorn.theme.selection.fg);
     }
 
     void draw() override
@@ -112,7 +112,7 @@ void StatusBar::initialize()
 
 void StatusBar::on_draw()
 {
-    draw_rectangle(0, 0, 0, 0, RAYWHITE /*colour_to_color(eddy.theme.selection.bg)*/);
+    draw_rectangle(0, 0, 0, 0, RAYWHITE /*colour_to_color(aragorn.theme.selection.bg)*/);
 }
 
 }

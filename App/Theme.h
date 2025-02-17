@@ -15,7 +15,7 @@
 
 #include <App/Colour.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 

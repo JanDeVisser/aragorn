@@ -10,7 +10,7 @@
 
 #include <App/Modal.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 namespace fs = std::filesystem;
 

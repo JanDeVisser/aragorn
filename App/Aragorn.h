@@ -17,7 +17,7 @@
 #include <App/Buffer.h>
 #include <App/Theme.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 enum AppStateItem {
     ASMonitor = 0,
@@ -55,7 +55,7 @@ struct SettingsError {
     std::string error;
 };
 
-class EddyError {
+class AragornError {
 public:
     template<class... Ts>
     struct overloaded : Ts... {
@@ -65,7 +65,7 @@ public:
     overloaded(Ts...) -> overloaded<Ts...>;
 
     template<typename T>
-    explicit EddyError(T const &e)
+    explicit AragornError(T const &e)
         : error(e)
     {
     }
@@ -84,10 +84,10 @@ public:
     }
 };
 
-using EError = Error<EddyError>;
+using EError = Error<AragornError>;
 
 using pProject = std::shared_ptr<class Project>;
-using pEddy = std::shared_ptr<struct Eddy>;
+using pAragorn = std::shared_ptr<struct Aragorn>;
 
 class Project : public Widget {
 public:
@@ -105,11 +105,11 @@ public:
     {
     }
 
-    static Result<pProject, EddyError> open(pEddy const &eddy, std::string_view const &dir);
-    void                               close(pEddy const &eddy) const;
+    static Result<pProject, AragornError> open(pAragorn const &aragorn, std::string_view const &dir);
+    void                                  close(pAragorn const &aragorn) const;
 };
 
-struct Eddy : public App {
+struct Aragorn : public App {
     AppState             app_state {};
     std::vector<pBuffer> buffers {};
     FT_Library           ft_library {};
@@ -117,9 +117,9 @@ struct Eddy : public App {
     pProject             project;
     StringList           font_dirs;
 
-    Eddy();
-    static pEddy the();
-    static void  set_message(std::string_view const &text);
+    Aragorn();
+    static pAragorn the();
+    static void     set_message(std::string_view const &text);
 
     void            initialize() override;
     bool            query_close() override;

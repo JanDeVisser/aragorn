@@ -8,7 +8,7 @@
 
 #include <App/Widget.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 struct StatusBar : public Layout {
     explicit StatusBar(pWidget const& parent);

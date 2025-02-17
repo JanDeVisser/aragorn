@@ -8,7 +8,7 @@
 
 #include <App/App.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 char const *ContainerOrientation_name(ContainerOrientation orientation)
 {

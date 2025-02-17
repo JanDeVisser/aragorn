@@ -10,7 +10,7 @@
 
 #include <App/App.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 char const *SizePolicy_name(SizePolicy policy)
 {

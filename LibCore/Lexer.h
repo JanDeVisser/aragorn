@@ -100,7 +100,7 @@ public:
                 trace(LEXER, "lexer.peek() -> {} [source.peek_next()]", *m_current);
                 k = m_current->kind;
                 if constexpr (!Whitespace) {
-                    if (k == TokenKind::Whitespace || k == TokenKind::EndOfLine) {
+                    if (k == TokenKind::Whitespace || k == TokenKind::Tab || k == TokenKind::EndOfLine) {
                         lex();
                         trace(LEXER, "skip it");
                         continue;
@@ -348,9 +348,12 @@ private:
                 if (m_buffer[0] == '\n') {
                     return T::end_of_line(m_buffer.substr(0, 1));
                 }
+                if (m_buffer[0] == '\t') {
+                    return T::tab(m_buffer.substr(0, 1));
+                }
                 if (isspace(m_buffer[0])) {
                     size_t ix = 0;
-                    for (; isspace(m_buffer[ix]) && m_buffer[ix] != '\n'; ++ix)
+                    for (; isspace(m_buffer[ix]) && m_buffer[ix] != '\t' && m_buffer[ix] != '\n'; ++ix)
                         ;
                     return T::whitespace(m_buffer.substr(0, ix));
                 }

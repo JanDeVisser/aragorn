@@ -17,7 +17,7 @@
 
 #include <LibCore/JSON.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 
@@ -109,6 +109,7 @@ union Rect {
         , bottom(c4)
     {
     }
+
     explicit constexpr Rect(T c)
         : Rect(c, c, c, c)
     {

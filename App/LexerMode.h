@@ -11,31 +11,47 @@
 #include <App/Buffer.h>
 #include <App/Mode.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 
 template<typename Keywords>
 class LexerMode : public Mode {
 public:
-    LexerMode(pBuffer const& buffer)
+    constexpr static size_t config_tab_size = 4;
+
+    explicit LexerMode(pBuffer const &buffer)
         : Mode(std::dynamic_pointer_cast<Widget>(buffer))
     {
     }
-    
+
     void initialize_source() override
     {
         pBuffer const &buffer = std::dynamic_pointer_cast<Buffer>(parent);
-        m_lexer.push_source(buffer->text, buffer->name);
+        m_lexer.push_source(buffer->text(), buffer->name);
+        m_token_col = 0;
     }
 
     DisplayToken lex() override
     {
         auto const token = m_lexer.lex();
+        auto       col = m_token_col;
+        switch (token.kind) {
+        case TokenKind::EndOfLine:
+            m_token_col = 0;
+            break;
+        case TokenKind::Tab:
+            m_token_col = ((m_token_col / config_tab_size) + 1) * config_tab_size;
+            break;
+        default:
+            m_token_col += token.text.length();
+            break;
+        }
         return {
             token.location.index,
             token.text.length(),
             token.location.line,
+            col,
             token.kind,
             Theme::the().get_scope(token.kind)
         };
@@ -43,6 +59,9 @@ public:
 
 protected:
     Lexer<Keywords, NoDirective, true, true, true> m_lexer {};
+
+private:
+    size_t m_token_col { 0 };
 };
 
 class PlainText : public LexerMode<NoKeyword> {
@@ -133,7 +152,7 @@ public:
 
 namespace LibCore {
 
-using namespace Eddy;
+using namespace Aragorn;
 
 template<>
 inline std::map<std::string_view, CKeyword> get_keywords()

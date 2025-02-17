@@ -1,4 +1,4 @@
-The purpose of this repo is to facilitate productive development of the `eddy` 
+The purpose of this repo is to facilitate productive development of the `aragorn`
 editor. Any behavior that runs counter to that goal will not be tolerated.
 
 These rules were borrowed from the [SerenityOS/jakt](https://github.com/SerenityOS/jakt) project.
@@ -7,7 +7,7 @@ These rules were borrowed from the [SerenityOS/jakt](https://github.com/Serenity
 
 1. Do the best you can, both in code and in communication. Expect others to do the same.
 2. Politics, religion and sex are not appropriate topics here. Discuss them elsewhere.
-3. Any discussion unrelated to the `eddy` project belongs elsewhere.
+3. Any discussion unrelated to the `aragorn` project belongs elsewhere.
 4. Try your best to keep a positive attitude, and try to not drag others down if/when you're having a bad day.
 5. Don't complain about things you are not actively engaged in improving. This includes low-effort whining like "$THING
    is trash". Don't shit on other projects, companies, or communities.
@@ -15,9 +15,9 @@ These rules were borrowed from the [SerenityOS/jakt](https://github.com/Serenity
    implementing your ideas. We have no need for "idea guys"
 9. Don't ask other people to look things up for you. If a question can be answered by consulting the code, the git
    history, the issue tracker, or a search engine, look it up yourself.
-10. Avoid when-posting. "When will `eddy` get this feature?", "When will you do X?", etc. If you want to see something
+10. Avoid when-posting. "When will `aragorn` get this feature?", "When will you do X?", etc. If you want to see something
     happen, you make it happen.
-11. Refrain from excitement-posting on issues/pull requests. We are all excited about `eddy`, but please don't add
+11. Refrain from excitement-posting on issues/pull requests. We are all excited about `aragorn`, but please don't add
     unnecessary noise. Users who repeatedly misuse this will be restricted.
 12. If a bug is discussed, please make sure there's a separate GitHub issue for it.
 13. No soliciting of any kind.

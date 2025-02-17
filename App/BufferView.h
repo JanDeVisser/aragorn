@@ -9,7 +9,7 @@
 #include <App/Buffer.h>
 #include <App/Widget.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using pEditor = std::shared_ptr<class Editor>;
 using pBufferView = std::shared_ptr<class BufferView>;
@@ -94,10 +94,11 @@ public:
 
     auto operator[](size_t ix) const
     {
-        return m_buf->text[ix];
+        return m_buf->at(ix);
     }
 
 private:
+    size_t version { 0 };
     size_t                cursor { 0 };
     Vec<size_t>           cursor_pos {};
     std::optional<size_t> cursor_col {};

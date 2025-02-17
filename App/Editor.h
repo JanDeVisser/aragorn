@@ -8,7 +8,7 @@
 
 #include <App/BufferView.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 class Editor : public Widget {
 public:

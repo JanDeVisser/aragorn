@@ -7,11 +7,12 @@
 #include <cctype>
 
 #include <LibCore/IO.h>
+#include <LibCore/ScopeGuard.h>
 
+#include <App/Aragorn.h>
 #include <App/Buffer.h>
-#include <App/Eddy.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 
@@ -26,24 +27,28 @@ Buffer::Buffer(pWidget const &parent)
 
 Result<pBuffer> Buffer::open(std::string_view const &name)
 {
-    auto buffer = Widget::make<Buffer>(Eddy::the());
+    auto buffer = Widget::make<Buffer>(Aragorn::the());
     buffer->name = name;
-    buffer->m_mode = Eddy::the()->get_mode_for_buffer(buffer);
+    buffer->m_mode = Aragorn::the()->get_mode_for_buffer(buffer);
     if (auto listener = buffer->m_mode->event_listener(); listener) {
         buffer->add_listener(listener);
     }
-    buffer->text = TRY_EVAL(read_file_by_name(name));
-    buffer->lines.clear();
-    buffer->build_indices();
+    auto contents = TRY_EVAL(read_file_by_name(name));
+    auto cap = static_cast<size_t>(static_cast<float>(contents.length()) * 1.2);
+    buffer->text_size = contents.length();
+    buffer->end_gap = cap - buffer->text_size;
+    buffer->m_text.resize(cap, 0);
+    auto i = buffer->it(buffer->end_gap);
+    std::copy(contents.begin(), contents.end(), i);
+    buffer->lex();
     return buffer;
 }
 
 pBuffer Buffer::new_buffer()
 {
-    auto buffer = Widget::make<Buffer>(Eddy::the());
-    buffer->lines.clear();
-    buffer->build_indices();
-    //    mode = eddy_get_mode_for_buffer(&eddy, name);
+    auto buffer = Widget::make<Buffer>(Aragorn::the());
+    buffer->lex();
+    //    mode = aragorn_get_mode_for_buffer(&aragorn, name);
     //    if (mode) {
     //        buffer_add_listener(buffer, mode->event_listener);
     //    }
@@ -57,56 +62,46 @@ void Buffer::close()
     apply(event);
 }
 
-/*
- * A line is a sequence of tokens. Last token is EOL (end of line)
- * - m_index_of is index of first char of the line.
- * - m_length includes the EOL
- * - Last line may not have a terminating EOL.
- * - EOF is not added to last line.
- */
-bool Buffer::build_indices()
+bool Buffer::lex()
 {
     assert(indexed_version <= version);
-    if (indexed_version == version && !lines.empty() > 0) {
+    if (indexed_version == version && !lines.empty()) {
         return false;
     }
     lines.clear();
-    tokens.clear();
+    if (text_size == 0) {
+        return true;
+    }
 
     mode()->initialize_source();
+    lock();
+    ScopeGuard sg { [this]() {
+        unlock();
+        std::println("Unlocking");
+    } };
 
-    Index  current { 0, 0 };
+    auto new_line = [this]() -> Line * {
+        return &lines.emplace_back();
+    };
+    bool   done = false;
+    Line  *current = new_line();
     size_t lineno { 0 };
-    trace(EDIT, "build_indices. version {} indexed_version {} length: {}", version, indexed_version, text.length());
-    bool done = false;
-    std::stringstream ss;
     do {
         auto const t = mode()->lex();
+        current->tokens.emplace_back(t);
         switch (t.kind()) {
         case TokenKind::EndOfFile:
-            trace(EDIT, "[EOF]");
             done = true;
             break;
         case TokenKind::EndOfLine: {
-            assert(t <= text.length());
-            current.extend(t);
-            tokens.emplace_back(t);
-            lines.push_back(current);
-            trace(EDIT, "{}[EOL] index: {} length: {} end: {} first {} num {}", ss.view(), current.begin(), current.length(), current.end(), current.first_token(), current.tokens());
-	    ss = std::stringstream {};
+            assert(t.index() <= length());
+            current = new_line();
             ++lineno;
-            auto index = current.end();
-            current = Index { index, tokens.size() };
         } break;
         default:
-	    ss << "[" << TokenKind_name(t.kind()) << "]{" << text.substr(t, t.length()) << "}";
-            current.extend(t);
-            tokens.emplace_back(t);
             break;
         }
     } while (!done);
-    lines.push_back(current);
-    trace(EDIT, "=====================");
     indexed_version = version;
     BufferEvent event;
     event.type = BufferEventType::Indexed;
@@ -126,7 +121,7 @@ size_t Buffer::line_for_index(size_t index) const
     while (true) {
         auto        lineno = line_min + (line_max - line_min) / 2;
         auto const &line = lines[lineno];
-        if ((lineno < lines.size() - 1 && line.contains(index)) || (lineno == lines.size() - 1 && line.begin() <= index)) {
+        if ((lineno < lines.size() - 1 && line.begin() >= index && lines[lineno + 1].begin() > index) || (lineno == lines.size() - 1 && line.begin() <= index)) {
             return lineno;
         }
         if (line.begin() > index) {
@@ -141,35 +136,154 @@ Vec<size_t> Buffer::index_to_position(size_t index) const
 {
     Vec<size_t> ret {};
     ret.line = line_for_index(index);
-    ret.column = index - lines[ret.line].begin();
+    auto const &line = lines[ret.line];
+    for (auto const &t : line.tokens) {
+        if (t.index() <= index && t.index() + t.index() > index) {
+            ret.column = t.column() + (index - t.index());
+            break;
+        }
+    }
     return ret;
 }
 
 size_t Buffer::position_to_index(Vec<size_t> position) const
 {
-    Index const &line = lines[position.line];
-    return line.begin() + position.column;
+    Line const &line = lines[position.line];
+    for (auto const &t : line.tokens) {
+        if (t.column() <= position.column && t.column() + t.length() > position.column) {
+            return t.index() + (position.column - t.column());
+        }
+    }
+    return line.end();
+}
+
+void Buffer::set(size_t pos)
+{
+    assert(!m_locked);
+    assert(pos <= text_size);
+    if (pos == cursor) {
+        return;
+    }
+    if (pos < cursor) {
+        auto num = cursor - pos;
+        std::copy(it(pos), it(cursor), it(end_gap - num));
+        cursor = pos;
+        end_gap -= num;
+    } else {
+        auto num = pos - cursor;
+        std::copy(it(end_gap), it(end_gap + num), it(cursor));
+        cursor = pos;
+        end_gap += num;
+    }
+}
+
+rune Buffer::delete_rune_backwards(size_t pos)
+{
+    assert(pos > 0 && pos <= text_size);
+    set(pos);
+    auto r = m_text[cursor - 1];
+    cursor -= 1;
+    text_size -= 1;
+    return r;
+}
+
+rune Buffer::delete_rune_forward(size_t pos)
+{
+    assert(pos >= 0 && pos < text_size);
+    set(pos);
+    auto r = m_text[end_gap];
+    end_gap += 1;
+    text_size -= 1;
+    return r;
+}
+
+void Buffer::insert_rune(size_t pos, rune r)
+{
+    assert(pos >= 0 && pos < text_size);
+    set(pos);
+    m_text[cursor] = r;
+    cursor += 1;
+    text_size += 1;
+}
+
+void Buffer::ensure_capacity(size_t num)
+{
+    auto new_cap = m_text.size();
+    while (text_size + num > static_cast<int>(static_cast<float>(new_cap) * 0.9)) {
+        new_cap = static_cast<int>(static_cast<float>(new_cap) * 1.2);
+    }
+    if (new_cap > m_text.size()) {
+        auto old_cap = m_text.size();
+        m_text.resize(new_cap, 0);
+        auto diff = m_text.size() - old_cap;
+        std::copy(m_text.begin() + end_gap, m_text.begin() + old_cap, m_text.begin() + (end_gap + diff));
+        end_gap += diff;
+    }
+}
+
+void Buffer::insert_string(size_t pos, rune_view s)
+{
+    ensure_capacity(s.length());
+    for (auto ix = 0; ix < s.length(); ++ix) {
+        insert_rune(pos + ix, s[ix]);
+    }
+    lex();
+}
+
+void Buffer::append_string(rune_view s)
+{
+    ensure_capacity(s.length());
+    for (auto r : s) {
+        insert_rune(text_size, r);
+    }
+    lex();
+}
+
+void Buffer::erase(size_t pos, size_t len)
+{
+    assert(pos < text_size);
+    if (len == rune_view::npos) {
+        len = text_size - pos;
+    }
+    set(pos);
+    end_gap += len;
+    lex();
+}
+
+rune Buffer::at(size_t pos) const
+{
+    return (pos < cursor) ? m_text[cursor] : m_text[end_gap + (pos - cursor)];
+}
+
+rune_view Buffer::substr(size_t pos, size_t len)
+{
+    assert(pos < text_size);
+    if (len == rune_view::npos) {
+        len = text_size - pos;
+    }
+    set(pos);
+    return { m_text.data() + end_gap, len };
 }
 
 void Buffer::apply(BufferEvent const &event)
 {
     switch (event.type) {
     case BufferEventType::Insert: {
-        auto const &insert = event.insert();
-        if (insert.empty()) {
+        auto const &s = event.insert();
+        if (s.empty()) {
             return;
         }
 
-        if (event.position < text.length()) {
-            text.insert(event.position, insert);
+        if (event.position < text_size) {
+            insert_string(event.position, s);
         } else {
-            text.append(insert);
+            append_string(s);
         }
         ++version;
     } break;
     case BufferEventType::Delete: {
         auto const &deletion = event.deletion();
-        text.erase(event.position, deletion.length());
+        erase(event.position, deletion.length());
         ++version;
     } break;
     case BufferEventType::Replace: {
@@ -177,11 +291,11 @@ void Buffer::apply(BufferEvent const &event)
         if (replacement.replacement.empty()) {
             return;
         }
-        text.erase(event.position, replacement.overwritten.length());
-        if (event.position < text.length()) {
-            text.insert(event.position, replacement.replacement);
+        erase(event.position, replacement.overwritten.length());
+        if (event.position < text_size) {
+            insert_string(event.position, replacement.replacement);
         } else {
-            text.append(replacement.replacement);
+            append_string(replacement.replacement);
         }
         ++version;
     } break;
@@ -194,18 +308,17 @@ void Buffer::apply(BufferEvent const &event)
         if (name.empty() || saved_version == version) {
             return;
         }
-        MUST(write_file_by_name(name, text));
+        MUST(write_file_by_name(name, substr(0)));
         saved_version = version;
     } break;
     case BufferEventType::Close: {
         for (auto &listener : listeners) {
             listener(std::dynamic_pointer_cast<Buffer>(self()), event);
         }
-        text.clear();
+        m_text.clear();
         undo_stack.clear();
         undo_pointer = 0;
         lines.clear();
-        tokens.clear();
         version = 0;
         saved_version = 0;
         indexed_version = 0;
@@ -247,43 +360,43 @@ void Buffer::redo()
     apply(edit);
 }
 
-void Buffer::insert(size_t at, std::string_view const &insert)
+void Buffer::insert(size_t pos, std::string_view const &insert)
 {
     if (insert.empty()) {
         return;
     }
-    at = clamp(at, 0, text.length());
+    pos = clamp(pos, 0, text_size);
     EventRange range;
-    range.start = range.end = index_to_position(static_cast<int>(at));
-    edit(BufferEvent::make_insert(range, at, insert));
+    range.start = range.end = index_to_position(static_cast<int>(pos));
+    edit(BufferEvent::make_insert(range, pos, insert));
 }
 
-void Buffer::del(size_t at, size_t count)
+void Buffer::del(size_t pos, size_t count)
 {
-    at = clamp(at, 0, text.length());
-    count = clamp(count, 0, text.length() - at);
+    pos = clamp(pos, 0, text_size);
+    count = clamp(count, 0, text_size - pos);
     if (count == 0) {
         return;
     }
     EventRange range;
-    range.start = index_to_position(static_cast<int>(at));
-    range.end = index_to_position(static_cast<int>(at + count));
-    auto const &del = text.substr(at, count);
-    edit(BufferEvent::make_delete(range, at, del));
+    range.start = index_to_position(static_cast<int>(pos));
+    range.end = index_to_position(static_cast<int>(pos + count));
+    auto const &del = substr(pos, count);
+    edit(BufferEvent::make_delete(range, pos, del));
 }
 
-void Buffer::replace(size_t at, size_t num, std::string_view const &replacement)
+void Buffer::replace(size_t pos, size_t num, std::string_view const &replacement)
 {
-    at = clamp(at, 0, text.length());
-    num = clamp(num, 0, text.length() - at);
+    pos = clamp(pos, 0, text_size);
+    num = clamp(num, 0, text_size - pos);
     if (num == 0) {
         return;
     }
-    std::string_view overwritten = { text.begin() + at, text.begin() + at + num };
+    std::string_view overwritten = substr(pos, num);
     EventRange       range;
-    range.start = index_to_position(static_cast<int>(at));
-    range.end = index_to_position(static_cast<int>(at + num));
-    edit(BufferEvent::make_replacement(range, at, overwritten, replacement));
+    range.start = index_to_position(static_cast<int>(pos));
+    range.end = index_to_position(static_cast<int>(pos + num));
+    edit(BufferEvent::make_replacement(range, pos, overwritten, replacement));
 }
 
 void Buffer::merge_lines(size_t top_line)
@@ -291,11 +404,17 @@ void Buffer::merge_lines(size_t top_line)
     if (top_line > lines.size() - 1) {
         return;
     }
-    if (top_line < 0) {
-        top_line = 0;
-    }
-    Index &line = lines[top_line];
+    Line &line = lines[top_line];
     replace(line.end(), 1, " ");
+}
+
+size_t Buffer::find(rune_view needle, size_t offset)
+{
+    auto pos = substr(offset).find(needle);
+    if (pos == rune_view::npos) {
+        return pos;
+    }
+    return offset + pos;
 }
 
 void Buffer::save()
@@ -310,14 +429,14 @@ void Buffer::save_as(std::string_view const &new_name)
 
 size_t Buffer::word_boundary_left(size_t index) const
 {
-    index = clamp(index, 0, text.length() - 1);
-    if (isalnum(text[index]) || text[index] == '_') {
-        while (((int) index) > 0 && (isalnum(text[index]) || text[index] == '_')) {
+    index = clamp(index, 0, text_size - 1);
+    if (isalnum(at(index)) || at(index) == '_') {
+        while (((int) index) > 0 && (isalnum(at(index)) || at(index) == '_')) {
             --index;
         }
         ++index;
     } else {
-        while (((int) index) > 0 && (!isalnum(text[index]) && text[index] != '_')) {
+        while (((int) index) > 0 && (!isalnum(at(index)) && at(index) != '_')) {
             --index;
         }
         ++index;
@@ -327,14 +446,14 @@ size_t Buffer::word_boundary_left(size_t index) const
 
 size_t Buffer::word_boundary_right(size_t index) const
 {
-    index = clamp(index, 0, text.length() - 1);
-    size_t max_index = text.length();
-    if (isalnum(text[index]) || text[index] == '_') {
-        while (index < max_index && (isalnum(text[index]) || text[index] == '_')) {
+    index = clamp(index, 0, text_size - 1);
+    size_t max_index = text_size;
+    if (isalnum(at(index)) || at(index) == '_') {
+        while (index < max_index && (isalnum(at(index)) || at(index) == '_')) {
             ++index;
         }
     } else {
-        while (index < max_index && (!isalnum(text[index]) && text[index] != '_')) {
+        while (index < max_index && (!isalnum(at(index)) && at(index) != '_')) {
             ++index;
         }
     }
@@ -349,7 +468,7 @@ void Buffer::add_listener(BufferEventListener const &listener)
 std::string const &Buffer::uri()
 {
     if (m_uri.empty() && !name.empty()) {
-        m_uri = std::format("file://{}/{}", Eddy::the()->project->project_dir, name);
+        m_uri = std::format("file://{}/{}", Aragorn::the()->project->project_dir, name);
     }
     return m_uri;
 }
@@ -418,7 +537,7 @@ void buffer_semantic_tokens_response(Buffer *buffer, JSONValue resp)
         size_t     length = data.elements[ix + 2];
         StringView text = { line->line.ptr + offset, length };
         //        trace(LSP, "Semantic token[%zu]: line: %zu col: %zu length: %zu %.*s", ix, lineno, offset, length, SV_ARG(text));
-        OptionalColours colours = theme_semantic_colours(&eddy.theme, data.elements[ix + 3]);
+        OptionalColours colours = theme_semantic_colours(&aragorn.theme, data.elements[ix + 3]);
         if (!colours.has_value) {
             //            trace(LSP, "SemanticTokenType index %d not mapped", data.elements[ix + 3]);
             continue;

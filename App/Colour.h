@@ -12,7 +12,7 @@
 #include <LibCore/JSON.h>
 #include <LibCore/Result.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 

@@ -1,30 +1,30 @@
 find_package(Freetype)
 
 add_executable(
-        Eddy
+        Aragorn
         MACOSX_BUNDLE
         App.cpp
         Buffer.cpp
-	Colour.cpp
+        Colour.cpp
         BufferView.cpp
-        Eddy.cpp
+        Aragorn.cpp
         Editor.cpp
         FileSelector.h
         Gutter.cpp
         Layout.cpp
-	LexerMode.h
+        LexerMode.h
         MiniBuffer.h
         Modal.h
-	Mode.cpp
+        Mode.cpp
         StatusBar.cpp
         Theme.cpp
         Widget.cpp
         Project.cpp
 )
 
-target_include_directories(Eddy PRIVATE ${raylib_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
+target_include_directories(Aragorn PRIVATE ${raylib_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
 target_link_libraries(
-        Eddy
+        Aragorn
         PRIVATE
         LibCore
 #       LSPSchema
@@ -33,7 +33,7 @@ target_link_libraries(
         m
 )
 
-install(TARGETS Eddy
+install(TARGETS Aragorn
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib

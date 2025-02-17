@@ -10,7 +10,7 @@
 
 #include <App/Widget.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 enum class BufferEventType {
     None = 0,

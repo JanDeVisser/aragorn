@@ -13,7 +13,7 @@
 #include <App/Widget.h>
 #include <LibCore/Options.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 
@@ -44,8 +44,8 @@ struct App : public Layout {
     std::mutex                commands_mutex {};
     size_t                    frame_count { 0 };
     std::vector<DrawFloating> floatings;
-    std::string               title_string { "Eddy" };
-    std::string               icon_file { "eddy.png" };
+    std::string               title_string { "Aragorn" };
+    std::string               icon_file { "aragorn.png" };
 
     App();
 

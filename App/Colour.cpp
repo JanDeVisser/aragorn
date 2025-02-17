@@ -6,7 +6,7 @@
 
 #include <App/Colour.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 Result<Colour, Colour::ColourParseError> Colour::parse_color(std::string_view const &color)
 {

@@ -8,10 +8,10 @@
 
 #include <cmath>
 
-#include <App/Eddy.h>
+#include <App/Aragorn.h>
 #include <App/Widget.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 struct MiniBuffer : public Widget {
     std::string message {};
@@ -37,15 +37,15 @@ struct MiniBuffer : public Widget {
         if (current_query != nullptr) {
             return;
         }
-        draw_rectangle(0, 0, viewport.width, viewport.height, DARKGRAY /*colour_to_color(eddy.theme.editor.bg)*/);
+        draw_rectangle(0, 0, viewport.width, viewport.height, DARKGRAY /*colour_to_color(aragorn.theme.editor.bg)*/);
         if (!message.empty()) {
-            render_text(0, 0, message, Eddy::the()->font.value(), RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
+            render_text(0, 0, message, Aragorn::the()->font.value(), RAYWHITE /*colour_to_color(aragorn.theme.editor.fg)*/);
         }
     }
 
     void process_input() override
     {
-        if (!message.empty() && Eddy::the()->time - time > 5.0) {
+        if (!message.empty() && Aragorn::the()->time - time > 5.0) {
             message.clear();
         }
     }
@@ -54,19 +54,19 @@ struct MiniBuffer : public Widget {
     void display(char const *fmt, Args &&...args)
     {
         message = std::vformat(fmt, std::make_format_args(args)...);
-        time = Eddy::the()->time;
+        time = Aragorn::the()->time;
     }
 
     void display(char const *text)
     {
         message = text;
-        time = Eddy::the()->time;
+        time = Aragorn::the()->time;
     }
 
     void display(std::string_view const &text)
     {
         message = text;
-        time = Eddy::the()->time;
+        time = Aragorn::the()->time;
     }
 
     void clear()
@@ -77,21 +77,21 @@ struct MiniBuffer : public Widget {
     template<typename... Args>
     static void set_message(char const *fmt, Args &&...args)
     {
-        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Aragorn::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         minibuffer->display(fmt, std::format<Args>(args)...);
     }
 
     static void set_message(std::string_view const &text)
     {
-        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Aragorn::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         minibuffer->display(text);
     }
 
     static void clear_message()
     {
-        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Aragorn::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         minibuffer->clear();
     }
@@ -120,13 +120,13 @@ struct MiniBuffer : public Widget {
             {
                 switch (key) {
                 case KEY_ESCAPE: {
-                    Eddy::the()->pop_modal();
+                    Aragorn::the()->pop_modal();
                     minibuffer->current_query = nullptr;
                     return true;
                 }
                 case KEY_ENTER:
                 case KEY_KP_ENTER: {
-                    Eddy::the()->pop_modal();
+                    Aragorn::the()->pop_modal();
                     minibuffer->current_query = nullptr;
                     query(target, text);
                     return true;
@@ -176,16 +176,16 @@ struct MiniBuffer : public Widget {
 
             void draw() override
             {
-                render_text(0, 0, std::format("{}: {}", prompt, text), Eddy::the()->font.value(), RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
+                render_text(0, 0, std::format("{}: {}", prompt, text), Aragorn::the()->font.value(), RAYWHITE /*colour_to_color(aragorn.theme.editor.fg)*/);
                 double t = GetTime();
                 if ((t - floor(t)) < 0.5) {
                     auto x = static_cast<float>(prompt.length() + 2 + cursor);
-                    draw_rectangle(x * Eddy::the()->cell.x, 0, 2, Eddy::the()->cell.y + 5, RAYWHITE /*colour_to_color(eddy.theme.editor.fg)*/);
+                    draw_rectangle(x * Aragorn::the()->cell.x, 0, 2, Aragorn::the()->cell.y + 5, RAYWHITE /*colour_to_color(aragorn.theme.editor.fg)*/);
                 }
             }
         };
 
-        auto const &minibuffer = Eddy::the()->find_by_class<MiniBuffer>();
+        auto const &minibuffer = Aragorn::the()->find_by_class<MiniBuffer>();
         assert(minibuffer != nullptr);
         assert(fnc != NULL);
         if (minibuffer->current_query != nullptr) {
@@ -196,7 +196,7 @@ struct MiniBuffer : public Widget {
         auto const &q = Widget::make<MiniBufferQuery>(minibuffer, fnc, prompt, target);
         q->minibuffer = minibuffer;
         minibuffer->current_query = q;
-        Eddy::the()->push_modal(minibuffer->current_query);
+        Aragorn::the()->push_modal(minibuffer->current_query);
     }
 };
 

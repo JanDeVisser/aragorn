@@ -10,16 +10,16 @@
 
 #include <LibCore/IO.h>
 
-#include <App/Eddy.h>
+#include <App/Aragorn.h>
 #include <App/Theme.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 using namespace LibCore;
 
 Theme& Theme::the()
 {
-    return Eddy::the()->theme();
+    return Aragorn::the()->theme();
 }
 
 Result<Theme, JSONError> Theme::decode(JSONValue const &json)
@@ -113,9 +113,9 @@ Result<Theme, JSONError> Theme::load(std::string_view const &name)
     struct passwd *pw = getpwuid(getuid());
     std::string    n { name };
     n += ".json";
-    auto file_name = fs::path(pw->pw_dir) / ".eddy" / "themes" / n;
+    auto file_name = fs::path(pw->pw_dir) / ".aragorn" / "themes" / n;
     if (!fs::exists(file_name)) {
-        file_name = fs::path(EDDY_DATADIR) / "themes" / n;
+        file_name = fs::path(ARAGORN_DATADIR) / "themes" / n;
         if (!fs::exists(file_name)) {
             return JSONError {
                 JSONError::Code::ProtocolError,
@@ -276,4 +276,3 @@ Scope Theme::get_scope(std::string_view const &name)
 }
 
 }
-

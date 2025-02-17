@@ -7,15 +7,13 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
-#define EDDY_NAME                          "@eddy_NAME@"
-#define EDDY_VERSION_MAJOR                 "@eddy_VERSION_MAJOR@"
-#define EDDY_VERSION_MINOR                 "@eddy_VERSION_MINOR@"
-#define EDDY_VERSION                       "@eddy_VERSION_MAJOR@.@eddy_VERSION_MINOR@"
-#define EDDY_DIR                           "@eddy_DIR@"
-#define EDDY_DATADIR                       "@eddy_DATADIR@"
-#define SCRIBBLE_DIR                       "@scribble_DIR@"
-#define SCRIBBLE_DATADIR                   "@scribble_DATADIR@"
-#define EDDY_SYSTEM                        "@CMAKE_SYSTEM_NAME@"
+#define ARAGORN_NAME                          "@aragorn_NAME@"
+#define ARAGORN_VERSION_MAJOR                 "@aragorn_VERSION_MAJOR@"
+#define ARAGORN_VERSION_MINOR                 "@aragorn_VERSION_MINOR@"
+#define ARAGORN_VERSION                       "@aragorn_VERSION_MAJOR@.@ARAGORN_VERSION_MINOR@"
+#define ARAGORN_DIR                           "@aragorn_DIR@"
+#define ARAGORN_DATADIR                       "@aragorn_DATADIR@"
+#define ARAGORN_SYSTEM                        "@CMAKE_SYSTEM_NAME@"
 
 #cmakedefine HAVE_DIRENT_D_NAMLEN              1
 #cmakedefine HAVE_C23_ATTRIBUTE_NORETURN       1

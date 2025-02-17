@@ -6,24 +6,23 @@
 
 #include <iostream>
 
-#include <App/Eddy.h>
+#include <App/Aragorn.h>
 #include <App/Editor.h>
 #include <App/FileSelector.h>
-#include <App/MiniBuffer.h>
 #include <App/Modal.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 Result<int> Editor::open(std::string_view const &file)
 {
-    auto buffer = TRY_EVAL(Eddy::the()->open_buffer(file));
+    auto buffer = TRY_EVAL(Aragorn::the()->open_buffer(file));
     select_buffer(buffer);
     return current_view_ix;
 }
 
 void Editor::new_buffer()
 {
-    auto const &buffer = Eddy::the()->new_buffer();
+    auto const &buffer = Aragorn::the()->new_buffer();
     select_buffer(buffer);
 }
 
@@ -50,7 +49,7 @@ void Editor::select_buffer(pBuffer const &buffer)
         }
     }
     for (int ix = 0; ix < views.size(); ++ix) {
-        if (views[ix]->buffer()->name.empty() && views[ix]->buffer()->text.empty()) {
+        if (views[ix]->buffer()->name.empty() && views[ix]->buffer()->empty()) {
             auto const &view = Widget::make<BufferView>(self<Editor>(), buffer);
             views[ix] = view;
             select_view(ix);
@@ -117,7 +116,7 @@ void cmd_open_file(pEditor const &editor, JSONValue const &)
         auto s = std::dynamic_pointer_cast<FileSelector>(selector);
         auto e = s->entries[s->selection].payload;
         if (auto open_maybe = editor->open(e.path().string()); open_maybe.is_error()) {
-            Eddy::set_message("Could not open file");
+            Aragorn::set_message("Could not open file");
         }
     };
     auto const &fs = Widget::make<FileSelector>(
@@ -135,7 +134,7 @@ void cmd_switch_buffer(pEditor const &editor, JSONValue const &)
             : ListBox("Select buffer")
             , editor(std::move(editor))
         {
-            for (auto const &buffer : Eddy::the()->buffers) {
+            for (auto const &buffer : Aragorn::the()->buffers) {
                 std::string text { buffer->name };
                 if (buffer->saved_version < buffer->version) {
                     text += " *";
@@ -176,7 +175,7 @@ void cmd_close_buffer(pEditor const &editor, JSONValue const &)
     auto const &buffer = view->buffer();
 
     std::string prompt {};
-    if (buffer->name.empty() && !buffer->text.empty()) {
+    if (buffer->name.empty() && !buffer->empty()) {
         prompt = "File is modified. Do you want to save it before closing?";
     }
     if (buffer->saved_version < buffer->version) {
@@ -221,8 +220,8 @@ void Editor::initialize()
 
 void Editor::resize()
 {
-    columns = (int) ((viewport.width - 2 * PADDING) / Eddy::the()->cell.x);
-    lines = (int) ((viewport.height - 2 * PADDING) / Eddy::the()->cell.y);
+    columns = (int) ((viewport.width - 2 * PADDING) / Aragorn::the()->cell.x);
+    lines = (int) ((viewport.height - 2 * PADDING) / Aragorn::the()->cell.y);
     for (auto &view : views) {
         view->viewport = viewport;
     }

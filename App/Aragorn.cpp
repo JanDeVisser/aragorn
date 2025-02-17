@@ -14,14 +14,14 @@
 #include <LibCore/IO.h>
 #include <config.h>
 
-#include <App/Eddy.h>
+#include <App/Aragorn.h>
 #include <App/Editor.h>
 #include <App/LexerMode.h>
 #include <App/MiniBuffer.h>
 #include <App/Modal.h>
 #include <App/StatusBar.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 namespace fs = std::filesystem;
 
@@ -29,12 +29,12 @@ void AppState::read()
 {
     struct passwd *pw = getpwuid(getuid());
     struct stat    sb;
-    char const    *eddy_fname = TextFormat("%s/.eddy", pw->pw_dir);
-    if (stat(eddy_fname, &sb) != 0) {
-        mkdir(eddy_fname, 0700);
+    char const    *aragorn_fname = TextFormat("%s/.aragorn", pw->pw_dir);
+    if (stat(aragorn_fname, &sb) != 0) {
+        mkdir(aragorn_fname, 0700);
     }
 
-    char const *state_fname = TextFormat("%s/.eddy/state", pw->pw_dir);
+    char const *state_fname = TextFormat("%s/.aragorn/state", pw->pw_dir);
     if (stat(state_fname, &sb) == 0) {
         int state_fd = open(state_fname, O_RDONLY);
         ::read(state_fd, this, sizeof(AppState));
@@ -47,18 +47,18 @@ void AppState::read()
 void AppState::write()
 {
     struct passwd *pw = getpwuid(getuid());
-    char const    *state_fname = TextFormat("%s/.eddy/state", pw->pw_dir);
+    char const    *state_fname = TextFormat("%s/.aragorn/state", pw->pw_dir);
     int            state_fd = open(state_fname, O_RDWR | O_CREAT | O_TRUNC, 0600);
     ::write(state_fd, this, sizeof(AppState));
     close(state_fd);
 }
 
-pEddy Eddy::the()
+pAragorn Aragorn::the()
 {
-    return std::dynamic_pointer_cast<Eddy>(App::the());
+    return std::dynamic_pointer_cast<Aragorn>(App::the());
 }
 
-Eddy::Eddy()
+Aragorn::Aragorn()
     : App()
 {
     app_state.read();
@@ -69,18 +69,18 @@ Eddy::Eddy()
     }
 }
 
-bool Eddy::query_close()
+bool Aragorn::query_close()
 {
-    submit("eddy-quit", JSONValue {});
+    submit("aragorn-quit", JSONValue {});
     return false;
 }
 
-void Eddy::on_start()
+void Aragorn::on_start()
 {
     monitor = GetCurrentMonitor();
 }
 
-void Eddy::process_input()
+void Aragorn::process_input()
 {
     if (monitor != app_state.monitor()) {
         app_state.monitor(monitor);
@@ -88,32 +88,32 @@ void Eddy::process_input()
     App::process_input();
 }
 
-void Eddy::on_terminate()
+void Aragorn::on_terminate()
 {
     if (font) {
         UnloadFont(*font);
     }
 }
 
-void Eddy::terminate()
+void Aragorn::terminate()
 {
-    project->close(self<Eddy>());
+    project->close(self<Aragorn>());
     quit = true;
 }
 
-void cmd_force_quit(pEddy const &eddy, JSONValue const &)
+void cmd_force_quit(pAragorn const &aragorn, JSONValue const &)
 {
-    eddy->terminate();
+    aragorn->terminate();
 }
 
-void cmd_quit(pEddy const &eddy, JSONValue const &)
+void cmd_quit(pAragorn const &aragorn, JSONValue const &)
 {
-    if (!eddy->modals.empty()) {
+    if (!aragorn->modals.empty()) {
         // User probably clicked the close window button twice
         return;
     }
     bool has_modified_buffers = false;
-    for (auto const &buffer : eddy->buffers) {
+    for (auto const &buffer : aragorn->buffers) {
         if (buffer->saved_version < buffer->version) {
             has_modified_buffers = true;
             break;
@@ -127,28 +127,28 @@ void cmd_quit(pEddy const &eddy, JSONValue const &)
         prompt = "There are modified files. Are you sure you want to quit?";
     }
 
-    auto are_you_sure = [](pEddy const &eddy, QueryOption selection) {
+    auto are_you_sure = [](pAragorn const &aragorn, QueryOption selection) {
         if (selection == QueryOptionYes) {
-            eddy->terminate();
+            aragorn->terminate();
         }
     };
-    query_box(eddy, prompt, are_you_sure, QueryOptionYesNo);
+    query_box(aragorn, prompt, are_you_sure, QueryOptionYesNo);
 }
 
-void cmd_run_command(pEddy const &eddy, JSONValue const &)
+void cmd_run_command(pAragorn const &aragorn, JSONValue const &)
 {
     struct Commands : public ListBox<Widget::WidgetCommand> {
-        pEddy const &eddy;
-        explicit Commands(pEddy const &eddy)
+        pAragorn const &aragorn;
+        explicit Commands(pAragorn const &aragorn)
             : ListBox("Select command")
-            , eddy(eddy)
+            , aragorn(aragorn)
         {
             auto push_commands = [this](auto &w) -> void {
                 for (auto &[name, command] : w->commands) {
                     entries.emplace_back(name, command);
                 }
             };
-            for (pWidget &w = eddy->focus; w; w = w->parent) {
+            for (pWidget &w = aragorn->focus; w; w = w->parent) {
                 push_commands(w);
                 if (w->delegate) {
                     push_commands(w->delegate);
@@ -160,14 +160,14 @@ void cmd_run_command(pEddy const &eddy, JSONValue const &)
         {
             auto const &cmd = entries[selection].payload;
             cmd.owner->submit(cmd.command, JSONValue {});
-            eddy->set_message(std::format("Selected command '{}'", cmd.command));
+            aragorn->set_message(std::format("Selected command '{}'", cmd.command));
         }
     };
-    Commands commands { eddy };
+    Commands commands { aragorn };
     commands.show();
 }
 
-void Eddy::initialize()
+void Aragorn::initialize()
 {
     auto res = read_settings();
     if (res.is_error()) {
@@ -183,7 +183,7 @@ void Eddy::initialize()
             arguments.pop_front();
         }
     }
-    auto project_maybe = Project::open(self<Eddy>(), project_dir);
+    auto project_maybe = Project::open(self<Aragorn>(), project_dir);
     if (project_maybe.is_error()) {
         fatal("Could not open project directory '{}': {}", project_dir, project_maybe.error().to_string());
     }
@@ -205,26 +205,26 @@ void Eddy::initialize()
     auto editor = editor_pane->add_widget<Editor>();
     editor->select_buffer(buffers[0]);
     editor_pane->insert_widget<Gutter>(0, editor);
-    auto main_area = Widget::make<Layout>(Eddy::the(), ContainerOrientation::Vertical);
+    auto main_area = Widget::make<Layout>(Aragorn::the(), ContainerOrientation::Vertical);
     main_area->policy = SizePolicy::Stretch;
     main_area->append(editor_pane);
     main_area->add_widget<StatusBar>();
     main_area->add_widget<MiniBuffer>();
     append(main_area);
 
-    add_command<Eddy>("eddy-force-quit", cmd_force_quit)
+    add_command<Aragorn>("aragorn-force-quit", cmd_force_quit)
         .bind(KeyCombo { KEY_Q, KModControl | KModShift });
-    add_command<Eddy>("eddy-quit", cmd_quit)
+    add_command<Aragorn>("aragorn-quit", cmd_quit)
         .bind(KeyCombo { KEY_Q, KModControl });
-    add_command<Eddy>("eddy-run-command", cmd_run_command)
+    add_command<Aragorn>("aragorn-run-command", cmd_run_command)
         .bind(KeyCombo { KEY_P, KModSuper | KModShift });
 }
 
-pBuffer Eddy::new_buffer()
+pBuffer Aragorn::new_buffer()
 {
     for (auto const &buffer : buffers) {
-        if (buffer->name.empty() && buffer->text.empty()) {
-            buffer->build_indices();
+        if (buffer->name.empty() && buffer->empty()) {
+            buffer->lex();
             return buffer;
         }
     }
@@ -233,11 +233,11 @@ pBuffer Eddy::new_buffer()
     return b;
 }
 
-Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
+Result<pBuffer> Aragorn::open_buffer(std::string_view const &file)
 {
     for (auto const &buffer : buffers) {
         if (buffer->name == file) {
-            buffer->build_indices();
+            buffer->lex();
             return buffer;
         }
     }
@@ -246,7 +246,7 @@ Result<pBuffer> Eddy::open_buffer(std::string_view const &file)
     return b;
 }
 
-void Eddy::close_buffer(int buffer_num)
+void Aragorn::close_buffer(int buffer_num)
 {
     assert(buffer_num >= 0 && buffer_num < buffers.size());
     pBuffer buffer = buffers[buffer_num];
@@ -254,7 +254,7 @@ void Eddy::close_buffer(int buffer_num)
     buffers.erase(buffers.begin() + buffer_num);
 }
 
-EError Eddy::read_settings()
+EError Aragorn::read_settings()
 {
     if (!settings.is_null()) {
         return {};
@@ -270,9 +270,9 @@ EError Eddy::read_settings()
             if (json_maybe.is_error()) {
                 switch (json_maybe.error().index()) {
                 case 0:
-                    return EddyError { std::get<LibCError>(json_maybe.error()) };
+                    return AragornError { std::get<LibCError>(json_maybe.error()) };
                 case 1:
-                    return EddyError { std::get<JSONError>(json_maybe.error()) };
+                    return AragornError { std::get<JSONError>(json_maybe.error()) };
                 default:
                     UNREACHABLE();
                 }
@@ -282,17 +282,17 @@ EError Eddy::read_settings()
         return {};
     };
 
-    if (auto const &e = merge_settings(EDDY_DATADIR, EDDY_SYSTEM ".json"); e.is_error()) {
+    if (auto const &e = merge_settings(ARAGORN_DATADIR, ARAGORN_SYSTEM ".json"); e.is_error()) {
         return e;
     }
-    if (auto const &e = merge_settings(EDDY_DATADIR); e.is_error()) {
+    if (auto const &e = merge_settings(ARAGORN_DATADIR); e.is_error()) {
         return e;
     }
     struct passwd *pw = getpwuid(getuid());
-    if (auto const &e = merge_settings(fs::path { pw->pw_dir } / ".eddy"); e.is_error()) {
+    if (auto const &e = merge_settings(fs::path { pw->pw_dir } / ".aragorn"); e.is_error()) {
         return e;
     }
-    if (auto const &e = merge_settings(".eddy"); e.is_error()) {
+    if (auto const &e = merge_settings(".aragorn"); e.is_error()) {
         return e;
     }
     auto appearance = settings.get_with_default("appearance");
@@ -306,17 +306,17 @@ EError Eddy::read_settings()
     return {};
 }
 
-EError Eddy::load_theme(std::string_view const &name)
+EError Aragorn::load_theme(std::string_view const &name)
 {
     auto theme_maybe = Theme::load(name);
     if (theme_maybe.is_error()) {
-        return EddyError { theme_maybe.error() };
+        return AragornError { theme_maybe.error() };
     }
     m_theme = theme_maybe.value();
     for (auto const &buffer : buffers) {
         bool is_saved = buffer->version == buffer->saved_version;
         ++buffer->version;
-        buffer->build_indices();
+        buffer->lex();
         if (is_saved) {
             buffer->saved_version = buffer->version;
         }
@@ -324,7 +324,7 @@ EError Eddy::load_theme(std::string_view const &name)
     return {};
 }
 
-StringList Eddy::get_font_dirs()
+StringList Aragorn::get_font_dirs()
 {
     if (font_dirs.empty()) {
         auto &appearance = settings["appearance"];
@@ -334,7 +334,7 @@ StringList Eddy::get_font_dirs()
         auto           append_dir = [pw, this](std::string_view const &dir) -> void {
             std::string d { dir };
             replace_all(d, "${HOME}", pw->pw_dir);
-            replace_all(d, "${EDDY_DATADIR}", EDDY_DATADIR);
+            replace_all(d, "${ARAGORN_DATADIR}", ARAGORN_DATADIR);
             if (std::find(font_dirs.begin(), font_dirs.end(), d) == font_dirs.end()) {
                 if (!fs::is_directory(d)) {
                     return;
@@ -355,13 +355,13 @@ StringList Eddy::get_font_dirs()
                 for (auto const &dir : dirs_maybe.value()) {
                     append_dir(dir);
                 }
-	    }
+            }
         }
     }
     return font_dirs;
 }
 
-void Eddy::load_font()
+void Aragorn::load_font()
 {
     auto        appearance = settings["appearance"];
     std::string default_font { "VictorMono-Medium.ttf" };
@@ -394,26 +394,26 @@ void Eddy::load_font()
     }
 }
 
-EError Eddy::open_dir(std::string_view const &dir)
+EError Aragorn::open_dir(std::string_view const &dir)
 {
     assert(buffers.empty());
-    auto project_maybe = Project::open(self<Eddy>(), dir);
+    auto project_maybe = Project::open(self<Aragorn>(), dir);
     if (project_maybe.is_error()) {
         return project_maybe.error();
     }
     return {};
 }
 
-pMode Eddy::get_mode_for_buffer(pBuffer const &buffer)
+pMode Aragorn::get_mode_for_buffer(pBuffer const &buffer)
 {
-    auto const&name = buffer->name;
+    auto const &name = buffer->name;
     if (name.ends_with(".cpp") || name.ends_with(".c") || name.ends_with(".h")) {
         return Widget::make<CMode>(buffer);
     }
     return Widget::make<PlainText>(buffer);
 }
 
-void Eddy::set_message(std::string_view const &text)
+void Aragorn::set_message(std::string_view const &text)
 {
     MiniBuffer::set_message(text);
 }
@@ -422,7 +422,7 @@ void Eddy::set_message(std::string_view const &text)
 
 int main(int argc, char const **argv)
 {
-    auto eddy = Eddy::App::create<Eddy::Eddy>(argc, argv);
-    eddy->start();
+    auto aragorn = Aragorn::App::create<Aragorn::Aragorn>(argc, argv);
+    aragorn->start();
     return 0;
 }

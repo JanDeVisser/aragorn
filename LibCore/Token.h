@@ -35,6 +35,7 @@ using EnumResult = Result<ResultType, NoSuchEnumValue>;
     S(EndOfFile)        \
     S(EndOfLine)        \
     S(Identifier)       \
+    S(Tab)              \
     S(Whitespace)       \
     S(Program)          \
     S(DirectiveArg)     \
@@ -85,7 +86,7 @@ extern std::string           QuoteType_name(QuoteType quote);
 extern EnumResult<QuoteType> QuoteType_from_string(std::string_view quote);
 
 template<>
-inline JSONValue encode(QuoteType const& type)
+inline JSONValue encode(QuoteType const &type)
 {
     return JSONValue { QuoteType_name(type) };
 }
@@ -275,6 +276,14 @@ struct Token {
         return ret;
     }
 
+    static Token tab(std::string_view text)
+    {
+        Token ret;
+        ret.kind = TokenKind::Tab;
+        ret.text = std::string { text };
+        return ret;
+    }
+
     static Token identifier(std::string_view text)
     {
         Token ret;
@@ -446,8 +455,8 @@ inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
 
     switch (token.kind) {
 #undef S
-#define S(K)                 \
-    case TokenKind::K:       \
+#define S(K)                \
+    case TokenKind::K:      \
         encode_token_##K(); \
         break;
         VALUE_TOKENKINDS(S)

@@ -7,10 +7,10 @@
 #include <LibCore/Lexer.h>
 
 #include <App/Buffer.h>
-#include <App/Eddy.h>
+#include <App/Aragorn.h>
 #include <App/Mode.h>
 #include <App/Theme.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 }

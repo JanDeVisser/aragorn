@@ -8,10 +8,10 @@
 
 #include <cmath>
 
-#include <App/Eddy.h>
+#include <App/Aragorn.h>
 #include <App/Widget.h>
 
-namespace Eddy {
+namespace Aragorn {
 
 enum class ModalStatus {
     Dormant = 0,
@@ -39,7 +39,7 @@ struct Modal : public Widget {
         : Widget(App::the())
         , prompt(prompt)
     {
-        background = DARKGRAY; // colour_to_color(Eddy::the()->theme.editor.bg);
+        background = DARKGRAY; // colour_to_color(Aragorn::the()->theme.editor.bg);
     }
 
     virtual void dismiss()
@@ -52,13 +52,13 @@ struct Modal : public Widget {
 
     void make_visible()
     {
-        Eddy::the()->push_modal(self());
+        Aragorn::the()->push_modal(self());
         status = ModalStatus::Active;
     }
 
     void hide()
     {
-        Eddy::the()->pop_modal();
+        Aragorn::the()->pop_modal();
         status = ModalStatus::Dormant;
     }
 };
@@ -104,7 +104,7 @@ struct ListBox : public Modal {
 
     void draw_entries(size_t y_offset)
     {
-        auto const &cell = Eddy::the()->cell;
+        auto const &cell = Aragorn::the()->cell;
         size_t      maxlen = (viewport.width - 28) / (cell.x * textsize);
         auto       &entries_to_draw = entries;
         if constexpr (Search) {
@@ -129,7 +129,7 @@ struct ListBox : public Modal {
             if (sv.length() > maxlen) {
                 sv = sv.substr(0, maxlen);
             }
-            render_sized_text(10ul, y_offset, sv, Eddy::the()->font.value(), textsize, text_color);
+            render_sized_text(10ul, y_offset, sv, Aragorn::the()->font.value(), textsize, text_color);
             y_offset += (cell.y * textsize) + 2;
         }
     }
@@ -140,16 +140,16 @@ struct ListBox : public Modal {
         auto fg = Theme::the().fg();
         draw_rectangle(0.0f, 0.0f, 0.0f, 0.0, bg);
         draw_outline(2ul, 2ul, -2.0f, -2.0f, fg);
-        render_text(8, 8, prompt, Eddy::the()->font.value(), fg);
-        render_text(-8, 8, search, Eddy::the()->font.value(), fg);
-        draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, fg);
-        draw_entries(Eddy::the()->cell.y + 14);
+        render_text(8, 8, prompt, Aragorn::the()->font.value(), fg);
+        render_text(-8, 8, search, Aragorn::the()->font.value(), fg);
+        draw_line(2, Aragorn::the()->cell.y + 10, -2, Aragorn::the()->cell.y + 10, fg);
+        draw_entries(Aragorn::the()->cell.y + 14);
     }
 
     void resize() override
     {
-        auto const &screen = Eddy::the()->viewport;
-        auto const &cell = Eddy::the()->cell;
+        auto const &screen = Aragorn::the()->viewport;
+        auto const &cell = Aragorn::the()->cell;
         viewport.x = screen.width / 4;
         viewport.y = screen.height / 4;
         viewport.width = screen.width / 2;
@@ -158,7 +158,7 @@ struct ListBox : public Modal {
         if constexpr (Shrink && !Search) {
             lines = clamp(lines, 0, entries.size());
         }
-        Vector2 m = MeasureTextEx(Eddy::the()->font.value(), prompt.c_str(), Eddy::the()->font->baseSize, 2);
+        Vector2 m = MeasureTextEx(Aragorn::the()->font.value(), prompt.c_str(), Aragorn::the()->font->baseSize, 2);
         if (m.x > viewport.width - 16) {
             viewport.width = m.x + 16;
             viewport.x = (screen.width - m.x) / 2;
@@ -256,7 +256,7 @@ struct ListBox : public Modal {
 
         bool ret = handle();
         if (status != ModalStatus::Active) {
-            Eddy::the()->pop_modal();
+            Aragorn::the()->pop_modal();
         }
         return ret;
     }
@@ -417,22 +417,22 @@ void input_box(std::shared_ptr<C> target, std::string_view const &prompt, Submit
 
         void resize() override
         {
-            viewport.x = Eddy::the()->viewport.width / 4;
-            viewport.y = Eddy::the()->viewport.height / 4;
-            viewport.width = Eddy::the()->viewport.width / 2;
-            viewport.height = 21 + 2 * Eddy::the()->cell.y;
+            viewport.x = Aragorn::the()->viewport.width / 4;
+            viewport.y = Aragorn::the()->viewport.height / 4;
+            viewport.width = Aragorn::the()->viewport.width / 2;
+            viewport.height = 21 + 2 * Aragorn::the()->cell.y;
         }
 
         void draw() override
         {
             draw_rectangle(0.0, 0.0, 0.0, 0.0, Theme::the().bg());
             draw_outline(2, 2, -2.0, -2.0, Theme::the().fg());
-            render_text(8, 8, prompt, Eddy::the()->font.value(), Theme::the().fg());
-            draw_line(2, Eddy::the()->cell.y + 10, -2, Eddy::the()->cell.y + 10, Theme::the().fg());
-            render_text(10, Eddy::the()->cell.y + 14, text, Eddy::the()->font.value(), Theme::the().fg());
+            render_text(8, 8, prompt, Aragorn::the()->font.value(), Theme::the().fg());
+            draw_line(2, Aragorn::the()->cell.y + 10, -2, Aragorn::the()->cell.y + 10, Theme::the().fg());
+            render_text(10, Aragorn::the()->cell.y + 14, text, Aragorn::the()->font.value(), Theme::the().fg());
             double t = GetTime();
             if ((t - floor(t)) < 0.5) {
-                draw_rectangle(10 + cursor * Eddy::the()->cell.x, Eddy::the()->cell.y + 12, 2, Eddy::the()->cell.y + 2, Theme::the().fg());
+                draw_rectangle(10 + cursor * Aragorn::the()->cell.x, Aragorn::the()->cell.y + 12, 2, Aragorn::the()->cell.y + 2, Theme::the().fg());
             }
         }
     };
