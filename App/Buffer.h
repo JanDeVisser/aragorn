@@ -83,8 +83,8 @@ struct Buffer : public Widget {
     void                              insert(size_t pos, std::string_view const &text);
     void                              del(size_t pos, size_t count);
     void                              replace(size_t pos, size_t num, std::string_view const &replacement);
-    size_t                            line_for_index(size_t index) const;
-    Vec<size_t>                       index_to_position(size_t index) const;
+    size_t                            line_for_index(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;
+    Vec<size_t>                       index_to_position(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;
     size_t                            position_to_index(Vec<size_t> position) const;
     void                              merge_lines(size_t top_line);
     size_t                            find(rune_view needle, size_t offset = 0);

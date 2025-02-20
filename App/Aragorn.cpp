@@ -80,6 +80,33 @@ void Aragorn::on_start()
     monitor = GetCurrentMonitor();
 }
 
+void Aragorn::on_resize()
+{
+    App::on_resize();
+    auto tab_img = GenImageColor(cell.x * 2, cell.y, Theme::the().bg());
+    ImageDrawLine(
+        &tab_img,
+        0, static_cast<int>(cell.y / 2),
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
+        Theme::the().fg());
+    ImageDrawLine(
+        &tab_img,
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 3),
+        static_cast<int>(1.5 * cell.x), 2 * static_cast<int>(cell.y / 3),
+        Theme::the().fg());
+    ImageDrawLine(
+        &tab_img,
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
+        static_cast<int>(cell.x), static_cast<int>(cell.y / 3),
+        Theme::the().fg());
+    ImageDrawLine(
+        &tab_img,
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
+        static_cast<int>(cell.x), static_cast<int>(2* cell.y / 3),
+        Theme::the().fg());
+    tab_char = LoadTextureFromImage(tab_img);
+}
+
 void Aragorn::process_input()
 {
     if (monitor != app_state.monitor()) {

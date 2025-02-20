@@ -111,19 +111,39 @@ bool Buffer::lex()
     return true;
 }
 
-size_t Buffer::line_for_index(size_t index) const
+size_t Buffer::line_for_index(size_t index, std::optional<Vec<size_t>> const& hint) const
 {
-    if (lines.empty()) {
+    if (lines.empty() || index < lines[0].end()) {
         return 0;
+    }
+    if (index >= lines.back().begin()) {
+        return lines.size() - 1;
+    }
+
+    auto on_line = [this, index](auto lineno) -> bool {
+        auto const &line = lines[lineno];
+        return (lineno < lines.size() - 1 && line.begin() <= index && lines[lineno + 1].begin() > index) || (lineno == lines.size() - 1 && line.begin() <= index);
+    };
+    if (hint) {
+        auto const &line = lines[hint->line];
+        if (on_line(hint->line)) {
+            return hint->line;
+        }
+        if (index < line.begin() && on_line(hint->line - 1)) {
+            return hint->line - 1;
+        }
+        if (index >= line.end() && on_line(hint->line + 1)) {
+            return hint->line + 1;
+        }
     }
     size_t line_min = 0;
     size_t line_max = lines.size() - 1;
     while (true) {
-        auto        lineno = line_min + (line_max - line_min) / 2;
-        auto const &line = lines[lineno];
-        if ((lineno < lines.size() - 1 && line.begin() >= index && lines[lineno + 1].begin() > index) || (lineno == lines.size() - 1 && line.begin() <= index)) {
+        auto lineno = line_min + (line_max - line_min) / 2;
+        if (on_line(lineno)) {
             return lineno;
         }
+        auto const &line = lines[lineno];
         if (line.begin() > index) {
             line_max = lineno;
         } else {
@@ -132,13 +152,16 @@ size_t Buffer::line_for_index(size_t index) const
     }
 }
 
-Vec<size_t> Buffer::index_to_position(size_t index) const
+Vec<size_t> Buffer::index_to_position(size_t index, std::optional<Vec<size_t>> const& hint) const
 {
-    Vec<size_t> ret {};
-    ret.line = line_for_index(index);
+    Vec<size_t> ret { 0, 0 };
+    if (index == 0) {
+        return ret;
+    }
+    ret.line = line_for_index(index, hint);
     auto const &line = lines[ret.line];
     for (auto const &t : line.tokens) {
-        if (t.index() <= index && t.index() + t.index() > index) {
+        if (t.index() <= index && t.index() + t.length() > index) {
             ret.column = t.column() + (index - t.index());
             break;
         }

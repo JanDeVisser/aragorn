@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <App/BufferView.h>
 #include <App/Aragorn.h>
+#include <App/BufferView.h>
 #include <App/Editor.h>
 #include <App/MiniBuffer.h>
 #include <App/Modal.h>
@@ -100,13 +100,18 @@ void cmd_split_line(pBufferView const &view, JSONValue const &)
     view->character('\n');
 }
 
+void cmd_insert_tab(pBufferView const &view, JSONValue const &)
+{
+    view->character('\t');
+}
+
 void cmd_merge_lines(pBufferView const &view, JSONValue const &)
 {
-    auto const  &buffer = view->buffer();
-    auto         pos = view->cursor_position();
+    auto const &buffer = view->buffer();
+    auto        pos = view->cursor_position();
     Line const &line = buffer->lines[pos.y];
     buffer->merge_lines(pos.y);
-    view->move_cursor(BufferView::CursorMovement::by_index(line.end(), true, false));
+    view->move_cursor(BufferView::CursorMovement::by_index(line.end(), true));
 }
 
 void find_closing_brace(pBufferView const &view, size_t index, bool selection)
@@ -124,7 +129,7 @@ void find_closing_brace(pBufferView const &view, size_t index, bool selection)
             --depth;
         }
         if (!depth) {
-            view->move_cursor(BufferView::CursorMovement::by_index(++index, true, false));
+            view->move_cursor(BufferView::CursorMovement::by_index(++index, true));
             return;
         }
         if ((*buffer)[index] == brace) {
@@ -153,7 +158,7 @@ void find_opening_brace(pBufferView const &view, size_t index, bool selection)
             --depth;
         }
         if (!depth) {
-            view->move_cursor(BufferView::CursorMovement::by_index(index, selection, false));
+            view->move_cursor(BufferView::CursorMovement::by_index(index, selection));
             return;
         }
         if ((*view)[index] == brace) {
@@ -309,7 +314,7 @@ void do_goto(pBufferView const &view, std::string const &query)
     }
     if (line >= 1) {
         BufferView::CursorMovement movement = BufferView::CursorMovement::by_position(
-            line, view->cursor_position().column, true, false);
+            line, view->cursor_position().column, true);
         if (col >= 1) {
             movement.pos->column = col - 1;
         }
@@ -411,6 +416,8 @@ void BufferView::initialize()
     add_command<BufferView>("split-line", cmd_split_line)
         .bind(KeyCombo { KEY_ENTER, KModNone })
         .bind(KeyCombo { KEY_KP_ENTER, KModNone });
+    add_command<BufferView>("insert-tab", cmd_insert_tab)
+        .bind(KeyCombo { KEY_TAB, KModNone });
     add_command<BufferView>("merge-lines", cmd_merge_lines)
         .bind(KeyCombo { KEY_J, KModShift | KModControl });
     add_command<BufferView>("matching-brace", cmd_matching_brace)
@@ -479,30 +486,30 @@ size_t BufferView::columns() const
 void BufferView::lines_up(size_t count, bool select)
 {
     move_cursor(CursorMovement::by_position(
-        cursor_pos.y - min(count, cursor_pos.y),
-        cursor_pos.x,
-        select, true));
+        cursor_line - std::min(count, cursor_line),
+        cursor_col,
+        select));
 }
 
 void BufferView::lines_down(size_t count, bool select)
 {
     move_cursor(CursorMovement::by_position(
-        cursor_pos.y + min(count, m_buf->lines.size() - min(count, m_buf->lines.size())),
-        cursor_pos.x,
-        select, true));
+        cursor_line + std::min(count, m_buf->lines.size() - std::min(count, m_buf->lines.size())),
+        cursor_col,
+        select));
 }
 
 void BufferView::move(size_t line, size_t col, bool select)
 {
-    move_cursor(CursorMovement::by_position(line, col, select, true));
+    move_cursor(CursorMovement::by_position(line, col, select));
 }
 
 void BufferView::select_line()
 {
     size_t lineno = m_buf->line_for_index(cursor);
-    Line &line = m_buf->lines[lineno];
+    Line  &line = m_buf->lines[lineno];
     set_mark(line.begin());
-    move_cursor(CursorMovement::by_index(line.end() + 1, true, false));
+    move_cursor(CursorMovement::by_index(line.end() + 1, true));
 }
 
 void BufferView::word_left()
@@ -517,7 +524,7 @@ void BufferView::word_left()
     if (new_cursor > 0 || !isalnum((*m_buf)[0])) {
         ++new_cursor;
     }
-    move_cursor(CursorMovement::by_index(new_cursor, true, false));
+    move_cursor(CursorMovement::by_index(new_cursor, true));
 }
 
 void BufferView::word_right()
@@ -529,25 +536,25 @@ void BufferView::word_right()
     while (new_cursor < m_buf->length() - 1 && isalnum((*m_buf)[new_cursor])) {
         ++new_cursor;
     }
-    move_cursor(CursorMovement::by_index(new_cursor, true, false));
+    move_cursor(CursorMovement::by_index(new_cursor, true));
 }
 
 void BufferView::select_word()
 {
     set_mark(m_buf->word_boundary_left(cursor));
-    move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true, false));
+    move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true));
 }
 
 void BufferView::insert(size_t at, std::string_view const &text)
 {
     m_buf->insert(at, text);
-    move_cursor(CursorMovement::by_index(at + m_buf->length(), false, false));
+    move_cursor(CursorMovement::by_index(at + m_buf->length()));
 }
 
 void BufferView::del(size_t at, size_t count)
 {
     m_buf->del(at, count);
-    move_cursor(CursorMovement::by_index(at, false, false));
+    move_cursor(CursorMovement::by_index(at));
 }
 
 void BufferView::delete_selection()
@@ -555,7 +562,7 @@ void BufferView::delete_selection()
     assert(has_selection());
     auto sel = selection();
     del(sel->coords[0], sel->coords[1] - sel->coords[0]);
-    move_cursor(CursorMovement::by_index(sel->coords[0], false, false));
+    move_cursor(CursorMovement::by_index(sel->coords[0]));
 }
 
 void BufferView::backspace()
@@ -607,7 +614,7 @@ bool BufferView::character(int ch)
                 set_mark(sel->coords[0] + 1);
                 new_cursor = sel->coords[1] + 1;
             }
-            move_cursor(CursorMovement::by_index(new_cursor, false, false));
+            move_cursor(CursorMovement::by_index(new_cursor));
             return true;
         }
         default:
@@ -626,7 +633,7 @@ void BufferView::insert_string(std::string_view const &sv)
         delete_selection();
     }
     insert(at, sv);
-    move_cursor(CursorMovement::by_index(at + sv.length(), false, false));
+    move_cursor(CursorMovement::by_index(at + sv.length()));
 }
 
 void BufferView::selection_to_clipboard()
@@ -639,20 +646,24 @@ void BufferView::selection_to_clipboard()
 void BufferView::draw()
 {
     if (buffer()->version > version) {
-        cursor_pos = m_buf->index_to_position(cursor);
+        auto cursor_pos = m_buf->index_to_position(cursor, { { cursor_col, cursor_line } });
+        cursor_line = cursor_pos.y;
         version = buffer()->version;
     }
     static size_t frame { 1 };
     draw_rectangle(0, 0, 0, 0, Theme::the().bg());
 
+    DrawText(TextFormat("cursor: %d", cursor), 700, 50, 20, RAYWHITE);
+    DrawText(TextFormat("cursor line: %d", cursor_line), 700, 75, 20, RAYWHITE);
+    DrawText(TextFormat("cursor col: %d", cursor_col), 700, 100, 20, RAYWHITE);
+
     std::string_view txt { buffer()->text() };
 
+    auto cursor_drawn { false };
     for (int row = 0; row < lines() && top_line + row < m_buf->lines.size(); ++row) {
         auto        lineno = top_line + row;
         auto const &line = m_buf->lines[lineno];
-        auto        line_len = min(
-            line.length() - 1,
-            left_column + columns());
+        auto        line_len = min(line.length() - 1, left_column + columns());
         if (has_selection()) {
             auto sel = selection();
             auto line_start = line.begin() + left_column;
@@ -669,18 +680,12 @@ void BufferView::draw()
                     Aragorn::the()->cell.y * row,
                     width * Aragorn::the()->cell.x,
                     Aragorn::the()->cell.y + 5.0f,
-		    Theme::the().selection_bg());
+                    Theme::the().selection_bg());
             }
         }
         if (line.empty()) {
-            if (frame == 0) {
-                trace(EDIT, "%5d:%5zu:[          ]", row, lineno);
-            }
             continue;
         }
-        //        if (frame == 0) {
-        //            trace_nonl(EDIT, "%5d:%5zu:[%4zu..%4zu]", row, lineno, line.first_token, line.first_token + line.num_tokens - 1);
-        //        }
         for (auto const &token : line.tokens) {
             auto start_col = token.column();
             // token ends before left edge
@@ -705,41 +710,62 @@ void BufferView::draw()
                 length = left_column + columns() - start_col;
             }
 
-            std::string_view text { txt.substr(token.index() + (start_col - token.column()), length) };
-            render_text(
-                Aragorn::the()->cell.x * static_cast<float>(start_col - left_column),
-                Aragorn::the()->cell.y * row,
-                text,
-                Aragorn::the()->font.value(),
-		static_cast<Colours>(token).fg());
+            auto start_ix = token.index() + (start_col - token.column());
+            for (auto col_ix = 0; col_ix < length; ++col_ix) {
+                auto const ch_ix = start_ix + col_ix;
+                auto const col = start_col + col_ix;
+                auto const screen_pos = Vector2 {
+                    Aragorn::the()->cell.x * static_cast<float>(col - left_column),
+                    Aragorn::the()->cell.y * static_cast<float>(row),
+                };
+
+                if (!cursor_drawn && (ch_ix >= cursor || (cursor_line == lineno && token.kind() == TokenKind::EndOfLine))) {
+                    double time = Aragorn::the()->time - cursor_flash;
+                    if (time - floor(time) < 0.5) {
+                        draw_rectangle(
+                            screen_pos.x,
+                            screen_pos.y,
+                            2,
+                            Aragorn::the()->cell.y + 1,
+                            Theme::the().fg());
+                    }
+                    cursor_drawn = true;
+                }
+                switch (token.kind()) {
+                case TokenKind::EndOfFile:
+                    break;
+                case TokenKind::EndOfLine:
+                    break;
+                case TokenKind::Tab:
+                    DrawTexture(Aragorn::the()->tab_char, static_cast<int>(screen_pos.x), static_cast<int>(screen_pos.y), BLANK);
+                    break;
+                default:
+                    auto const ch = txt[ch_ix];
+                    render_codepoint(
+                        screen_pos.x, screen_pos.y,
+                        ch,
+                        Aragorn::the()->font.value(),
+                        static_cast<Colours>(token).fg());
+                    break;
+                }
+            }
         }
     }
     if (buffer()->mode()) {
         buffer()->mode()->draw();
     }
 
-    double time = Aragorn::the()->time - cursor_flash;
-    if (time - floor(time) < 0.5) {
-        auto x = cursor_pos.x - left_column;
-        auto y = cursor_pos.y - top_line;
-        draw_rectangle(
-            x * Aragorn::the()->cell.x,
-            y * Aragorn::the()->cell.y,
-            2,
-            Aragorn::the()->cell.y + 1,
-            Theme::the().fg());
-    }
-    DrawLine(
-        viewport.x + 80 * Aragorn::the()->cell.x,
-        viewport.y,
-        viewport.x + 80 * Aragorn::the()->cell.x,
-        viewport.y + viewport.height,
+    draw_line(
+        80 * Aragorn::the()->cell.x,
+        0,
+        80 * Aragorn::the()->cell.x,
+        static_cast<int>(viewport.height),
         Theme::the().fg());
-    DrawLine(
-        viewport.x + 120 * Aragorn::the()->cell.x,
-        viewport.y,
-        viewport.x + 120 * Aragorn::the()->cell.x,
-        viewport.y + viewport.height,
+    draw_line(
+        120 * Aragorn::the()->cell.x,
+        0,
+        120 * Aragorn::the()->cell.x,
+        static_cast<int>(viewport.height),
         Theme::the().fg());
     ++frame;
 }
@@ -750,16 +776,16 @@ void BufferView::process_input()
     if (!contains(GetMousePosition())) {
         return;
     }
-    float mouse_move = GetMouseWheelMove();
-    if (mouse_move != 0.0) {
+    if (float const mouse_move = GetMouseWheelMove(); mouse_move != 0.0) {
+        auto const move = static_cast<int>(-mouse_move);
         if (is_modifier_down(KModSuper)) {
-            Aragorn::the()->change_font_size((int) -mouse_move);
+            Aragorn::the()->change_font_size(move);
         } else {
-            if (mouse_move < 0) {
-                lines_down((int) -mouse_move, is_modifier_down(KModShift));
+            if (move < 0) {
+                lines_down(move, is_modifier_down(KModShift));
             }
-            if (mouse_move > 0) {
-                lines_up((int) mouse_move, is_modifier_down(KModShift));
+            if (move > 0) {
+                lines_up(move, is_modifier_down(KModShift));
             }
         }
         return;
@@ -770,7 +796,7 @@ void BufferView::process_input()
         auto mouse_col = static_cast<size_t>((static_cast<float>(GetMouseX()) - viewport.x) / Aragorn::the()->cell.x);
         auto lineno = min(mouse_line + top_line, m_buf->lines.size() - 1);
         auto col = min(mouse_col + left_column, m_buf->lines[lineno].length());
-        move_cursor(CursorMovement::by_position(lineno, col, false, false));
+        move_cursor(CursorMovement::by_position(lineno, col));
         if (num_clicks > 0 && (Aragorn::the()->time - clicks[num_clicks - 1]) > 0.5) {
             num_clicks = 0;
         }
@@ -781,13 +807,13 @@ void BufferView::process_input()
             break;
         case 2:
             set_mark(m_buf->word_boundary_left(cursor));
-            move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true, false));
+            move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true));
             break;
         case 3: {
             lineno = m_buf->line_for_index(cursor);
-            Line const& line = m_buf->lines[lineno];
+            Line const &line = m_buf->lines[lineno];
             set_mark(line.begin());
-            move_cursor(CursorMovement::by_index(line.end() + 1, true, false));
+            move_cursor(CursorMovement::by_index(line.end() + 1, true));
         }
             // Fall through
         default:
@@ -829,7 +855,7 @@ void BufferView::move_down(bool select)
 void BufferView::move_left(bool select)
 {
     if (cursor > 0) {
-        move_cursor(CursorMovement::by_index(cursor - 1, select, false));
+        move_cursor(CursorMovement::by_index(cursor - 1, select));
     }
 }
 
@@ -847,13 +873,13 @@ void BufferView::move_word_left(bool select)
             ++new_cursor;
         }
     }
-    move_cursor(CursorMovement::by_index(new_cursor, select, false));
+    move_cursor(CursorMovement::by_index(new_cursor, select));
 }
 
 void BufferView::move_right(bool select)
 {
     if (cursor < m_buf->length() - 1) {
-        move_cursor(CursorMovement::by_index(cursor + 1, select, false));
+        move_cursor(CursorMovement::by_index(cursor + 1, select));
     }
 }
 
@@ -869,47 +895,54 @@ void BufferView::move_word_right(bool select)
             ++new_cursor;
         }
     }
-    move_cursor(CursorMovement::by_index(new_cursor, select, false));
+    move_cursor(CursorMovement::by_index(new_cursor, select));
 }
 
 void BufferView::move_begin_of_line(bool select)
 {
-    Line const &line = m_buf->lines[cursor_pos.y];
-    move_cursor(CursorMovement::by_index(line.begin(), select, false));
+    Line const &line = m_buf->lines[cursor_line];
+    move_cursor(CursorMovement::by_index(line.begin(), select));
 }
 
 void BufferView::move_end_of_line(bool select)
 {
-    Line const &line = m_buf->lines[cursor_pos.y];
-    move_cursor(CursorMovement::by_index(line.end(), select, false));
+    Line const &line = m_buf->lines[cursor_line];
+    move_cursor(CursorMovement::by_index(line.end(), select));
 }
 
 void BufferView::move_top(bool select)
 {
-    move_cursor(CursorMovement::by_index(0, select, false));
+    move_cursor(CursorMovement::by_index(0, select));
 }
 
 void BufferView::move_bottom(bool select)
 {
-    move_cursor(CursorMovement::by_index(m_buf->length(), select, false));
+    move_cursor(CursorMovement::by_index(m_buf->length(), select));
 }
 
 void BufferView::move_cursor(BufferView::CursorMovement const &move)
 {
     if (move.index) {
         cursor = *move.index;
-        cursor_pos = m_buf->index_to_position(cursor);
+        auto cursor_pos = m_buf->index_to_position(cursor, { { cursor_col, cursor_line } });
+        cursor_line = cursor_pos.y;
+        cursor_col = cursor_pos.x;
         Line const &line = m_buf->lines[cursor_pos.line];
         cursor = clamp(cursor, line.begin(), line.end());
     } else if (move.pos) {
-        auto col = move.pos->column;
-        if (move.with_virtual_column && cursor_col) {
-            col = cursor_col.value();
+        cursor_line = clamp(move.pos->y, 0, m_buf->lines.size() - 1);
+        cursor_col = move.pos->x;
+        Line const &line = m_buf->lines[cursor_line];
+        for (auto const &t : line.tokens) {
+            if (t.kind() == TokenKind::EndOfLine) {
+                cursor = t.index();
+                break;
+            }
+            if (t.column() + t.length() >= cursor_col) {
+                cursor = t.index() + std::min(std::max(cursor_col - t.column(), 0ul), t.length());
+                break;
+            }
         }
-        cursor_pos.line = clamp(move.pos->y, 0, m_buf->lines.size() - 1);
-        Line const &line = m_buf->lines[cursor_pos.line];
-        cursor_pos.column = clamp(col, 0, max(1, line.length()) - 1);
-        cursor = line.begin() + cursor_pos.column;
     } else {
         assert(false);
     }
@@ -920,20 +953,17 @@ void BufferView::move_cursor(BufferView::CursorMovement const &move)
     } else {
         clear_selection();
     }
-    if (!move.with_virtual_column) {
-        cursor_col.reset();
+    if (cursor_line < top_line) {
+        top_line = cursor_line;
     }
-    if (cursor_pos.line < top_line) {
-        top_line = cursor_pos.line;
+    if (cursor_line >= top_line + lines()) {
+        top_line = cursor_line - lines() + 1;
     }
-    if (cursor_pos.line >= top_line + lines()) {
-        top_line = cursor_pos.line - lines() + 1;
+    if (cursor_col < left_column) {
+        left_column = cursor_col;
     }
-    if (cursor_pos.column < left_column) {
-        left_column = cursor_pos.column;
-    }
-    if (cursor_pos.column >= left_column + columns()) {
-        left_column = cursor_pos.column - columns() + 1;
+    if (cursor_col >= left_column + columns()) {
+        left_column = cursor_col - columns() + 1;
     }
     cursor_flash = 0;
 }
@@ -950,7 +980,7 @@ bool BufferView::has_selection() const
 
 Vec<size_t> BufferView::cursor_position() const
 {
-    return cursor_pos;
+    return { cursor_col, cursor_line };
 }
 
 Vec<size_t> BufferView::view_offset() const
@@ -999,7 +1029,7 @@ bool BufferView::find_next()
     }
     if (pos != rune_view::npos) {
         set_mark(pos);
-        move_cursor(CursorMovement::by_index(pos + m_find_text.length(), true, false));
+        move_cursor(CursorMovement::by_index(pos + m_find_text.length(), true));
         return true;
     }
     return false;

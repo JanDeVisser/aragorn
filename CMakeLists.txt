@@ -29,6 +29,7 @@ set(aragorn_VERSION_MINOR 0)
 set(aragorn_DIR ${CMAKE_INSTALL_PREFIX})
 set(aragorn_DATADIR ${CMAKE_INSTALL_PREFIX}/share)
 
+find_package(Freetype)
 if(DEFINED RAYLIB)
   set(raylib_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/${RAYLIB}")
 
@@ -86,10 +87,74 @@ configure_file(
 
 include_directories("${PROJECT_BINARY_DIR}" "${PROJECT_SOURCE_DIR}")
 
-add_subdirectory(LibCore)
+add_library(
+        LibCore
+        SHARED
+        LibCore/Checked.h
+        LibCore/Error.cpp
+#       LibCore/Integer.h
+        LibCore/IO.cpp
+        LibCore/JSON.cpp
+        LibCore/Lexer.cpp
+        LibCore/Logging.cpp
+        LibCore/Options.cpp
+        LibCore/Pipe.h
+        LibCore/Process.h
+        LibCore/Result.h
+        LibCore/ScopeGuard.h
+        LibCore/StringUtil.cpp
+        LibCore/Token.cpp
+)
+
+target_link_libraries(
+        LibCore
+        dl
+)
+
+include_directories(.)
+target_include_directories(LibCore PRIVATE LibCore)
+
 add_subdirectory(LSP/TSParser)
 #add_subdirectory(LSP/Schema)
 add_subdirectory(Util)
-add_subdirectory(App)
 
+add_executable(
+        Aragorn
+        MACOSX_BUNDLE
+        App/App.cpp
+        App/Buffer.cpp
+        App/Colour.cpp
+        App/BufferView.cpp
+        App/Aragorn.cpp
+        App/Editor.cpp
+        App/FileSelector.h
+        App/Gutter.cpp
+        App/Layout.cpp
+        App/LexerMode.h
+        App/MiniBuffer.h
+        App/Modal.h
+        App/Mode.cpp
+        App/StatusBar.cpp
+        App/Theme.cpp
+        App/Widget.cpp
+        App/Project.cpp
+)
+
+target_include_directories(Aragorn PRIVATE ${raylib_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
+
+target_link_libraries(
+        Aragorn
+        PRIVATE
+        LibCore
+#       LSPSchema
+        ${raylib_LIBRARIES}
+        ${FREETYPE_LIBRARIES}
+        m
+)
+
+install(TARGETS LibCore Aragorn
+        ARCHIVE DESTINATION lib
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        BUNDLE DESTINATION bundle)
 install(DIRECTORY share DESTINATION .)

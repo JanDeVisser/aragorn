@@ -100,7 +100,7 @@ public:
     StringList  source_dirs {};
     CMake       cmake {};
 
-    Project(pWidget const &parent)
+    explicit Project(pWidget const &parent)
         : Widget(parent)
     {
     }
@@ -116,6 +116,8 @@ struct Aragorn : public App {
     JSONValue            settings;
     pProject             project;
     StringList           font_dirs;
+    Texture2D            tab_char;
+    Texture2D            eol_char;
 
     Aragorn();
     static pAragorn the();
@@ -124,6 +126,7 @@ struct Aragorn : public App {
     void            initialize() override;
     bool            query_close() override;
     void            on_start() override;
+    void            on_resize() override;
     void            process_input() override;
     void            on_terminate() override;
     pBuffer         new_buffer();

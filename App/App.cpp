@@ -60,9 +60,11 @@ void App::set_font(std::string_view const &path, int sz)
 void App::on_resize()
 {
     assert(font.has_value());
-    auto measurements = MeasureTextEx(*font, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz", font_size, 2);
+    auto const measurements = MeasureTextEx(*font,
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+        static_cast<float>(font_size), 2);
     cell.x = measurements.x / 52.0f;
-    auto rows = static_cast<int>(((viewport.height - 10) / measurements.y));
+    auto const rows = static_cast<int>(((viewport.height - 10) / measurements.y));
     cell.y = static_cast<float>((viewport.height - 10) / static_cast<float>(rows));
     viewport.x = 0;
     viewport.y = 0;

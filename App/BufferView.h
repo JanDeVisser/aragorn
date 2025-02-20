@@ -20,23 +20,20 @@ public:
         std::optional<size_t>      index;
         std::optional<Vec<size_t>> pos;
         bool                       extend_selection { false };
-        bool                       with_virtual_column { false };
 
-        static CursorMovement by_index(size_t index, bool extend_selection = false, bool with_virtual_column = false)
+        static CursorMovement by_index(size_t index, bool extend_selection = false)
         {
             CursorMovement ret;
             ret.index = index;
             ret.extend_selection = extend_selection;
-            ret.with_virtual_column = with_virtual_column;
             return ret;
         }
 
-        static CursorMovement by_position(size_t line, size_t column, bool extend_selection = false, bool with_virtual_column = false)
+        static CursorMovement by_position(size_t line, size_t column, bool extend_selection = false)
         {
             CursorMovement ret;
             ret.pos = { .line = line, .column = column };
             ret.extend_selection = extend_selection;
-            ret.with_virtual_column = with_virtual_column;
             return ret;
         }
     };
@@ -47,8 +44,8 @@ public:
     void                       draw() override;
     void                       process_input() override;
     bool                       character(int ch) override;
-    void unselected();
-    void selected();
+    void                       unselected();
+    void                       selected();
     void                       insert(size_t at, std::string_view const &text);
     void                       insert_string(std::string_view const &sv);
     void                       del(size_t at, size_t count);
@@ -98,10 +95,10 @@ public:
     }
 
 private:
-    size_t version { 0 };
+    size_t                version { 0 };
     size_t                cursor { 0 };
-    Vec<size_t>           cursor_pos {};
-    std::optional<size_t> cursor_col {};
+    size_t                cursor_line { 0 };
+    size_t                cursor_col { 0 };
     size_t                top_line { 0 };
     size_t                left_column { 0 };
     std::optional<size_t> m_selection {};

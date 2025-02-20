@@ -133,8 +133,10 @@ void Widget::draw_line_(float x0, float y0, float x1, float y1, Color color) con
     y0 = clamp(y0, 0.0f, viewport.height);
     x1 = clamp(x1, 0.0f, viewport.width - 1);
     y1 = clamp(y1, 0.0f, viewport.height - 1);
-    DrawLine(viewport.x + x0, viewport.y + y0,
-        viewport.x + x1, viewport.y + y1,
+    DrawLine(static_cast<int>(viewport.x) + x0,
+        static_cast<int>(viewport.y) + y0,
+        static_cast<int>(viewport.x) + x1,
+        static_cast<int>(viewport.y) + y1,
         color);
 }
 

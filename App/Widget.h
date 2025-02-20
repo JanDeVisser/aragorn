@@ -270,6 +270,17 @@ public:
         render_sized_text_(x, y, text, font, 1.0, color);
     }
 
+    template<typename Tx, typename Ty>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
+    void render_codepoint(Tx x, Ty y, int ch, Font font, Color color) const
+    {
+        if (!ch) {
+            return;
+        }
+        Vector2 const pos { viewport.x + x, viewport.y + y };
+        DrawTextCodepoint(font, ch, pos, static_cast<float>(font.baseSize), color);
+    }
+
     template<typename Tx, typename Ty, typename Ts>
         requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Ts, float>)
     void render_sized_text(Tx x, Ty y, std::string_view const &text, Font font, Ts size, Color color) const
