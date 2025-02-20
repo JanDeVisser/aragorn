@@ -83,6 +83,13 @@ void Aragorn::on_start()
 void Aragorn::on_resize()
 {
     App::on_resize();
+
+    auto const& appearance = settings.get("appearance").value_or(JSONValue(JSONType::Object));
+    auto lines = static_cast<int>(viewport.height) / static_cast<int>(cell.y * line_height);
+    cell.y = viewport.height / static_cast<float>(lines);
+    auto cols = static_cast<int>(viewport.width) / static_cast<int>(cell.x);
+    cell.x = viewport.width / static_cast<float>(cols);
+
     auto tab_img = GenImageColor(cell.x * 2, cell.y, Theme::the().bg());
     ImageDrawLine(
         &tab_img,
@@ -315,7 +322,7 @@ EError Aragorn::read_settings()
     if (auto const &e = merge_settings(ARAGORN_DATADIR); e.is_error()) {
         return e;
     }
-    struct passwd *pw = getpwuid(getuid());
+    passwd *pw = getpwuid(getuid());
     if (auto const &e = merge_settings(fs::path { pw->pw_dir } / ".aragorn"); e.is_error()) {
         return e;
     }
@@ -325,11 +332,18 @@ EError Aragorn::read_settings()
     auto appearance = settings.get_with_default("appearance");
     ASSERT_JSON_TYPE(appearance, Object);
     std::string theme_name = "darcula";
-    auto        theme_name_value = appearance.get("theme");
-    if (theme_name_value) {
+    if (auto theme_name_value = appearance.get("theme")) {
         theme_name = theme_name_value.value().to_string();
     }
     TRY(load_theme(theme_name));
+
+    line_height = value<float>(appearance.get("line_height").value_or(JSONValue(1.5))).value_or(1.5f);
+    for (auto const &guides_cols = appearance.get("guides").value_or(JSONValue(JSONType::Array)); auto const& guide : guides_cols) {
+        if (auto const g = value<int>(guide).value_or(0); g > 0) {
+            guides.emplace_back(g);
+        }
+    }
+
     return {};
 }
 

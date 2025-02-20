@@ -118,6 +118,8 @@ struct Aragorn : public App {
     StringList           font_dirs;
     Texture2D            tab_char;
     Texture2D            eol_char;
+    float                line_height { 1.5 };
+    std::vector<int>     guides {};
 
     Aragorn();
     static pAragorn the();

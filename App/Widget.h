@@ -295,6 +295,14 @@ public:
         render_text_bitmap_(x, y, text, color);
     }
 
+    template<typename Tx, typename Ty>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
+    void render_texture(Tx x, Ty y, Texture2D texture, Color color) const
+    {
+        Vector2 const pos { viewport.x + x, viewport.y + y };
+        DrawTextureV(texture, pos, color);
+    }
+
     template<typename Tx, typename Ty, typename Tw, typename Th>
         requires(
             std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Tw, float> && std::convertible_to<Th, float>)

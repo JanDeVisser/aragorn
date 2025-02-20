@@ -12,8 +12,8 @@
 
 namespace Aragorn {
 
-constexpr char const *OPEN_BRACES = "({[";
-constexpr char const *CLOSE_BRACES = ")}]";
+constexpr char const *OPEN_BRACES = "({[<";
+constexpr char const *CLOSE_BRACES = ")}]>";
 
 int get_closing_brace_code(int brace);
 
@@ -548,7 +548,7 @@ void BufferView::select_word()
 void BufferView::insert(size_t at, std::string_view const &text)
 {
     m_buf->insert(at, text);
-    move_cursor(CursorMovement::by_index(at + m_buf->length()));
+    move_cursor(CursorMovement::by_index(at + text.length()));
 }
 
 void BufferView::del(size_t at, size_t count)
@@ -604,6 +604,7 @@ bool BufferView::character(int ch)
         switch (ch) {
         case '(':
         case '[':
+        case '<':
         case '{': {
             int close = get_closing_brace_code(ch);
             insert(sel->coords[0], std::string_view { (char const *) &ch, 1 });
@@ -737,7 +738,7 @@ void BufferView::draw()
                 case TokenKind::EndOfLine:
                     break;
                 case TokenKind::Tab:
-                    DrawTexture(Aragorn::the()->tab_char, static_cast<int>(screen_pos.x), static_cast<int>(screen_pos.y), BLANK);
+                    render_texture(screen_pos.x, screen_pos.y, Aragorn::the()->tab_char, static_cast<Colours>(token).fg());
                     break;
                 default:
                     auto const ch = txt[ch_ix];
@@ -755,18 +756,14 @@ void BufferView::draw()
         buffer()->mode()->draw();
     }
 
-    draw_line(
-        80 * Aragorn::the()->cell.x,
-        0,
-        80 * Aragorn::the()->cell.x,
-        static_cast<int>(viewport.height),
-        Theme::the().fg());
-    draw_line(
-        120 * Aragorn::the()->cell.x,
-        0,
-        120 * Aragorn::the()->cell.x,
-        static_cast<int>(viewport.height),
-        Theme::the().fg());
+    for (auto const g : Aragorn::the()->guides) {
+        draw_line(
+            static_cast<float>(g) * Aragorn::the()->cell.x,
+            0,
+            static_cast<float>(g) * Aragorn::the()->cell.x,
+            static_cast<int>(viewport.height),
+            Theme::the().fg());
+    }
     ++frame;
 }
 
