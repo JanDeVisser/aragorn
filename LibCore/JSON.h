@@ -977,7 +977,7 @@ inline Result<std::variant<Ts...>, JSONError> decode_variant(JSONValue const &va
     V    ret;
     auto converted_maybe = decode<T>(value);
     if (!converted_maybe.is_error()) {
-        ret.emplace<N>(v);
+        ret.template emplace<N>(v);
         return ret;
     }
     if constexpr (N > 0)

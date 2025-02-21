@@ -5,6 +5,7 @@
  */
 
 #include <cctype>
+#include <print>
 
 #include <LibCore/IO.h>
 #include <LibCore/ScopeGuard.h>

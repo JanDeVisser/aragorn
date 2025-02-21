@@ -330,12 +330,12 @@ struct Token {
     {
         Token ret;
         ret.kind = TokenKind::QuotedString;
-        ret.text = std::string { text };
         ret.value = QuotedString {
             .quote_type = type,
-            .terminated = terminated,
-            .triple = triple
+            .triple = triple,
+            .terminated = terminated
         };
+        ret.text = std::string { text };
         return ret;
     }
 

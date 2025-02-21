@@ -89,29 +89,6 @@ void Aragorn::on_resize()
     cell.y = viewport.height / static_cast<float>(lines);
     auto cols = static_cast<int>(viewport.width) / static_cast<int>(cell.x);
     cell.x = viewport.width / static_cast<float>(cols);
-
-    auto tab_img = GenImageColor(cell.x * 2, cell.y, Theme::the().bg());
-    ImageDrawLine(
-        &tab_img,
-        0, static_cast<int>(cell.y / 2),
-        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
-        Theme::the().fg());
-    ImageDrawLine(
-        &tab_img,
-        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 3),
-        static_cast<int>(1.5 * cell.x), 2 * static_cast<int>(cell.y / 3),
-        Theme::the().fg());
-    ImageDrawLine(
-        &tab_img,
-        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
-        static_cast<int>(cell.x), static_cast<int>(cell.y / 3),
-        Theme::the().fg());
-    ImageDrawLine(
-        &tab_img,
-        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
-        static_cast<int>(cell.x), static_cast<int>(2* cell.y / 3),
-        Theme::the().fg());
-    tab_char = LoadTextureFromImage(tab_img);
 }
 
 void Aragorn::process_input()
@@ -252,6 +229,29 @@ void Aragorn::initialize()
         .bind(KeyCombo { KEY_Q, KModControl });
     add_command<Aragorn>("aragorn-run-command", cmd_run_command)
         .bind(KeyCombo { KEY_P, KModSuper | KModShift });
+
+    auto tab_img = GenImageColor(cell.x * 2, cell.y, BLANK);
+    ImageDrawLine(
+        &tab_img,
+        0, static_cast<int>(cell.y / 2),
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
+        Theme::the().fg());
+    ImageDrawLine(
+        &tab_img,
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 3),
+        static_cast<int>(1.5 * cell.x), 2 * static_cast<int>(cell.y / 3),
+        Theme::the().fg());
+    ImageDrawLine(
+        &tab_img,
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
+        static_cast<int>(cell.x), static_cast<int>(cell.y / 3),
+        Theme::the().fg());
+    ImageDrawLine(
+        &tab_img,
+        static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
+        static_cast<int>(cell.x), static_cast<int>(2* cell.y / 3),
+        Theme::the().fg());
+    tab_char = LoadTextureFromImage(tab_img);
 }
 
 pBuffer Aragorn::new_buffer()
