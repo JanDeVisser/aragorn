@@ -28,7 +28,7 @@ public:
     void initialize_source() override
     {
         pBuffer const &buffer = std::dynamic_pointer_cast<Buffer>(parent);
-        m_lexer.push_source(buffer->text(), buffer->name);
+        m_lexer.push_source(*buffer);
         m_token_col = 0;
     }
 
@@ -44,12 +44,12 @@ public:
             m_token_col = ((m_token_col / config_tab_size) + 1) * config_tab_size;
             break;
         default:
-            m_token_col += token.text.length();
+            m_token_col += token.location.length;
             break;
         }
         return {
             token.location.index,
-            token.text.length(),
+            token.location.length,
             token.location.line,
             col,
             token.kind,
@@ -58,7 +58,7 @@ public:
     }
 
 protected:
-    Lexer<Keywords, NoDirective, true, true, true> m_lexer {};
+    Lexer<Buffer, Keywords, NoDirective, true, true, true> m_lexer {};
 
 private:
     size_t m_token_col { 0 };
@@ -142,7 +142,7 @@ enum class CKeyword {
 
 class CMode : public LexerMode<CKeyword> {
 public:
-    CMode(pBuffer const &buffer)
+    explicit CMode(pBuffer const &buffer)
         : LexerMode(buffer)
     {
     }

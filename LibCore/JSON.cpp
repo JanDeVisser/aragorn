@@ -160,42 +160,42 @@ Result<JSONValue, JSONValue::ReadError> JSONValue::read_file(std::string_view co
     return json_maybe.value();
 }
 
-using JSONLexer = Lexer<JSONKeyword>;
+using JSONLexer = Lexer<std::string_view, JSONKeyword>;
 using JSONToken = Token<JSONKeyword>;
 
-Result<std::string, JSONError> decode_string(JSONToken const &token)
+Result<JSONValue, JSONError> decode_value(JSONLexer &lexer, std::string_view const &str)
 {
-    if (token != TokenKind::QuotedString) {
-        return JSONError {
-            JSONError::Code::SyntaxError,
-            "Expected quoted string",
-            static_cast<int>(token.location.line),
-            static_cast<int>(token.location.column),
-        };
-    }
-    if (!token.quoted_string().terminated) {
-        return JSONError {
-            JSONError::Code::SyntaxError,
-            "Unterminated string",
-            static_cast<int>(token.location.line),
-            static_cast<int>(token.location.column),
-        };
-    }
-    trace(JSON, "decode_string({})", token);
-    if (token.text.length() > 2) {
-        std::string qstr { token.text.substr(1, token.text.length() - 2) };
-        replace_all(qstr, R"(\r)", "\r"sv);
-        replace_all(qstr, R"(\n)", "\n"sv);
-        replace_all(qstr, R"(\t)", "\t"sv);
-        replace_all(qstr, R"(\")", R"(")");
-        replace_all(qstr, R"(\')", "'"sv);
-        return { qstr };
-    }
-    return token.text;
-}
+    auto decode_string = [str](JSONToken const &token) -> Result<std::string, JSONError>
+    {
+        if (token != TokenKind::QuotedString) {
+            return JSONError {
+                JSONError::Code::SyntaxError,
+                "Expected quoted string",
+                static_cast<int>(token.location.line),
+                static_cast<int>(token.location.column),
+            };
+        }
+        if (!token.quoted_string().terminated) {
+            return JSONError {
+                JSONError::Code::SyntaxError,
+                "Unterminated string",
+                static_cast<int>(token.location.line),
+                static_cast<int>(token.location.column),
+            };
+        }
+        trace(JSON, "decode_string({})", token);
+        if (token.location.length > 2) {
+            std::string qstr { str.substr(token.location.index + 1, token.location.length - 2) };
+            replace_all(qstr, R"(\r)", "\r"sv);
+            replace_all(qstr, R"(\n)", "\n"sv);
+            replace_all(qstr, R"(\t)", "\t"sv);
+            replace_all(qstr, R"(\")", R"(")");
+            replace_all(qstr, R"(\')", "'"sv);
+            return { qstr };
+        }
+        return std::string {};
+    };
 
-Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
-{
     auto expect_symbol = [&lexer](int sym) -> Error<JSONError> {
         auto err = lexer.expect_symbol(sym);
         if (err.is_error()) {
@@ -224,7 +224,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
                     auto name = TRY_EVAL(decode_string(name_token));
                     trace(JSON, "Name: {}", name);
                     TRY(expect_symbol(':'));
-                    auto value = TRY_EVAL(decode_value(lexer));
+                    auto value = TRY_EVAL(decode_value(lexer, str));
                     trace(JSON, "NVP: {}: {}", name, value.to_string());
                     result.set(name, value);
                     if (!lexer.accept_symbol(',')) {
@@ -239,7 +239,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
             auto result = JSONValue::array();
             if (!lexer.accept_symbol(']')) {
                 while (true) {
-                    auto value = TRY_EVAL(decode_value(lexer));
+                    auto value = TRY_EVAL(decode_value(lexer, str));
                     trace(JSON, "Array elem: {}", value.to_string());
                     result.append(value);
                     if (!lexer.accept_symbol(',')) {
@@ -266,12 +266,12 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
     case TokenKind::Number: {
         switch (token.number_type()) {
         case NumberType::Decimal: {
-            auto dbl_maybe = string_to_double(token.text);
+            auto dbl_maybe = string_to_double(std::string(str.substr(token.location.index, token.location.length)));
             assert(dbl_maybe.has_value());
             return JSONValue(dbl_maybe.value());
         }
         default: {
-            auto int_maybe = string_to_integer<long>(token.text);
+            auto int_maybe = string_to_integer<long>(str.substr(token.location.index, token.location.length));
             assert(int_maybe.has_value());
             return JSONValue(int_maybe.value());
         }
@@ -292,7 +292,7 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer)
     default:
         return JSONError {
             JSONError::Code::SyntaxError,
-            std::format("Invalid token '{:}' ({:})", token.text, TokenKind_name(token.kind)),
+            std::format("Invalid token '{:}' ({:})", str.substr(token.location.index, token.location.length), TokenKind_name(token.kind)),
             static_cast<int>(token.location.line),
             static_cast<int>(token.location.column),
         };
@@ -312,8 +312,8 @@ std::map<std::string_view, JSONKeyword> get_keywords()
 Result<JSONValue, JSONError> JSONValue::deserialize(std::string_view const &str)
 {
     JSONLexer lexer;
-    lexer.push_source(str, "string");
-    return decode_value(lexer);
+    lexer.push_source(str);
+    return decode_value(lexer, str);
 }
 
 }

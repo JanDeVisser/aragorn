@@ -175,15 +175,11 @@ inline Result<NumberType, JSONError> decode(JSONValue const &json)
 struct TokenLocation {
     TokenLocation() = default;
     TokenLocation(TokenLocation const &) = default;
-    explicit TokenLocation(std::string_view const &name)
-        : file(name)
-    {
-    }
 
-    std::string file {};
-    size_t      index { 0 };
-    size_t      line { 0 };
-    size_t      column { 0 };
+    size_t index { 0 };
+    size_t length { 0 };
+    size_t line { 0 };
+    size_t column { 0 };
 };
 
 template<>
@@ -191,7 +187,7 @@ inline JSONValue encode(TokenLocation const &location)
 {
     auto ret = JSONValue::object();
     set(ret, "index", location.index);
-    set(ret, "file", location.file);
+    set(ret, "length", location.length);
     set(ret, "line", location.line);
     set(ret, "column", location.column);
     return ret;
@@ -204,8 +200,8 @@ inline Result<TokenLocation, JSONError> decode(JSONValue const &json)
         return JSONError { JSONError::Code::TypeMismatch, "" };
     }
     auto location = TokenLocation {};
-    location.file = TRY_EVAL(json.try_get<std::string>("file"));
     location.index = TRY_EVAL(json.try_get<size_t>("index"));
+    location.length = TRY_EVAL(json.try_get<size_t>("length"));
     location.line = TRY_EVAL(json.try_get<size_t>("line"));
     location.column = TRY_EVAL(json.try_get<size_t>("column"));
     return location;
@@ -230,22 +226,20 @@ enum class NoDirective {
 
 template<typename KeywordCodeType = NoKeyword, typename DirectiveCodeType = NoDirective>
 struct Token {
-    using TokenValue = std::variant<bool, NumberType, QuotedString, CommentText, KeywordCodeType, DirectiveCodeType, int>;
+    using TokenValue = std::variant<std::monostate, NumberType, QuotedString, CommentText, KeywordCodeType, DirectiveCodeType, int>;
 
     Token() = default;
     Token(Token const &) = default;
 
     TokenKind     kind { TokenKind::Unknown };
-    std::string   text {};
     TokenLocation location {};
     TokenValue    value;
 
-    static Token number(NumberType type, std::string_view const &text)
+    static Token number(NumberType type)
     {
         Token ret;
         ret.kind = TokenKind::Number;
         ret.value = type;
-        ret.text = std::string { text };
         return ret;
     }
 
@@ -254,67 +248,58 @@ struct Token {
         Token ret;
         ret.kind = TokenKind::Symbol;
         ret.value = TokenValue { std::in_place_index<6>, sym };
-        ret.text = std::string { "x" };
-        ret.text[0] = static_cast<char>(sym);
         return ret;
     }
 
-    static Token keyword(KeywordCodeType const &code, std::string_view const &text)
+    static Token keyword(KeywordCodeType const &code)
     {
         Token ret;
         ret.kind = TokenKind::Keyword;
         ret.value = TokenValue { std::in_place_index<4>, code };
-        ret.text = std::string { text };
         return ret;
     }
 
-    static Token whitespace(std::string_view text)
+    static Token whitespace()
     {
         Token ret;
         ret.kind = TokenKind::Whitespace;
-        ret.text = std::string { text };
         return ret;
     }
 
-    static Token tab(std::string_view text)
+    static Token tab()
     {
         Token ret;
         ret.kind = TokenKind::Tab;
-        ret.text = std::string { text };
         return ret;
     }
 
-    static Token identifier(std::string_view text)
+    static Token identifier()
     {
         Token ret;
         ret.kind = TokenKind::Identifier;
-        ret.text = std::string { text };
         return ret;
     }
 
-    static Token directive(DirectiveCodeType const &code, std::string_view const &text)
+    static Token directive(DirectiveCodeType const &code)
     {
         Token ret;
         ret.kind = TokenKind::Directive;
         ret.value = TokenValue { std::in_place_index<5>, code };
-        ret.text = std::string { text };
         return ret;
     }
 
-    static Token comment(CommentType type, std::string_view const &text, bool terminated = true)
+    static Token comment(CommentType type, bool terminated = true)
     {
         Token ret;
         ret.kind = TokenKind::Comment;
         ret.value = CommentText { .comment_type = type, .terminated = terminated };
-        ret.text = std::string { text };
         return ret;
     }
 
-    static Token end_of_line(std::string_view text)
+    static Token end_of_line()
     {
         Token ret;
         ret.kind = TokenKind::EndOfLine;
-        ret.text = std::string { text };
         return ret;
     }
 
@@ -322,11 +307,10 @@ struct Token {
     {
         Token ret;
         ret.kind = TokenKind::EndOfFile;
-        ret.text = std::string {};
         return ret;
     }
 
-    static Token string(QuoteType type, std::string_view text, bool terminated = true, bool triple = false)
+    static Token string(QuoteType type, bool terminated = true, bool triple = false)
     {
         Token ret;
         ret.kind = TokenKind::QuotedString;
@@ -335,41 +319,40 @@ struct Token {
             .triple = triple,
             .terminated = terminated
         };
-        ret.text = std::string { text };
         return ret;
     }
 
-    NumberType number_type() const
+    [[nodiscard]] NumberType number_type() const
     {
         assert(kind == TokenKind::Number);
         return std::get<1>(value);
     }
 
-    int symbol_code() const
+    [[nodiscard]] int symbol_code() const
     {
         assert(kind == TokenKind::Symbol);
         return std::get<6>(value);
     }
 
-    KeywordCodeType keyword_code() const
+    [[nodiscard]] KeywordCodeType keyword_code() const
     {
         assert(kind == TokenKind::Keyword);
         return std::get<4>(value);
     }
 
-    DirectiveCodeType directive_code() const
+    [[nodiscard]] DirectiveCodeType directive_code() const
     {
         assert(kind == TokenKind::Directive);
         return std::get<5>(value);
     }
 
-    QuotedString const &quoted_string() const
+    [[nodiscard]] QuotedString const &quoted_string() const
     {
         assert(kind == TokenKind::QuotedString);
         return std::get<QuotedString>(value);
     }
 
-    CommentText const &comment_text() const
+    [[nodiscard]] CommentText const &comment_text() const
     {
         assert(kind == TokenKind::Comment);
         return std::get<CommentText>(value);
@@ -417,7 +400,6 @@ inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
 {
     auto ret = JSONValue::object();
     set(ret, "kind", TokenKind_name(token.kind));
-    set(ret, "text", token.text);
     set(ret, "location", token.location);
 
     auto encode_token_Number = [&ret, &token]() -> void {
@@ -476,7 +458,6 @@ inline Result<Token<KeywordCodeType, DirectiveCodeType>, JSONError> decode(JSONV
     }
     auto token = Token {};
     token.kind = TRY_EVAL(json.try_get<TokenKind>("kind"));
-    token.text = TRY_EVAL(json.try_get<std::string>("text"));
     token.location = TRY_EVAL(json.try_get<TokenLocation>("location"));
 
     auto decode_token_Number = [&json, &token]() -> Error<JSONError> {
@@ -540,7 +521,7 @@ struct std::formatter<LibCore::Token<KeywordCodeType, DirectiveCodeType>, char> 
     bool quoted = false;
 
     template<class ParseContext>
-    constexpr ParseContext::iterator parse(ParseContext &ctx)
+    constexpr typename ParseContext::iterator parse(ParseContext &ctx)
     {
         auto it = ctx.begin();
         if (it != ctx.end() && *it != '}') {
@@ -550,13 +531,10 @@ struct std::formatter<LibCore::Token<KeywordCodeType, DirectiveCodeType>, char> 
     }
 
     template<class FmtContext>
-    FmtContext::iterator format(Token const &token, FmtContext &ctx) const
+    typename FmtContext::iterator format(Token const &token, FmtContext &ctx) const
     {
         std::ostringstream out;
-        out << "[" << LibCore::TokenKind_name(token.kind) << "]";
-        if (token != LibCore::TokenKind::EndOfLine && token != LibCore::TokenKind::EndOfFile) {
-            out << " '" << token.text << "'";
-        }
+        out << "[" << LibCore::TokenKind_name(token.kind) << "] (" << token.location.index << ", " << token.location.length << ")";
         return std::ranges::copy(std::move(out).str(), ctx.out()).out;
     }
 };

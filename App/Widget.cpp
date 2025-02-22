@@ -70,6 +70,49 @@ std::string modifier_string(KeyboardModifier modifier)
     return ret;
 }
 
+Widget::WidgetCommand::WidgetCommand(std::string name, pWidget owner, Handler handler)
+    : command(std::move(name))
+    , owner(std::move(owner))
+    , handler(std::move(handler))
+{
+}
+
+void Widget::WidgetCommand::execute(JSONValue const &args) const
+{
+    handler(owner, args);
+}
+
+Widget::WidgetCommand& Widget::WidgetCommand::bind(KeyCombo combo)
+{
+    bindings.push_back(combo);
+    return *this;
+}
+
+Widget::PendingCommand::PendingCommand(WidgetCommand const &command, JSONValue arguments)
+    : command(command)
+    , arguments(std::move(arguments))
+{
+    command.owner->bubble_up([this](auto const &w) -> bool {
+        if (auto app = std::dynamic_pointer_cast<App>(w)) {
+            current_focus = app->focus;
+            return true;
+        }
+        return false;
+    });
+}
+
+void Widget::PendingCommand::execute(JSONValue const &args) const
+{
+    command.execute(args);
+    command.owner->bubble_up([this](auto const &w) -> bool {
+        if (auto app = std::dynamic_pointer_cast<App>(w)) {
+            app->focus = current_focus;
+            return true;
+        }
+        return false;
+    });
+}
+
 std::deque<Widget::PendingCommand> Widget::pending_commands {};
 std::mutex                         Widget::commands_mutex {};
 

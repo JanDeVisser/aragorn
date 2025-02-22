@@ -119,7 +119,7 @@ void App::process_input()
             auto cmd = pending_commands.front();
             pending_commands.pop_front();
             trace(CMD, "Executing {}({})", cmd.command.command, cmd.arguments.serialize());
-            cmd.command.execute(cmd.arguments);
+            cmd.execute(cmd.arguments);
             return;
         }
     }

@@ -6,11 +6,8 @@
 
 #pragma once
 
-#include <algorithm>
-#include <concepts>
 #include <deque>
 #include <functional>
-#include <memory>
 #include <mutex>
 
 #include <raylib.h>
@@ -100,6 +97,8 @@ union Vec {
     T coords[2];
 };
 
+using Position = Vec<size_t>;
+
 template<typename T>
 union Rect {
     constexpr Rect(T c1, T c2, T c3, T c4)
@@ -170,35 +169,21 @@ private:
 public:
     using Handler = std::function<void(pWidget const &, JSONValue const &)>;
     struct WidgetCommand {
-        WidgetCommand(std::string name, pWidget owner, Handler handler)
-            : owner(std::move(owner))
-            , command(std::move(name))
-            , handler(std::move(handler))
-        {
-        }
-        WidgetCommand(WidgetCommand const &) = default;
-
         std::string           command;
         pWidget               owner;
         Handler               handler;
         std::vector<KeyCombo> bindings {};
 
-        WidgetCommand &bind(KeyCombo combo)
-        {
-            bindings.push_back(combo);
-            return *this;
-        }
+        WidgetCommand(std::string name, pWidget owner, Handler handler);
+        WidgetCommand(WidgetCommand const &) = default;
+        void           execute(JSONValue const &args) const;
+        WidgetCommand &bind(KeyCombo combo);
 
         template<typename... Args>
         WidgetCommand &bind(KeyCombo combo, Args... args)
         {
             bindings.push_back(combo);
             return bind(std::forward<Args>(args)...);
-        }
-
-        void execute(JSONValue const &args) const
-        {
-            handler(owner, args);
         }
 
         auto operator<=>(WidgetCommand const &other) const
@@ -209,13 +194,11 @@ public:
 
     struct PendingCommand {
         WidgetCommand const &command;
+        pWidget              current_focus;
         JSONValue            arguments;
 
-        PendingCommand(WidgetCommand const &command, JSONValue arguments)
-            : command(command)
-            , arguments(std::move(arguments))
-        {
-        }
+        PendingCommand(WidgetCommand const &command, JSONValue arguments);
+        void execute(JSONValue const &args) const;
     };
 
     Rect<float>                          viewport { 0.0 };

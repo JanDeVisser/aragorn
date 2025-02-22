@@ -131,10 +131,8 @@ void cmd_quit(pAragorn const &aragorn, JSONValue const &)
         }
     }
 
-    int         selection = 0;
     auto const *prompt = "Are you sure you want to quit?";
     if (has_modified_buffers) {
-        selection = 1;
         prompt = "There are modified files. Are you sure you want to quit?";
     }
 
@@ -146,20 +144,55 @@ void cmd_quit(pAragorn const &aragorn, JSONValue const &)
     query_box(aragorn, prompt, are_you_sure, QueryOptionYesNo);
 }
 
+void cmd_select_font(pAragorn const &aragorn, JSONValue const &)
+{
+    struct Fonts : public ListBox<fs::directory_entry> {
+        explicit Fonts()
+            : ListBox("Select font")
+        {
+            auto push_fonts = [this](std::string const& dir) -> void {
+                for (auto const &entry : fs::directory_iterator(dir)) {
+                    FT_Face face;
+                    if (FT_New_Face(Aragorn::the()->ft_library, entry.path().c_str(), 0, &face) != 0) {
+                        continue;
+                    }
+                    if (!FT_IS_FIXED_WIDTH(face)) {
+                        continue;
+                    }
+                    if (FT_Get_Char_Index(face, 'A') == 0) {
+                        continue;
+                    }
+                    entries.emplace_back(entry.path().stem().string(), entry);
+                }
+            };
+            for (auto const& dir : Aragorn::the()->get_font_dirs()) {
+                push_fonts(dir);
+            }
+        }
+
+        void submit() override
+        {
+            auto const &font = entries[selection].payload;
+            Aragorn::the()->set_font(font.path().string(), Aragorn::the()->font_size);
+            Aragorn::set_message(std::format("Selected fonts '{}'", font.path().string()));
+        }
+    };
+    auto fonts = Widget::make<Fonts>();
+    fonts->show();
+}
+
 void cmd_run_command(pAragorn const &aragorn, JSONValue const &)
 {
     struct Commands : public ListBox<Widget::WidgetCommand> {
-        pAragorn const &aragorn;
-        explicit Commands(pAragorn const &aragorn)
+        explicit Commands()
             : ListBox("Select command")
-            , aragorn(aragorn)
         {
             auto push_commands = [this](auto &w) -> void {
                 for (auto &[name, command] : w->commands) {
                     entries.emplace_back(name, command);
                 }
             };
-            for (pWidget &w = aragorn->focus; w; w = w->parent) {
+            for (pWidget &w = Aragorn::the()->focus; w; w = w->parent) {
                 push_commands(w);
                 if (w->delegate) {
                     push_commands(w->delegate);
@@ -171,11 +204,11 @@ void cmd_run_command(pAragorn const &aragorn, JSONValue const &)
         {
             auto const &cmd = entries[selection].payload;
             cmd.owner->submit(cmd.command, JSONValue {});
-            aragorn->set_message(std::format("Selected command '{}'", cmd.command));
+            Aragorn::set_message(std::format("Selected command '{}'", cmd.command));
         }
     };
-    Commands commands { aragorn };
-    commands.show();
+    auto commands = Widget::make<Commands>();
+    commands->show();
 }
 
 void Aragorn::initialize()
@@ -229,6 +262,7 @@ void Aragorn::initialize()
         .bind(KeyCombo { KEY_Q, KModControl });
     add_command<Aragorn>("aragorn-run-command", cmd_run_command)
         .bind(KeyCombo { KEY_P, KModSuper | KModShift });
+    add_command<Aragorn>("aragorn-select-font", cmd_select_font);
 
     auto tab_img = GenImageColor(cell.x * 2, cell.y, BLANK);
     ImageDrawLine(
@@ -299,6 +333,7 @@ EError Aragorn::read_settings()
     auto merge_settings = [this](fs::path const &dir, std::string const &file = "settings.json") -> EError {
         create_directory(dir);
         auto settings_file = dir / file;
+        std::println("--> {}", settings_file.string());
         if (exists(settings_file)) {
             auto json_maybe = JSONValue::read_file(settings_file.string());
             if (json_maybe.is_error()) {

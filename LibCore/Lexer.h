@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <array>
 #include <cctype>
 #include <format>
 #include <string>
@@ -19,39 +18,44 @@
 namespace LibCore {
 
 template<typename KW>
-inline std::map<std::string_view, KW> get_keywords()
+std::map<std::string_view, KW> get_keywords()
 {
     return {};
 }
 
 struct LexerErrorMessage {
-    TokenLocation      location;
-    std::string        message;
-    std::string const &to_string() const
+    TokenLocation location;
+    std::string   message;
+
+    [[nodiscard]] std::string const &to_string() const
     {
         return message;
     }
 };
 
-template<typename KW = NoKeyword, typename Directive = NoDirective, bool Whitespace = false, bool Comments = false, bool BackquotedStrings = false>
+template<typename Buffer, typename KW = NoKeyword, typename Directive = NoDirective, bool Whitespace = false, bool Comments = false, bool BackquotedStrings = false>
 class Lexer {
 public:
     using LexerError = Error<LexerErrorMessage>;
     using T = Token<KW, Directive>;
     using LexerResult = Result<T, LexerErrorMessage>;
 
-    [[nodiscard]] std::optional<std::pair<KW, size_t>> match_keyword(std::string_view const &text) const
+    [[nodiscard]] std::optional<std::pair<KW, size_t>> match_keyword(Buffer const &text, size_t index) const
     {
         std::optional<std::pair<KW, size_t>> ret;
         std::string_view                     matched;
         for (auto const &kw : m_keywords) {
             std::string_view keyword { kw.first };
-            if (text.starts_with(keyword)) {
-                if (keyword.length() > matched.length()) {
-                    matched = keyword;
-                    ret.emplace(kw.second, matched.length());
+            for (auto ix = 0ul; ix + index < text.length() && ix < keyword.length(); ++ix) {
+                if (text[index + ix] != keyword[ix]) {
+                    goto next_keyword;
                 }
             }
+            if (keyword.length() > matched.length()) {
+                matched = keyword;
+                ret.emplace(kw.second, matched.length());
+            }
+        next_keyword:
         }
         return ret;
     }
@@ -66,7 +70,7 @@ public:
         return {};
     }
 
-    [[nodiscard]] std::optional<KW> code(std::string_view const &key) const
+    [[nodiscard]] std::optional<KW> code(std::string const &key) const
     {
         if (m_keywords.contains(key)) {
             return m_keywords.at(key);
@@ -79,9 +83,9 @@ public:
         m_keywords = get_keywords<KW>();
     }
 
-    void push_source(std::string_view const &source, std::string_view const &name)
+    void push_source(Buffer const &source)
     {
-        m_sources.emplace_back(this, source, name);
+        m_sources.emplace_back(this, source);
         if constexpr (!BackquotedStrings) {
             m_sources.back().quote_chars = "\"'";
         }
@@ -136,8 +140,7 @@ public:
 
     LexerResult expect(TokenKind kind)
     {
-        auto ret = peek();
-        if (!ret.matches(kind)) {
+        if (auto ret = peek(); !ret.matches(kind)) {
             return LexerErrorMessage { location(),
                 std::format("Expected '{}'", TokenKind_name(kind)) };
         }
@@ -146,8 +149,7 @@ public:
 
     bool accept(TokenKind kind)
     {
-        auto ret = peek();
-        if (ret.matches(kind)) {
+        if (auto ret = peek(); ret.matches(kind)) {
             lex();
             return true;
         }
@@ -156,8 +158,7 @@ public:
 
     LexerError expect_keyword(KW code)
     {
-        auto ret = peek();
-        if (!ret.matches_keyword(code)) {
+        if (auto ret = peek(); !ret.matches_keyword(code)) {
             return LexerErrorMessage {
                 location(),
                 std::format("Expected keyword"), // FIXME need KW code -> text mechanism
@@ -169,8 +170,7 @@ public:
 
     bool accept_keyword(KW code)
     {
-        auto ret = peek();
-        if (ret.matches_keyword(code)) {
+        if (auto ret = peek(); ret.matches_keyword(code)) {
             lex();
             return true;
         }
@@ -179,8 +179,7 @@ public:
 
     LexerError expect_symbol(int symbol)
     {
-        auto ret = peek();
-        if (!ret.matches_symbol(symbol)) {
+        if (auto ret = peek(); !ret.matches_symbol(symbol)) {
             return LexerErrorMessage { location(), std::format("Expected '{}'", static_cast<char>(symbol)) };
         }
         lex();
@@ -189,8 +188,7 @@ public:
 
     bool accept_symbol(int symbol)
     {
-        auto ret = peek();
-        if (ret.matches_symbol(symbol)) {
+        if (auto ret = peek(); ret.matches_symbol(symbol)) {
             lex();
             return true;
         }
@@ -199,8 +197,7 @@ public:
 
     LexerResult expect_identifier()
     {
-        auto ret = peek();
-        if (!ret.is_identifier()) {
+        if (auto ret = peek(); !ret.is_identifier()) {
             return LexerErrorMessage { location(), "Expected identifier" };
         }
         return lex();
@@ -232,152 +229,114 @@ private:
     public:
         char const *quote_chars;
 
-        TokenLocation const &location() const
+        [[nodiscard]] TokenLocation const &location() const
         {
             return m_location;
         }
 
-        Source(Lexer *lexer, std::string_view const &src, std::string_view const &name)
-            : m_buffer(src)
+        Source(Lexer *lexer, Buffer const &src)
+            : quote_chars("\"'`")
+            , m_buffer(src)
             , m_lexer(lexer)
-            , quote_chars("\"'`")
         {
-            m_location.file = name;
+        }
+
+        T peek()
+        {
+            if (m_index >= m_buffer.length()) {
+                return T::end_of_file();
+            }
+            m_scanned.clear();
+            auto cur = m_buffer[m_index];
+            if (m_in_comment) {
+                if (cur == '\n') {
+                    ++m_index;
+                    return T::end_of_line();
+                }
+                return block_comment(m_index);
+            }
+            if (strchr(quote_chars, cur)) {
+                auto ix { m_index + 1 };
+                while (ix < m_buffer.length() && m_buffer[ix] != cur) {
+                    if (m_buffer[ix] == '\\') {
+                        ++ix;
+                    }
+                    if (ix < m_buffer.length()) {
+                        ++ix;
+                    }
+                }
+                auto ret { T::string(static_cast<QuoteType>(cur), ix < m_buffer.length()) };
+                m_index = ix;
+                return ret;
+            }
+            switch (cur) {
+            case '/':
+                switch (m_buffer[m_index + 1]) {
+                case '/': {
+                    size_t ix = m_index + 2;
+                    for (; ix < m_buffer.length() && m_buffer[ix] != '\n'; ++ix)
+                        ;
+                    m_index = ix;
+                    return T::comment(CommentType::Line);
+                }
+                case '*': {
+                    return block_comment(m_index + 2);
+                }
+                default:
+                    break;
+                }
+                break;
+            case '\n':
+                ++m_index;
+                return T::end_of_line();
+            case '\t':
+                ++m_index;
+                return T::tab();
+            default:
+                break;
+            }
+            if (isspace(cur)) {
+                size_t ix = m_index;
+                for (; ix < m_buffer.length() && isspace(m_buffer[ix]) && m_buffer[ix] != '\t' && m_buffer[ix] != '\n'; ++ix)
+                    ;
+                m_index = ix;
+                return T::whitespace();
+            }
+            if (isdigit(cur)) {
+                return scan_number();
+            }
+            if (isalpha(cur) || cur == '_') {
+                size_t ix = m_index;
+                for (; isalnum(m_buffer[ix]) || m_buffer[ix] == '_'; ++ix) {
+                    m_scanned += m_buffer[ix];
+                }
+                auto kw = m_lexer->code(m_scanned);
+                m_index = ix;
+                if (kw) {
+                    return T::keyword(kw.value());
+                }
+                return T::identifier();
+            }
+            auto kw = m_lexer->match_keyword(m_buffer, m_index);
+            if (kw) {
+                m_index += (*kw).second;
+                return T::keyword((*kw).first);
+            }
+            auto ret = T::symbol(static_cast<int>(cur));
+            m_index += 1;
+            return ret;
         }
 
         T const &peek_next()
         {
             if (m_current.has_value()) {
-                return m_current.value();
+                return *m_current;
             }
 
-            auto peek = [this]() -> T {
-                auto scan_number = [this]() -> T {
-                    NumberType type = NumberType::Integer;
-                    int        ix = 0;
-                    int (*predicate)(int) = isdigit;
-                    if (m_buffer[1] && m_buffer[0] == '0') {
-                        if (m_buffer[1] == 'x' || m_buffer[1] == 'X') {
-                            if (!m_buffer[2] || !isxdigit(m_buffer[2])) {
-                                return T::number(NumberType::Integer, m_buffer.substr(0, 1));
-                            }
-                            type = NumberType::HexNumber;
-                            predicate = isxdigit;
-                            ix = 2;
-                        } else if (m_buffer[1] == 'b' || m_buffer[1] == 'B') {
-                            if (!m_buffer[2] || !isbdigit(m_buffer[2])) {
-                                return T::number(NumberType::Integer, m_buffer.substr(0, 1));
-                            }
-                            type = NumberType::BinaryNumber;
-                            predicate = isbdigit;
-                            ix = 2;
-                        }
-                    }
-
-                    while (true) {
-                        if (ix >= m_buffer.length()) {
-                            return T::number(type, m_buffer);
-                        }
-                        char ch = m_buffer[ix];
-                        if (!predicate(ch) && ((ch != '.') || (type == NumberType::Decimal))) {
-                            // FIXME lex '1..10' as '1', '..', '10'. It will now lex as '1.', '.', '10'
-                            return T::number(type, m_buffer.substr(0, ix));
-                        }
-                        if (ch == '.') {
-                            if (type != NumberType::Integer) {
-                                return T::number(type, m_buffer.substr(0, ix));
-                            }
-                            type = NumberType::Decimal;
-                        }
-                        ++ix;
-                    }
-                };
-
-                auto block_comment = [this](size_t ix) -> T {
-                    for (; m_buffer[ix] && m_buffer[ix] != '\n' && (m_buffer[ix - 1] != '*' || m_buffer[ix] != '/'); ++ix)
-                        ;
-                    if (!m_buffer[ix]) {
-                        return T::comment(CommentType::Block, m_buffer.substr(0, ix), false);
-                    }
-                    if (m_buffer[ix] == '\n') {
-                        m_in_comment = true;
-                        return T::comment(CommentType::Block, m_buffer.substr(0, ix), false);
-                    }
-                    m_in_comment = false;
-                    return T::comment(CommentType::Block, m_buffer.substr(0, ix + 1), true);
-                };
-
-                if (m_buffer.empty()) {
-                    return T::end_of_file();
-                }
-                if (m_in_comment) {
-                    if (m_buffer[0] == '\n') {
-                        return T::end_of_line(m_buffer.substr(0, 1));
-                    }
-                    return block_comment(0);
-                }
-                if (strchr(quote_chars, m_buffer[0])) {
-                    size_t ix = 1;
-                    while (ix < m_buffer.length() && m_buffer[ix] != m_buffer[0]) {
-                        if (m_buffer[ix] == '\\')
-                            ++ix;
-                        if (m_buffer[ix])
-                            ++ix;
-                    }
-                    return T::string(static_cast<QuoteType>(m_buffer[0]), m_buffer.substr(0, ix + 1), ix < m_buffer.length());
-                }
-                switch (m_buffer[0]) {
-                case '/':
-                    switch (m_buffer[1]) {
-                    case '/': {
-                        size_t ix = 2;
-                        for (; m_buffer[ix] && m_buffer[ix] != '\n'; ++ix)
-                            ;
-                        return T::comment(CommentType::Line, m_buffer.substr(0, ix));
-                    }
-                    case '*': {
-                        return block_comment(2);
-                    }
-                    default:
-                        break;
-                    }
-                    break;
-                default:
-                    break;
-                }
-                if (m_buffer[0] == '\n') {
-                    return T::end_of_line(m_buffer.substr(0, 1));
-                }
-                if (m_buffer[0] == '\t') {
-                    return T::tab(m_buffer.substr(0, 1));
-                }
-                if (isspace(m_buffer[0])) {
-                    size_t ix = 0;
-                    for (; isspace(m_buffer[ix]) && m_buffer[ix] != '\t' && m_buffer[ix] != '\n'; ++ix)
-                        ;
-                    return T::whitespace(m_buffer.substr(0, ix));
-                }
-                if (isdigit(m_buffer[0])) {
-                    return scan_number();
-                }
-                if (isalpha(m_buffer[0]) || m_buffer[0] == '_') {
-                    size_t ix = 0;
-                    for (; isalnum(m_buffer[ix]) || m_buffer[ix] == '_'; ++ix)
-                        ;
-                    if (auto kw = m_lexer->code(m_buffer.substr(0, ix)); kw) {
-                        return T::keyword(kw.value(), m_buffer.substr(0, ix));
-                    }
-                    return T::identifier(m_buffer.substr(0, ix));
-                }
-                if (auto kw = m_lexer->match_keyword(m_buffer); kw) {
-                    return T::keyword(kw.value().first, m_buffer.substr(0, kw.value().second));
-                }
-                Token ret = T::symbol((int) m_buffer[0]);
-                return ret;
-            };
             m_current = peek();
-            m_current.value().location = m_location;
-            return m_current.value();
+            m_location.length = m_index - m_location.index;
+            m_current->location = m_location;
+            return *m_current;
         }
 
         void lex()
@@ -385,23 +344,86 @@ private:
             if (!m_current) {
                 return;
             }
-            m_location.index += m_current->text.length();
-            m_buffer = m_buffer.substr(m_current->text.length());
+            m_location.index = m_index;
             if (m_current->kind == TokenKind::EndOfLine) {
                 ++m_location.line;
                 m_location.column = 0;
             } else {
-                m_location.column += m_current->text.length();
+                m_location.column += m_location.length;
             }
+            m_location.length = 0;
             m_current.reset();
         }
 
+        T block_comment(size_t ix)
+        {
+            for (; ix < m_buffer.length() && m_buffer[ix] != '\n' && (m_buffer[ix - 1] != '*' || m_buffer[ix] != '/'); ++ix)
+                ;
+            m_index = ix;
+            if (ix >= m_buffer.length()) {
+                return T::comment(CommentType::Block, false);
+            }
+            if (m_buffer[ix] == '\n') {
+                m_in_comment = true;
+                return T::comment(CommentType::Block, false);
+            }
+            m_in_comment = false;
+            return T::comment(CommentType::Block, true);
+        }
+
+        T scan_number()
+        {
+            auto type = NumberType::Integer;
+            auto cur = m_buffer[m_index];
+            int  ix = m_index;
+            int (*predicate)(int) = isdigit;
+            if (m_index < m_buffer.length() - 1 && cur == '0') {
+                if (m_buffer[m_index + 1] == 'x' || m_buffer[m_index + 1] == 'X') {
+                    if (m_index == m_buffer.length() - 2 || !isxdigit(m_buffer[m_index + 2])) {
+                        m_index += 1;
+                        return T::number(NumberType::Integer);
+                    }
+                    type = NumberType::HexNumber;
+                    predicate = isxdigit;
+                    ix = 2;
+                } else if (m_buffer[m_index + 1] == 'b' || m_buffer[m_index + 1] == 'B') {
+                    if (m_index == m_buffer.length() - 2 || !isbdigit(m_buffer[m_index + 2])) {
+                        m_index += 1;
+                        return T::number(NumberType::Integer);
+                    }
+                    type = NumberType::BinaryNumber;
+                    predicate = isbdigit;
+                    ix = m_index + 2;
+                }
+            }
+
+            while (ix < m_buffer.length()) {
+                char const ch = m_buffer[ix];
+                if (!predicate(ch) && ((ch != '.') || (type == NumberType::Decimal))) {
+                    // FIXME lex '1..10' as '1', '..', '10'. It will now lex as '1.', '.', '10'
+                    m_index = ix;
+                    return T::number(type);
+                }
+                if (ch == '.') {
+                    if (type != NumberType::Integer) {
+                        m_index = ix;
+                        return T::number(type);
+                    }
+                    type = NumberType::Decimal;
+                }
+                ++ix;
+            }
+            return T::number(type);
+        }
+
     private:
-        std::string_view m_buffer;
+        Buffer const    &m_buffer;
+        size_t           m_index { 0 };
         Lexer           *m_lexer;
         TokenLocation    m_location {};
         std::optional<T> m_current {};
         bool             m_in_comment { false };
+        std::string      m_scanned;
     };
 
     std::vector<Source> m_sources {};

@@ -40,7 +40,7 @@ Result<pBuffer> Buffer::open(std::string_view const &name)
     buffer->end_gap = cap - buffer->text_size;
     buffer->m_text.resize(cap, 0);
     auto i = buffer->it(buffer->end_gap);
-    std::copy(contents.begin(), contents.end(), i);
+    std::ranges::copy(contents, i);
     buffer->lex();
     return buffer;
 }
@@ -213,7 +213,7 @@ rune Buffer::delete_rune_backwards(size_t pos)
 
 rune Buffer::delete_rune_forward(size_t pos)
 {
-    assert(pos >= 0 && pos < text_size);
+    assert(pos < text_size);
     set(pos);
     auto r = m_text[end_gap];
     end_gap += 1;
@@ -223,7 +223,7 @@ rune Buffer::delete_rune_forward(size_t pos)
 
 void Buffer::insert_rune(size_t pos, rune r)
 {
-    assert(pos >= 0 && pos < text_size);
+    assert(pos < text_size);
     set(pos);
     m_text[cursor] = r;
     cursor += 1;
@@ -276,7 +276,7 @@ void Buffer::erase(size_t pos, size_t len)
 
 rune Buffer::at(size_t pos) const
 {
-    return (pos < cursor) ? m_text[cursor] : m_text[end_gap + (pos - cursor)];
+    return (pos < cursor) ? m_text[pos] : m_text[end_gap + (pos - cursor)];
 }
 
 rune_view Buffer::substr(size_t pos, size_t len)
@@ -455,12 +455,12 @@ size_t Buffer::word_boundary_left(size_t index) const
 {
     index = clamp(index, 0, text_size - 1);
     if (isalnum(at(index)) || at(index) == '_') {
-        while (((int) index) > 0 && (isalnum(at(index)) || at(index) == '_')) {
+        while (static_cast<int>(index) > 0 && (isalnum(at(index)) || at(index) == '_')) {
             --index;
         }
         ++index;
     } else {
-        while (((int) index) > 0 && (!isalnum(at(index)) && at(index) != '_')) {
+        while (static_cast<int>(index) > 0 && (!isalnum(at(index)) && at(index) != '_')) {
             --index;
         }
         ++index;
