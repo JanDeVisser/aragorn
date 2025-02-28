@@ -137,48 +137,6 @@ Result<Theme, JSONError> Theme::load(std::string_view const &name)
     return TRY_EVAL(Theme::decode(json_maybe.value()));
 }
 
-Scope Theme::get_scope(TokenKind kind)
-{
-    if (m_token_kind_to_scope_id.contains(kind)) {
-        return m_token_kind_to_scope_id.at(kind);
-    }
-    trace(THEME, "get_scope(TokenKind::{})", TokenKind_name(kind));
-    std::string_view scope;
-    switch (kind) {
-    case TokenKind::Comment:
-        scope = "comment";
-        break;
-    case TokenKind::Keyword:
-        scope = "keyword";
-        break;
-    case TokenKind::Identifier:
-        scope = "identifier";
-        break;
-    case TokenKind::Number:
-        scope = "constant.numeric";
-        break;
-    case TokenKind::Symbol:
-        scope = "punctuation";
-        break;
-    case TokenKind::QuotedString:
-        scope = "string";
-        break;
-    case TokenKind::Directive:
-        scope = "keyword.control.directive";
-        break;
-    case TokenKind::DirectiveArg:
-        scope = "string";
-        break;
-    default:
-        scope = "identifier";
-        break;
-    }
-    trace(THEME, "get_scope(TokenKind::{}) -> {}", TokenKind_name(kind), scope);
-    auto scope_id = get_scope(scope);
-    m_token_kind_to_scope_id[kind] = scope_id;
-    return scope_id;
-}
-
 Scope Theme::get_scope(SemanticTokenTypes type)
 {
     if (m_semantic_token_type_to_scope_id.contains(type)) {

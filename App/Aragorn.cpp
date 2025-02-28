@@ -484,9 +484,9 @@ pMode Aragorn::get_mode_for_buffer(pBuffer const &buffer)
 {
     auto const &name = buffer->name;
     if (name.ends_with(".cpp") || name.ends_with(".c") || name.ends_with(".h")) {
-        return Widget::make<CMode>(buffer);
+        return Widget::make<LexerMode<CLexer>>(buffer);
     }
-    return Widget::make<PlainText>(buffer);
+    return Widget::make<LexerMode<PlainTextLexer>>(buffer);
 }
 
 void Aragorn::set_message(std::string_view const &text)

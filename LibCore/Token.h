@@ -26,8 +26,7 @@ using EnumResult = Result<ResultType, NoSuchEnumValue>;
     S(Keyword)              \
     S(Number)               \
     S(QuotedString)         \
-    S(Comment)              \
-    S(Directive)
+    S(Comment)
 
 #define TOKENKINDS(S)   \
     S(Unknown)          \
@@ -38,7 +37,6 @@ using EnumResult = Result<ResultType, NoSuchEnumValue>;
     S(Tab)              \
     S(Whitespace)       \
     S(Program)          \
-    S(DirectiveArg)     \
     S(Module)
 
 enum class TokenKind {
@@ -48,8 +46,30 @@ enum class TokenKind {
 #undef S
 };
 
-extern std::string           TokenKind_name(TokenKind kind);
-extern EnumResult<TokenKind> TokenKind_from_string(std::string_view const &kind);
+inline std::string TokenKind_name(TokenKind kind)
+{
+    switch (kind) {
+#undef S
+#define S(K)           \
+    case TokenKind::K: \
+        return std::format("{} *{}*", #K, static_cast<int>(kind));
+        TOKENKINDS(S)
+#undef S
+    default:
+        UNREACHABLE();
+    }
+}
+
+inline EnumResult<TokenKind> TokenKind_from_string(std::string_view const &kind)
+{
+#undef S
+#define S(K)        \
+    if (kind == #K) \
+        return TokenKind::K;
+    TOKENKINDS(S)
+#undef S
+    return NoSuchEnumValue { "TokenKind", std::string(kind) };
+}
 
 template<>
 inline JSONValue encode(TokenKind const &kind)
@@ -218,15 +238,23 @@ struct CommentText {
     bool        terminated;
 };
 
-enum class NoKeyword {
+enum class NoKeywordCategory {
 };
 
-enum class NoDirective {
+enum class NoKeywordCode {
 };
 
-template<typename KeywordCodeType = NoKeyword, typename DirectiveCodeType = NoDirective>
+template<typename KeywordCategoryType = NoKeywordCategory, typename KeywordCodeType = NoKeywordCode>
 struct Token {
-    using TokenValue = std::variant<std::monostate, NumberType, QuotedString, CommentText, KeywordCodeType, DirectiveCodeType, int>;
+    using Keywords = KeywordCodeType;
+    using Categories = KeywordCategoryType;
+
+    struct Keyword {
+        Categories category;
+        Keywords   code;
+    };
+
+    using TokenValue = std::variant<std::monostate, NumberType, QuotedString, CommentText, Keyword, int>;
 
     Token() = default;
     Token(Token const &) = default;
@@ -247,15 +275,15 @@ struct Token {
     {
         Token ret;
         ret.kind = TokenKind::Symbol;
-        ret.value = TokenValue { std::in_place_index<6>, sym };
+        ret.value = TokenValue { std::in_place_index<5>, sym };
         return ret;
     }
 
-    static Token keyword(KeywordCodeType const &code)
+    static Token keyword(KeywordCategoryType cat, KeywordCodeType code)
     {
         Token ret;
         ret.kind = TokenKind::Keyword;
-        ret.value = TokenValue { std::in_place_index<4>, code };
+        ret.value = TokenValue { std::in_place_index<4>, Keyword { cat, code } };
         return ret;
     }
 
@@ -277,14 +305,6 @@ struct Token {
     {
         Token ret;
         ret.kind = TokenKind::Identifier;
-        return ret;
-    }
-
-    static Token directive(DirectiveCodeType const &code)
-    {
-        Token ret;
-        ret.kind = TokenKind::Directive;
-        ret.value = TokenValue { std::in_place_index<5>, code };
         return ret;
     }
 
@@ -331,19 +351,13 @@ struct Token {
     [[nodiscard]] int symbol_code() const
     {
         assert(kind == TokenKind::Symbol);
-        return std::get<6>(value);
+        return std::get<5>(value);
     }
 
-    [[nodiscard]] KeywordCodeType keyword_code() const
+    [[nodiscard]] Keyword keyword() const
     {
         assert(kind == TokenKind::Keyword);
         return std::get<4>(value);
-    }
-
-    [[nodiscard]] DirectiveCodeType directive_code() const
-    {
-        assert(kind == TokenKind::Directive);
-        return std::get<5>(value);
     }
 
     [[nodiscard]] QuotedString const &quoted_string() const
@@ -390,14 +404,14 @@ struct Token {
 
     [[nodiscard]] bool matches(TokenKind k) const { return kind == k; }
     [[nodiscard]] bool matches_symbol(int symbol) const { return matches(TokenKind::Symbol) && this->symbol_code() == symbol; }
-    [[nodiscard]] bool matches_keyword(KeywordCodeType code) const { return matches(TokenKind::Keyword) && this->keyword_code() == code; }
-    [[nodiscard]] bool matches_directive(DirectiveCodeType code) const { return matches(TokenKind::Directive) && this->directive_code() == code; }
+    [[nodiscard]] bool matches_keyword(KeywordCategoryType cat, KeywordCodeType code) const { return matches(TokenKind::Keyword) && this->keyword().category == cat && this->keyword().code == code; }
     [[nodiscard]] bool is_identifier() const { return matches(TokenKind::Identifier); }
 };
 
 template<typename KeywordCodeType = int, typename DirectiveCodeType = int>
 inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
 {
+    using T = Token<KeywordCodeType, DirectiveCodeType>;
     auto ret = JSONValue::object();
     set(ret, "kind", TokenKind_name(token.kind));
     set(ret, "location", token.location);
@@ -424,11 +438,11 @@ inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
     };
 
     auto encode_token_Keyword = [&ret, &token]() -> void {
-        set(ret, "directive", std::get<4>(token.value));
-    };
-
-    auto encode_token_Directive = [&ret, &token]() -> void {
-        set(ret, "directive", std::get<5>(token.value));
+        auto kw_obj = JSONValue::object();
+        auto kw = std::get<T::Keyword>(token.value);
+        set(kw_obj, "category", static_cast<int>(kw.category));
+        set(kw_obj, "code", static_cast<int>(kw.code));
+        set(ret, "keyword", kw_obj);
     };
 
     auto encode_token_Symbol = [&ret, &token]() -> void {
@@ -449,10 +463,10 @@ inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
     return ret;
 }
 
-template<typename KeywordCodeType, typename DirectiveCodeType>
-inline Result<Token<KeywordCodeType, DirectiveCodeType>, JSONError> decode(JSONValue const &json)
+template<typename KeywordCategoryType, typename KeywordCodeType>
+inline Result<Token<KeywordCategoryType, KeywordCodeType>, JSONError> decode(JSONValue const &json)
 {
-    using T = Token<KeywordCodeType, DirectiveCodeType>;
+    using T = Token<KeywordCategoryType, KeywordCodeType>;
     if (!json.is_object()) {
         return JSONError { JSONError::Code::TypeMismatch, "" };
     }
@@ -485,12 +499,11 @@ inline Result<Token<KeywordCodeType, DirectiveCodeType>, JSONError> decode(JSONV
     };
 
     auto decode_token_Keyword = [&json, &token]() -> Error<JSONError> {
-        token.value = TRY_EVAL(json.try_get<KeywordCodeType>("code"));
-        return {};
-    };
-
-    auto decode_token_Directive = [&json, &token]() -> Error<JSONError> {
-        token.value = TRY_EVAL(json.try_get<DirectiveCodeType>("directive"));
+        auto kw = TRY_EVAL(json.try_get<JSONValue>("keyword"));
+        token.value = typename T::Keyword {
+            .category = static_cast<KeywordCategoryType>(TRY_EVAL(kw.try_get<int>("category"))),
+            .code = static_cast<KeywordCodeType>(TRY_EVAL(kw.try_get<int>("code"))),
+        };
         return {};
     };
 
@@ -515,17 +528,47 @@ inline Result<Token<KeywordCodeType, DirectiveCodeType>, JSONError> decode(JSONV
 
 }
 
-template<typename KeywordCodeType, typename DirectiveCodeType>
-struct std::formatter<LibCore::Token<KeywordCodeType, DirectiveCodeType>, char> {
-    using Token = LibCore::Token<KeywordCodeType, DirectiveCodeType>;
-    bool quoted = false;
+template<>
+struct std::formatter<LibCore::TokenKind, char> {
+    template<class ParseContext>
+    constexpr typename ParseContext::iterator parse(ParseContext &ctx)
+    {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format args for Token.");
+        }
+        return it;
+    }
+
+    template<class FmtContext>
+    typename FmtContext::iterator format(LibCore::TokenKind kind, FmtContext &ctx) const
+    {
+        std::ostringstream out;
+        switch (kind) {
+#undef S
+#define S(K)                    \
+    case LibCore::TokenKind::K: \
+        out << #K;              \
+        break;
+            TOKENKINDS(S)
+#undef S
+        default:
+            UNREACHABLE();
+        }
+        return std::ranges::copy(std::move(out).str(), ctx.out()).out;
+    }
+};
+
+template<typename KeywordCategoryType, typename KeywordCodeType>
+struct std::formatter<LibCore::Token<KeywordCategoryType, KeywordCodeType>, char> {
+    using Token = LibCore::Token<KeywordCategoryType, KeywordCodeType>;
 
     template<class ParseContext>
     constexpr typename ParseContext::iterator parse(ParseContext &ctx)
     {
         auto it = ctx.begin();
         if (it != ctx.end() && *it != '}') {
-            throw std::format_error("Invalid format args for QuotableString.");
+            throw std::format_error("Invalid format args for Token.");
         }
         return it;
     }

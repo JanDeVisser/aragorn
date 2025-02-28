@@ -382,7 +382,7 @@ void Parser::parse_typedef()
 Module const &Parser::parse()
 {
     auto const &buffer { MUST_EVAL(read_file_by_name(file_name)) };
-    m_lexer.push_source(buffer, file_name);
+    m_lexer.push_source(buffer);
 
     while (true) {
         auto &token = m_lexer.peek();
@@ -405,4 +405,3 @@ Module const &Parser::parse()
 }
 
 }
-

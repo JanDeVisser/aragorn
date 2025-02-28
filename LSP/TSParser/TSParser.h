@@ -396,7 +396,7 @@ private:
 
 class Parser {
 public:
-    using TSLexer = LibCore::Lexer<TSKeyword>;
+    using TSLexer = LibCore::Lexer<std::string_view, TSKeyword>;
     Parser(std::string_view const &fname);
     Module const &parse();
 
