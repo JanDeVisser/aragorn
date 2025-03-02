@@ -34,7 +34,7 @@ struct NoKeywords {
     using Token = Token<KeywordCategoryType, KeywordCodeType>;
     using Keyword = typename Token::Keyword;
 
-    std::optional<Token> match()
+    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const&, size_t)
     {
         return {};
     }
@@ -44,7 +44,7 @@ struct NoKeywords {
         return {};
     }
 
-    std::optional<std::tuple<KeywordCategoryType, KeywordCodeType, size_t>> match(Buffer const &, size_t index)
+    std::optional<std::tuple<KeywordCategoryType, KeywordCodeType, size_t>> match(Buffer const &, size_t)
     {
         return {};
     }
@@ -72,7 +72,7 @@ struct EnumKeywords {
     using Keywords = CodeType;
     using Categories = CategoryType;
 
-    std::optional<Token> match()
+    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const&, size_t)
     {
         return {};
     }
@@ -307,9 +307,24 @@ private:
                 }
                 return block_comment(m_index);
             }
-            if (auto t = matcher.match()) {
-                auto token = *t;
-                m_index += token.location.length;
+            if (cur == '/') {
+                switch (m_buffer[m_index + 1]) {
+                case '/': {
+                    m_index += 2;
+                    for (; m_index < m_buffer.length() && m_buffer[m_index] != '\n'; ++m_index)
+                        ;
+                    return Token::comment(CommentType::Line);
+                }
+                case '*': {
+                    return block_comment(m_index + 2);
+                }
+                default:
+                    break;
+                }
+            }
+            if (auto t = matcher.pre_match(m_buffer, m_index)) {
+                auto token = std::get<Token>(*t);
+                m_index += std::get<size_t>(*t);
                 return token;
             }
             if (isdigit(cur)) {
@@ -324,21 +339,6 @@ private:
                 return { Token::string(static_cast<QuoteType>(cur), m_index < m_buffer.length()) };
             }
             switch (cur) {
-            case '/':
-                switch (m_buffer[m_index + 1]) {
-                case '/': {
-                    m_index += 2;
-                    for (; m_index < m_buffer.length() && m_buffer[m_index] != '\n'; ++m_index)
-                        ;
-                    return Token::comment(CommentType::Line);
-                }
-                case '*': {
-                    return block_comment(m_index + 2);
-                }
-                default:
-                    break;
-                }
-                break;
             case '\n':
                 ++m_index;
                 return Token::end_of_line();

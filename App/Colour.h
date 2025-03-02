@@ -61,9 +61,9 @@ public:
 
 private:
     union {
+        uint32_t      rgba {0};
         Color         color;
         unsigned char components[4];
-        uint32_t      rgba;
     };
 };
 

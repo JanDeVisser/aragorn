@@ -49,9 +49,9 @@ public:
         return m_lexer.lex();
     }
 
-    [[nodiscard]] Scope get_scope(Token const& token) const
+    [[nodiscard]] Scope get_scope(Token const &token) const
     {
-        std::string_view scope = Matcher{}.get_scope(token);
+        std::string_view scope = Matcher {}.get_scope(token);
         return Theme::the().get_scope(scope);
     }
 
@@ -177,15 +177,17 @@ S(_Noreturn)      \
 S(_Static_assert) \
 S(_Thread_local)
 
-#define C_DIRECTIVES(S)     \
-    S(_include, "#include") \
-    S(_define, "#define")   \
-    S(_if, "#if")           \
-    S(_ifdef, "#ifdef")     \
-    S(_ifndef, "#ifndef")   \
-    S(_else, "#else")       \
-    S(_elif, "#elif")       \
-    S(_endif, "#endif")
+#define C_DIRECTIVES(S)      \
+    S(include, "#include")   \
+    S(define, "#define")     \
+    S(if, "#if")             \
+    S(ifdef, "#ifdef")       \
+    S(ifndef, "#ifndef")     \
+    S(else, "#else")         \
+    S(elif, "#elif")         \
+    S(elifdef, "#elifdef")   \
+    S(elifndef, "#elifndef") \
+    S(endif, "#endif")
 
 #define CPP_KEYWORDS(S) \
     S(namespace)        \
@@ -201,7 +203,7 @@ enum class CKeyword {
 #define S(kw) CPP_##kw,
         CPP_KEYWORDS(S)
 #undef S
-#define S(D, S) Dir_##D,
+#define S(D, STR) Dir_##D,
             C_DIRECTIVES(S)
 #undef S
 };
@@ -219,8 +221,77 @@ struct CMatcher {
     using Categories = CCategory;
     using Token = Token<CCategory, CKeyword>;
 
-    std::optional<Token> match()
+    enum class State {
+        NoState,
+        Define,
+        Ifdef,
+        Include,
+        PreprocExpression,
+    };
+
+    State state { State::NoState };
+
+    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const &buffer, size_t index)
     {
+        if (state != State::NoState) {
+            if (buffer[index] == '\t') {
+                return std::tuple { Token::tab(), 1 };
+            }
+            auto ix = index;
+            while (ix < buffer.length() && buffer[ix] == ' ') {
+                ++ix;
+            }
+            if (ix > index) {
+                return std::tuple { Token::whitespace(), ix - index };
+            }
+            switch (state) {
+            case State::Include: {
+                if (buffer[ix] == '\"' || buffer[ix] == '<') {
+                    auto close = (buffer[ix] == '<') ? '>' : '\"';
+                    while (ix < buffer.length() && buffer[ix] != close && buffer[ix] != '\n') {
+                        ++ix;
+                    }
+                    state = State::NoState;
+                    if (buffer[ix] == '\n' || ix >= buffer.length()) {
+                        return std::tuple { Token::keyword(CCategory::DirectiveArg, CKeyword::Dir_include), ix - index };
+                    }
+                    return std::tuple { Token::keyword(CCategory::DirectiveArg, CKeyword::Dir_include), ix - index + 1 };
+                }
+            }
+            case State::Ifdef: {
+                while (ix < buffer.length() && (isalnum(buffer[ix]) || buffer[ix] == '_')) {
+                    ++ix;
+                }
+                if (ix > index) {
+                    state = State::NoState;
+                    return std::tuple { Token::keyword(CCategory::DirectiveArg, CKeyword::Dir_ifdef), ix - index };
+                }
+            }
+            case State::Define: {
+                while (ix < buffer.length() && (isalnum(buffer[ix]) || buffer[ix] == '_')) {
+                    ++ix;
+                }
+                if (ix > index) {
+                    state = State::PreprocExpression;
+                    return std::tuple { Token::keyword(CCategory::DirectiveArg, CKeyword::Dir_define), ix - index };
+                }
+            } break;
+            case State::PreprocExpression: {
+                while (ix < buffer.length() && !isspace(buffer[ix])) {
+                    ++ix;
+                }
+                if (ix > index) {
+                    if (buffer[ix] != '\n' || buffer[ix - 1] == '\\') {
+                        state = State::NoState;
+                    }
+                    return std::tuple { Token::keyword(CCategory::DirectiveArg, CKeyword::Dir_define), ix - index };
+                }
+            } break;
+            default:
+                break;
+            }
+        }
+        state = State::NoState;
         return {};
     }
 
@@ -235,43 +306,52 @@ struct CMatcher {
     std::optional<std::tuple<CCategory, CKeyword, size_t>> match(Buffer const &buffer, size_t index)
     {
         std::string scanned;
-        auto        handle_directive = [this, &buffer, index, &scanned]() -> std::optional<std::tuple<CCategory, CKeyword, size_t>> {
-            assert(buffer[index] == '#');
-            scanned += '#';
-            auto ix = index + 1;
-            while (buffer[ix] == ' ') {
-                ++ix;
-            }
-            while (isalpha(buffer[ix])) {
-                scanned += buffer[ix];
-                ++ix;
-            }
-            if (auto m = match_keyword<CCategory, CKeyword>(scanned); m && std::get<MatchType>(*m) == MatchType::FullMatch) {
-                return std::tuple { std::get<CCategory>(*m), std::get<CKeyword>(*m), ix - index };
-            }
-            return {};
-        };
-
-        for (auto ix = index; ix < buffer.length(); ++ix) {
-            if (ix == index && buffer[ix] == '#') {
-                return handle_directive();
-            }
-            scanned += buffer[ix];
-            if (auto m = match_keyword<CCategory, CKeyword>(scanned)) {
-                if (std::get<MatchType>(*m) == MatchType::FullMatch) {
-                    return std::tuple { std::get<CCategory>(*m), std::get<CKeyword>(*m), scanned.length() };
+        switch (state) {
+        case State::NoState: {
+            if (buffer[index] == '#') {
+                scanned += '#';
+                auto ix = index + 1;
+                while (ix < buffer.length() && (buffer[ix] == ' ' || buffer[ix] == '\t')) {
+                    ++ix;
                 }
-                ++ix;
-            } else {
+                while (isalpha(buffer[ix])) {
+                    scanned += buffer[ix];
+                    ++ix;
+                }
+                if (auto m = match_keyword<CCategory, CKeyword>(scanned); m && std::get<MatchType>(*m) == MatchType::FullMatch) {
+                    switch (std::get<CKeyword>(*m)) {
+                    case CKeyword::Dir_define:
+                        state = State::Define;
+                        break;
+                    case CKeyword::Dir_include:
+                        state = State::Include;
+                        break;
+                    case CKeyword::Dir_ifdef:
+                    case CKeyword::Dir_ifndef:
+                    case CKeyword::Dir_elifdef:
+                    case CKeyword::Dir_elifndef:
+                        state = State::Ifdef;
+                        break;
+                    case CKeyword::Dir_if:
+                    case CKeyword::Dir_elif:
+                        state = State::PreprocExpression;
+                        break;
+                    default:
+                        break;
+                    }
+                    return std::tuple { std::get<CCategory>(*m), std::get<CKeyword>(*m), ix - index };
+                }
                 return {};
             }
+        } break;
+        default:
+            return {};
         }
         return {};
     }
 
-    [[nodiscard]] std::string_view get_scope(Token const& token) const
+    [[nodiscard]] std::string_view get_scope(Token const &token) const
     {
-        std::string_view scope;
         switch (token.kind) {
         case TokenKind::Comment:
             return "comment";
@@ -284,6 +364,8 @@ struct CMatcher {
                 return "meta.preprocessor";
             case CCategory::DirectiveArg:
                 return "meta.preprocessor.string";
+            default:
+                UNREACHABLE();
             }
         } break;
         case TokenKind::Identifier:
@@ -297,6 +379,7 @@ struct CMatcher {
         default:
             return "identifier";
         }
+        UNREACHABLE();
     }
 };
 
@@ -310,6 +393,8 @@ struct CLexer : ModeLexer<CMatcher<BufferSource>> {
 namespace LibCore {
 
 using namespace Aragorn;
+
+#define _S(X, Y) X## #Y
 
 template<>
 inline std::optional<std::tuple<CCategory, CKeyword, MatchType>> match_keyword(std::string const &str)
@@ -335,13 +420,13 @@ inline std::optional<std::tuple<CCategory, CKeyword, MatchType>> match_keyword(s
     }
     CPP_KEYWORDS(S)
 #undef S
-#define S(D, S)                                                        \
-    if (std::string_view(S).starts_with(str)) {                        \
-        return std::tuple {                                            \
-            CCategory::Directive,                                      \
-            CKeyword::Dir_##D,                                         \
-            (str == S) ? MatchType::FullMatch : MatchType::PrefixMatch \
-        };                                                             \
+#define S(D, STR)                                                        \
+    if (std::string_view(STR).starts_with(str)) {                        \
+        return std::tuple {                                              \
+            CCategory::Directive,                                        \
+            CKeyword::Dir_##D,                                           \
+            (str == STR) ? MatchType::FullMatch : MatchType::PrefixMatch \
+        };                                                               \
     }
     C_DIRECTIVES(S)
 #undef S

@@ -89,7 +89,7 @@ include_directories("${PROJECT_BINARY_DIR}" "${PROJECT_SOURCE_DIR}")
 
 add_library(
         LibCore
-        SHARED
+        STATIC
         LibCore/Checked.h
         LibCore/Error.cpp
 #       LibCore/Integer.h
@@ -114,9 +114,8 @@ target_link_libraries(
 include_directories(.)
 target_include_directories(LibCore PRIVATE LibCore)
 
-add_subdirectory(LSP/TSParser)
+#add_subdirectory(LSP/TSParser)
 #add_subdirectory(LSP/Schema)
-add_subdirectory(Util)
 
 add_executable(
         Aragorn
@@ -152,7 +151,22 @@ target_link_libraries(
         m
 )
 
-install(TARGETS LibCore Aragorn
+add_executable(
+        json
+        Util/json.cpp
+)
+
+target_link_libraries(
+        json
+        PRIVATE
+        LibCore
+)
+
+include_directories(.)
+
+#add_compile_options("-fno-inline-functions")
+
+install(TARGETS LibCore Aragorn json
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib

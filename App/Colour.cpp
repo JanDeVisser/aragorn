@@ -10,15 +10,14 @@ namespace Aragorn {
 
 Result<Colour, Colour::ColourParseError> Colour::parse_color(std::string_view const &color)
 {
-    auto parse_hex_color = [color](int prefixlen, int num_components) -> Result<Colour, ColourParseError> {
-        Colour ret;
+    auto parse_hex_color = [color](int prefixlen, int num_components, int component_size = 2) -> Result<Colour, ColourParseError> {
+        auto ret = Colour {};
         ret.color.a = 0xFF;
         char buf[3];
         buf[2] = 0;
-        assert(color.length() == prefixlen + num_components * 2);
+        assert(color.length() == prefixlen + num_components * component_size);
         for (size_t ix = 0; ix < num_components; ++ix) {
-            assert(color[2 * ix + prefixlen] != 0);
-            memcpy(buf, color.data() + prefixlen + 2 * ix, 2);
+            memcpy(buf, color.data() + prefixlen + component_size * ix, component_size);
             char         *endptr;
             unsigned long c = strtoul(buf, &endptr, 16);
             if (*endptr != 0) {
@@ -29,16 +28,21 @@ Result<Colour, Colour::ColourParseError> Colour::parse_color(std::string_view co
         }
         return ret;
     };
+    if (color[0] == '#') {
+        switch (color.length()) {
+        case 4:
+            return parse_hex_color(1, 3, 1);
+        case 5:
+            return parse_hex_color(1, 4, 1);
+        case 7:
+            return parse_hex_color(1, 3, 2);
+        case 9:
+            return parse_hex_color(1, 4, 2);
+        default:
+            return ColourParseError { std::format("Could not parse hex color string '{}'", color) };
+        }
+    }
 
-    if (color.length() == 7 && color[0] == '#') {
-        return parse_hex_color(1, 3);
-    }
-    if (color.length() == 9 && color[0] == '#') {
-        return parse_hex_color(1, 4);
-    }
-    if (color.length() == 10 && (color.starts_with("0x") || color.starts_with("0X"))) {
-        return parse_hex_color(2, 4);
-    }
     auto s = strip(color);
     if (s.starts_with("rgb(") || s.starts_with("RGB(")) {
         s = s.substr(4);

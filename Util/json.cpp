@@ -29,7 +29,7 @@ int main(int argc, char const **argv)
     }
     auto json_maybe = JSONValue::deserialize(text_maybe.value());
     if (json_maybe.is_error()) {
-        std::cerr << "JSON parse error" << std::endl;
+        std::cerr << "JSON parse error: " << json_maybe.error().to_string() << std::endl;
         return 1;
     }
     auto res = json_maybe.value().serialize(true);

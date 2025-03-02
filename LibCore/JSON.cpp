@@ -216,35 +216,31 @@ Result<JSONValue, JSONError> decode_value(JSONLexer &lexer, std::string_view con
         switch (token.symbol_code()) {
         case '{': {
             auto result = JSONValue::object();
-            if (!lexer.accept_symbol('}')) {
-                while (true) {
-                    auto const name_token = lexer.lex();
-                    trace(JSON, "name_token: {}", name_token);
-                    auto name = TRY_EVAL(decode_string(name_token));
-                    trace(JSON, "Name: {}", name);
-                    TRY(expect_symbol(':'));
-                    auto value = TRY_EVAL(decode_value(lexer, str));
-                    trace(JSON, "NVP: {}: {}", name, value.to_string());
-                    result.set(name, value);
-                    if (!lexer.accept_symbol(',')) {
-                        TRY(expect_symbol('}'));
-                        break;
-                    }
+            while (!lexer.accept_symbol('}')) {
+                auto const name_token = lexer.lex();
+                trace(JSON, "name_token: {}", name_token);
+                auto name = TRY_EVAL(decode_string(name_token));
+                trace(JSON, "Name: {}", name);
+                TRY(expect_symbol(':'));
+                auto value = TRY_EVAL(decode_value(lexer, str));
+                trace(JSON, "NVP: {}: {}", name, value.to_string());
+                result.set(name, value);
+                if (!lexer.accept_symbol(',')) {
+                    TRY(expect_symbol('}'));
+                    break;
                 }
             }
             return result;
         }
         case '[': {
             auto result = JSONValue::array();
-            if (!lexer.accept_symbol(']')) {
-                while (true) {
-                    auto value = TRY_EVAL(decode_value(lexer, str));
-                    trace(JSON, "Array elem: {}", value.to_string());
-                    result.append(value);
-                    if (!lexer.accept_symbol(',')) {
-                        TRY(expect_symbol(']'));
-                        break;
-                    }
+            while (!lexer.accept_symbol(']')) {
+                auto value = TRY_EVAL(decode_value(lexer, str));
+                trace(JSON, "Array elem: {}", value.to_string());
+                result.append(value);
+                if (!lexer.accept_symbol(',')) {
+                    TRY(expect_symbol(']'));
+                    break;
                 }
             }
             return result;
@@ -302,13 +298,13 @@ template<>
 [[nodiscard]] std::optional<std::tuple<SimpleKeywordCategory, JSONKeyword, MatchType>> match_keyword(std::string const &str)
 {
 #undef S
-#define S(KW,STR) \
-    if (std::string_view(STR).starts_with(str)) { \
-        return std::tuple { \
-            SimpleKeywordCategory::Keyword, \
-            JSONKeyword::KW, \
+#define S(KW, STR)                                                       \
+    if (std::string_view(STR).starts_with(str)) {                        \
+        return std::tuple {                                              \
+            SimpleKeywordCategory::Keyword,                              \
+            JSONKeyword::KW,                                             \
             (str == STR) ? MatchType::FullMatch : MatchType::PrefixMatch \
-        }; \
+        };                                                               \
     }
     JSONKEYWORD(S)
 #undef S
