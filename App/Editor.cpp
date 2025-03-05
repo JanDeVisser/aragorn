@@ -58,7 +58,6 @@ void Editor::select_buffer(pBuffer const &buffer)
     }
     auto const &view = Widget::make<BufferView>(self(), buffer);
     views.push_back(view);
-    ++view->buffer()->version;
 #if 0
     if (buffer->mode) {
         view->mode_data = (Widget *) mode_make_data(buffer->mode);
@@ -152,6 +151,47 @@ void cmd_switch_buffer(pEditor const &editor, JSONValue const &)
     listbox->show();
 }
 
+void cmd_find_file(pEditor const &editor, JSONValue const &)
+{
+    struct FileList : public ListBox<fs::directory_entry> {
+        pEditor editor;
+        explicit FileList(pEditor editor)
+            : ListBox("Select File")
+            , editor(std::move(editor))
+        {
+            std::vector<fs::directory_entry> directories {};
+            auto add_files = [this, &directories](fs::path dir) -> void {
+                for (auto e : fs::directory_iterator{dir}) {
+                    auto &p = e.path();
+                    if (e.is_directory()) {
+                        directories.emplace_back(e);
+                    } else if (e.is_regular_file() && !p.filename().string().starts_with('.')) {
+                        entries.emplace_back(p.filename().string(), e);
+                    }
+                }
+            };
+            auto &p = Aragorn::the()->project;
+            for (auto &d : p->source_dirs) {
+                directories.emplace_back(fs::path{ p->project_dir } / d);
+            }
+            while (!directories.empty()) {
+                add_files(directories.back());
+                directories.pop_back();
+            }
+        }
+
+        void submit() override
+        {
+            auto e = entries[selection].payload;
+            if (auto open_maybe = editor->open(e.path().string()); open_maybe.is_error()) {
+                Aragorn::set_message("Could not open file");
+            }
+        }
+    };
+    auto const &listbox = Widget::make<FileList>(editor);
+    listbox->show();
+}
+
 void are_you_sure(pEditor const &editor, QueryOption selection)
 {
     switch (selection) {
@@ -210,6 +250,8 @@ void Editor::initialize()
 {
     add_command<Editor>("editor-open-file", cmd_open_file)
         .bind(KeyCombo { KEY_O, KModControl });
+    add_command<Editor>("editor-find-file", cmd_find_file)
+        .bind(KeyCombo { KEY_O, KModSuper });
     add_command<Editor>("editor-switch-buffer", cmd_switch_buffer)
         .bind(KeyCombo { KEY_B, KModSuper });
     add_command<Editor>("editor-close-buffer", cmd_close_buffer)

@@ -97,35 +97,35 @@ struct BufferEvent {
         return std::get<std::optional<std::string>>(change);
     }
 
-    static BufferEvent make_insert(EventRange const &range, size_t at, std::string_view const &text)
+    static BufferEvent make_insert(EventRange const &range, size_t at, std::string text)
     {
         BufferEvent ret;
         ret.type = BufferEventType::Insert;
         ret.range = range;
         ret.position = at;
-        ret.change = std::string { text };
+        ret.change = std::move(text);
         return ret;
     }
 
-    static BufferEvent make_delete(EventRange const &range, size_t at, std::string_view const &deletion)
+    static BufferEvent make_delete(EventRange const &range, size_t at, std::string deletion)
     {
         BufferEvent ret;
         ret.type = BufferEventType::Delete;
         ret.range = range;
         ret.position = at;
-        ret.change = std::string { deletion };
+        ret.change = std::move(deletion);
         return ret;
     }
 
-    static BufferEvent make_replacement(EventRange const &range, size_t at, std::string_view const &overwritten, std::string_view const &replacement)
+    static BufferEvent make_replacement(EventRange const &range, size_t at, std::string overwritten, std::string replacement)
     {
         BufferEvent ret;
         ret.type = BufferEventType::Delete;
         ret.range = range;
         ret.position = at;
         ret.change = Replacement {
-            std::string { overwritten },
-            std::string { replacement }
+            std::move(overwritten),
+            std::move(replacement)
         };
         return ret;
     }

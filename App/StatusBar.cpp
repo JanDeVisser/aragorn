@@ -21,12 +21,14 @@ struct FileName : public Label {
 
     void resize() override
     {
-        background = RAYWHITE; //colour_to_color(aragorn.theme.selection.bg);
-        color = DARKGRAY; //colour_to_color(aragorn.theme.selection.fg);
+        background = Theme::the().selection_bg();
+        color = Theme::the().selection_fg();
     }
 
     void draw() override
     {
+        background = Theme::the().selection_bg();
+        color = Theme::the().selection_fg();
         if (!parent->memo) {
             parent->memo = std::dynamic_pointer_cast<Layout>(parent->parent)->find_by_class<Editor>();
         }
@@ -37,7 +39,8 @@ struct FileName : public Label {
         if (buffer->name.empty()) {
             text = std::format("untitled-{}{}", view->buffer()->buffer_ix, buffer->saved_version < buffer->version ? '*' : ' ');
         } else {
-            text = std::format("%{}%{}", buffer->name, buffer->saved_version < buffer->version ? '*' : ' ');
+            text = std::format("%{}%{} {}/{}/{}", buffer->name, buffer->saved_version < buffer->version ? '*' : ' ',
+                buffer->saved_version, buffer->indexed_version, buffer->version);
         }
         Label::draw();
     }
@@ -52,8 +55,8 @@ struct Cursor : public Label {
 
     void resize() override
     {
-        background = RAYWHITE; //colour_to_color(aragorn.theme.selection.bg);
-        color = DARKGRAY; //colour_to_color(aragorn.theme.selection.fg);
+        background = Theme::the().selection_bg();
+        color = Theme::the().selection_fg();
     }
 
     void draw() override
@@ -77,6 +80,12 @@ struct FPS : public Label {
         : Label(parent, "", GREEN)
     {
         policy_size = 4;
+    }
+
+    void resize() override
+    {
+        background = Theme::the().selection_bg();
+        color = Theme::the().selection_fg();
     }
 
     void draw() override
@@ -110,9 +119,15 @@ void StatusBar::initialize()
     add_widget<FPS>();
 }
 
+void StatusBar::on_resize()
+{
+    background = Theme::the().selection_bg();
+}
+
 void StatusBar::on_draw()
 {
-    draw_rectangle(0, 0, 0, 0, RAYWHITE /*colour_to_color(aragorn.theme.selection.bg)*/);
+    draw_rectangle(0, 0, 0, 0, background);
 }
+
 
 }

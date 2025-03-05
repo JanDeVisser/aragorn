@@ -547,7 +547,7 @@ void BufferView::select_word()
 
 void BufferView::insert(size_t at, std::string_view const &text)
 {
-    m_buf->insert(at, text);
+    m_buf->insert(at, std::string {text});
     move_cursor(CursorMovement::by_index(at + text.length()));
 }
 
@@ -607,8 +607,8 @@ bool BufferView::character(int ch)
         case '<':
         case '{': {
             int close = get_closing_brace_code(ch);
-            insert(sel->coords[0], std::string_view { (char const *) &ch, 1 });
-            insert(sel->coords[1] + 1, std::string_view { (char const *) &close, 1 });
+            insert(sel->coords[0], std::string { (char const *) &ch, 1 });
+            insert(sel->coords[1] + 1, std::string { (char const *) &close, 1 });
             auto new_cursor = sel->coords[0] + 1;
             set_mark(sel->coords[1] + 1);
             if (cursor == sel->coords[1]) {
@@ -623,7 +623,7 @@ bool BufferView::character(int ch)
             return true;
         }
     }
-    insert(at, std::string_view { (char const *) &ch, 1 });
+    insert(at, std::string { (char const *) &ch, 1 });
     return true;
 }
 
@@ -658,13 +658,15 @@ void BufferView::draw()
     DrawText(TextFormat("cursor line: %d", cursor_line), 700, 75, 20, RAYWHITE);
     DrawText(TextFormat("cursor col: %d", cursor_col), 700, 100, 20, RAYWHITE);
 
-    std::string_view txt { buffer()->text() };
-
     auto cursor_drawn { false };
     for (int row = 0; row < lines() && top_line + row < m_buf->lines.size(); ++row) {
         auto        lineno = top_line + row;
         auto const &line = m_buf->lines[lineno];
         auto        line_len = min(line.length() - 1, left_column + columns());
+
+        if (line.empty()) {
+            continue;
+        }
         if (has_selection()) {
             auto sel = selection();
             auto line_start = line.begin() + left_column;
@@ -683,9 +685,6 @@ void BufferView::draw()
                     Aragorn::the()->cell.y + 5.0f,
                     Theme::the().selection_bg());
             }
-        }
-        if (line.empty()) {
-            continue;
         }
         for (auto const &token : line.tokens) {
             auto start_col = token.column();
@@ -741,7 +740,7 @@ void BufferView::draw()
                     render_texture(screen_pos.x, screen_pos.y, Aragorn::the()->tab_char, static_cast<Colours>(token).fg());
                     break;
                 default:
-                    auto const ch = txt[ch_ix];
+                    auto const ch = m_buf->at(ch_ix);
                     render_codepoint(
                         screen_pos.x, screen_pos.y,
                         ch,
@@ -919,6 +918,13 @@ void BufferView::move_bottom(bool select)
 
 void BufferView::move_cursor(BufferView::CursorMovement const &move)
 {
+    if (move.extend_selection) {
+        if (!m_selection.has_value()) {
+            set_mark(cursor);
+        }
+    } else {
+        clear_selection();
+    }
     if (move.index) {
         cursor = *move.index;
         auto cursor_pos = m_buf->index_to_position(cursor, { { cursor_col, cursor_line } });
@@ -942,13 +948,6 @@ void BufferView::move_cursor(BufferView::CursorMovement const &move)
         }
     } else {
         assert(false);
-    }
-    if (move.extend_selection) {
-        if (!m_selection.has_value()) {
-            set_mark(cursor);
-        }
-    } else {
-        clear_selection();
     }
     if (cursor_line < top_line) {
         top_line = cursor_line;

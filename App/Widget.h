@@ -541,6 +541,11 @@ struct Layout : public Widget {
 struct Spacer : public Widget {
     Spacer(pWidget const &parent);
     Spacer(pWidget const &parent, SizePolicy policy, float policy_size);
+
+    void resize() override
+    {
+        background = parent->background;
+    }
 };
 
 struct Label : public Widget {
@@ -558,3 +563,34 @@ extern std::string      modifier_string(KeyboardModifier modifiers);
 extern KeyboardModifier modifier_current();
 
 }
+
+template<>
+struct std::formatter<Aragorn::ContainerOrientation, char> {
+    template<class ParseContext>
+    constexpr typename ParseContext::iterator parse(ParseContext &ctx)
+    {
+        auto it = ctx.begin();
+        if (it != ctx.end() && *it != '}') {
+            throw std::format_error("Invalid format args for ContainerOrientation.");
+        }
+        return it;
+    }
+
+    template<class FmtContext>
+    typename FmtContext::iterator format(Aragorn::ContainerOrientation orientation, FmtContext &ctx) const
+    {
+        std::ostringstream out;
+        switch (orientation) {
+#undef S
+#define S(O)                               \
+    case Aragorn::ContainerOrientation::O: \
+        out << #O;                         \
+        break;
+            CONTAINERORIENTATIONS(S)
+#undef S
+        default:
+            UNREACHABLE();
+        }
+        return std::ranges::copy(std::move(out).str(), ctx.out()).out;
+    }
+};

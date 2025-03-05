@@ -23,39 +23,38 @@ using Scope = size_t;
 
 class Theme {
 public:
-    Colours get_colours(Scope scope_id) const
+    [[nodiscard]] Colours get_colours(Scope scope_id) const
     {
         assert(scope_id < m_colours.size());
         auto style = m_colours[scope_id];
         return style.colours;
     }
-    Scope  get_scope(TokenKind kind);
     Scope  get_scope(SemanticTokenTypes semanticTokenTypes);
     Scope  get_scope(std::string_view const &name);
-    Colour fg() const { return m_default_colours.fg(); }
-    Colour bg() const { return m_default_colours.bg(); }
-    Colour selection_fg() const
+    [[nodiscard]] Colour fg() const { return m_default_colours.fg(); }
+    [[nodiscard]] Colour bg() const { return m_default_colours.bg(); }
+    [[nodiscard]] Colour selection_fg() const
     {
         if (m_selection.fg() == 0u) {
             return fg();
         }
         return m_selection.fg();
     }
-    Colour selection_bg() const
+    [[nodiscard]] Colour selection_bg() const
     {
         if (m_selection.bg() == 0u) {
             return bg();
         }
         return m_selection.bg();
     }
-    Colours selection() const
+    [[nodiscard]] Colours selection() const
     {
         return { selection_bg(), selection_fg() };
     }
 
     static Result<Theme, JSONError> load(std::string_view const &name);
     static Result<Theme, JSONError> decode(JSONValue const &json);
-    static Theme& the();
+    static Theme                   &the();
 
 private:
     struct ScopeStyle {
@@ -72,7 +71,7 @@ private:
     };
 
     std::vector<ScopeStyle>              m_colours;
-    std::map<std::string, size_t>        m_scope_ids;
+    std::map<std::string_view, size_t>   m_scope_ids;
     std::map<TokenKind, size_t>          m_token_kind_to_scope_id;
     std::map<SemanticTokenTypes, size_t> m_semantic_token_type_to_scope_id;
     Colours                              m_default_colours;

@@ -78,8 +78,8 @@ bool Buffer::lex()
     lock();
     ScopeGuard sg { [this]() {
         unlock();
-        std::println("Unlocking");
     } };
+    std::println("Lexing...");
 
     auto new_line = [this]() -> Line * {
         return &lines.emplace_back();
@@ -87,8 +87,21 @@ bool Buffer::lex()
     bool   done = false;
     Line  *current = new_line();
     size_t lineno { 0 };
+    std::print("{}: ", lineno);
     do {
         auto const t = mode()->lex();
+        std::print("{} ", t.index());
+        switch (t.kind()) {
+        case TokenKind::EndOfLine:
+            std::println("\\n");
+            break;
+        case TokenKind::Symbol:
+            std::print("{} [{:c}] ", t.kind(), at(t.index()));
+            break;
+        default:
+            std::print("{} ", t.kind());
+            break;
+        }
         current->tokens.emplace_back(t);
         switch (t.kind()) {
         case TokenKind::EndOfFile:
@@ -98,21 +111,25 @@ bool Buffer::lex()
             assert(t.index() <= length());
             current = new_line();
             ++lineno;
+            std::print("{}: ", lineno);
         } break;
         default:
             break;
         }
+        assert(lineno < 200);
     } while (!done);
+    std::println("Lexed...");
     indexed_version = version;
     BufferEvent event;
     event.type = BufferEventType::Indexed;
     for (auto &listener : listeners) {
         listener(std::dynamic_pointer_cast<Buffer>(self()), event);
     }
+    std::println("Lexing done...");
     return true;
 }
 
-size_t Buffer::line_for_index(size_t index, std::optional<Vec<size_t>> const& hint) const
+size_t Buffer::line_for_index(size_t index, std::optional<Vec<size_t>> const &hint) const
 {
     if (lines.empty() || index < lines[0].end()) {
         return 0;
@@ -153,7 +170,7 @@ size_t Buffer::line_for_index(size_t index, std::optional<Vec<size_t>> const& hi
     }
 }
 
-Vec<size_t> Buffer::index_to_position(size_t index, std::optional<Vec<size_t>> const& hint) const
+Vec<size_t> Buffer::index_to_position(size_t index, std::optional<Vec<size_t>> const &hint) const
 {
     Vec<size_t> ret { 0, 0 };
     if (index == 0) {
@@ -201,26 +218,6 @@ void Buffer::set(size_t pos)
     }
 }
 
-rune Buffer::delete_rune_backwards(size_t pos)
-{
-    assert(pos > 0 && pos <= text_size);
-    set(pos);
-    auto r = m_text[cursor - 1];
-    cursor -= 1;
-    text_size -= 1;
-    return r;
-}
-
-rune Buffer::delete_rune_forward(size_t pos)
-{
-    assert(pos < text_size);
-    set(pos);
-    auto r = m_text[end_gap];
-    end_gap += 1;
-    text_size -= 1;
-    return r;
-}
-
 void Buffer::insert_rune(size_t pos, rune r)
 {
     assert(pos < text_size);
@@ -247,30 +244,42 @@ void Buffer::ensure_capacity(size_t num)
 
 void Buffer::insert_string(size_t pos, rune_view s)
 {
+    if (s.empty()) {
+        return;
+    }
     ensure_capacity(s.length());
     for (auto ix = 0; ix < s.length(); ++ix) {
         insert_rune(pos + ix, s[ix]);
     }
+    ++version;
     lex();
 }
 
 void Buffer::append_string(rune_view s)
 {
+    if (s.empty()) {
+        return;
+    }
     ensure_capacity(s.length());
     for (auto r : s) {
         insert_rune(text_size, r);
     }
+    ++version;
     lex();
 }
 
 void Buffer::erase(size_t pos, size_t len)
 {
+    if (text_size == 0 || len == 0) {
+        return;
+    }
     assert(pos < text_size);
-    if (len == rune_view::npos) {
+    if (len == rune_view::npos || pos + len > text_size) {
         len = text_size - pos;
     }
     set(pos);
     end_gap += len;
+    ++version;
     lex();
 }
 
@@ -279,14 +288,22 @@ rune Buffer::at(size_t pos) const
     return (pos < cursor) ? m_text[pos] : m_text[end_gap + (pos - cursor)];
 }
 
-rune_view Buffer::substr(size_t pos, size_t len)
+rune_string Buffer::substr(size_t pos, size_t len)
 {
     assert(pos < text_size);
-    if (len == rune_view::npos) {
+    if (len == rune_view::npos || pos + len > text_size) {
         len = text_size - pos;
     }
-    set(pos);
-    return { m_text.data() + end_gap, len };
+    std::string ret;
+    if (pos < cursor) {
+        ret = std::string { m_text.data() + pos, std::min(len, cursor - pos) };
+        if (pos + len > cursor) {
+            ret += std::string { m_text.data() + end_gap, len - cursor };
+        }
+    } else {
+        ret = std::string { m_text.data() + end_gap + (pos - cursor), len };
+    }
+    return ret;
 }
 
 void Buffer::apply(BufferEvent const &event)
@@ -303,12 +320,10 @@ void Buffer::apply(BufferEvent const &event)
         } else {
             append_string(s);
         }
-        ++version;
     } break;
     case BufferEventType::Delete: {
         auto const &deletion = event.deletion();
         erase(event.position, deletion.length());
-        ++version;
     } break;
     case BufferEventType::Replace: {
         auto const &replacement = event.replacement();
@@ -332,7 +347,8 @@ void Buffer::apply(BufferEvent const &event)
         if (name.empty() || saved_version == version) {
             return;
         }
-        MUST(write_file_by_name(name, substr(0)));
+        set(text_size);
+        MUST(write_file_by_name(name, rune_view { m_text.data(), text_size }));
         saved_version = version;
     } break;
     case BufferEventType::Close: {
@@ -361,13 +377,16 @@ void Buffer::apply(BufferEvent const &event)
 void Buffer::edit(BufferEvent const &event)
 {
     apply(event);
+    if (undo_pointer < undo_stack.size()) {
+        undo_stack.erase(undo_stack.begin() + static_cast<std::vector<BufferEvent>::difference_type>(undo_pointer), undo_stack.end());
+    }
     undo_stack.push_back(event);
     undo_pointer = undo_stack.size();
 }
 
 void Buffer::undo()
 {
-    if (undo_pointer <= 0 || undo_pointer >= undo_stack.size()) {
+    if (undo_pointer <= 0 || undo_pointer > undo_stack.size()) {
         return;
     }
     auto const &edit = undo_stack[--undo_pointer];
@@ -384,7 +403,7 @@ void Buffer::redo()
     apply(edit);
 }
 
-void Buffer::insert(size_t pos, std::string_view const &insert)
+void Buffer::insert(size_t pos, std::string insert)
 {
     if (insert.empty()) {
         return;
@@ -405,18 +424,18 @@ void Buffer::del(size_t pos, size_t count)
     EventRange range;
     range.start = index_to_position(static_cast<int>(pos));
     range.end = index_to_position(static_cast<int>(pos + count));
-    auto const &del = substr(pos, count);
+    auto const del = substr(pos, count);
     edit(BufferEvent::make_delete(range, pos, del));
 }
 
-void Buffer::replace(size_t pos, size_t num, std::string_view const &replacement)
+void Buffer::replace(size_t pos, size_t num, std::string replacement)
 {
     pos = clamp(pos, 0, text_size);
     num = clamp(num, 0, text_size - pos);
     if (num == 0) {
         return;
     }
-    std::string_view overwritten = substr(pos, num);
+    rune_string overwritten = substr(pos, num);
     EventRange       range;
     range.start = index_to_position(static_cast<int>(pos));
     range.end = index_to_position(static_cast<int>(pos + num));

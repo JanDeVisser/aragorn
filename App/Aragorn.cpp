@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <filesystem>
 #include <pwd.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
@@ -63,6 +62,9 @@ Aragorn::Aragorn()
 {
     app_state.read();
     monitor = app_state.monitor();
+    passwd *pw = getpwuid(getuid());
+    user_config_dir = fs::path { pw->pw_dir } / ".aragorn";
+    system_config_dir = fs::path { ARAGORN_DATADIR };
 
     if (FT_Init_FreeType(&ft_library)) {
         fatal("Could not initialize freetype");
@@ -181,6 +183,39 @@ void cmd_select_font(pAragorn const &aragorn, JSONValue const &)
     fonts->show();
 }
 
+void cmd_select_theme(pAragorn const &aragorn, JSONValue const &)
+{
+    struct Themes : public ListBox<fs::directory_entry> {
+        explicit Themes()
+            : ListBox("Select Theme")
+        {
+            auto push_themes = [this](fs::path const& dir) -> void {
+                if (exists(dir) && is_directory(dir)) {
+                    for (auto const &entry : fs::directory_iterator(dir)) {
+                        if (entry.path().extension().string() == ".json") {
+                            entries.emplace_back(entry.path().stem().string(), entry);
+                        }
+                    }
+                }
+            };
+            auto aragorn = Aragorn::the();
+            push_themes(aragorn->system_config_dir / "themes");
+            push_themes(aragorn->user_config_dir / "themes");
+        }
+
+        void submit() override
+        {
+            auto const &file = entries[selection].payload;
+            if (auto e = Aragorn::the()->load_theme(file.path().stem().string()); e.is_error()) {
+                Aragorn::set_message(std::format("Error loading theme '{}': {}", entries[selection].text, e.error().to_string()));
+            }
+            Aragorn::set_message(std::format("Loaded theme '{}'", entries[selection].text));
+        }
+    };
+    auto themes = Widget::make<Themes>();
+    themes->show();
+}
+
 void cmd_run_command(pAragorn const &aragorn, JSONValue const &)
 {
     struct Commands : public ListBox<Widget::WidgetCommand> {
@@ -263,6 +298,8 @@ void Aragorn::initialize()
     add_command<Aragorn>("aragorn-run-command", cmd_run_command)
         .bind(KeyCombo { KEY_P, KModSuper | KModShift });
     add_command<Aragorn>("aragorn-select-font", cmd_select_font);
+    add_command<Aragorn>("aragorn-select-theme", cmd_select_theme)
+        .bind(KeyCombo { KEY_GRAVE, KModControl });
 
     auto tab_img = GenImageColor(cell.x * 2, cell.y, BLANK);
     ImageDrawLine(
@@ -354,11 +391,10 @@ EError Aragorn::read_settings()
     if (auto const &e = merge_settings(ARAGORN_DATADIR, ARAGORN_SYSTEM ".json"); e.is_error()) {
         return e;
     }
-    if (auto const &e = merge_settings(ARAGORN_DATADIR); e.is_error()) {
+    if (auto const &e = merge_settings(system_config_dir); e.is_error()) {
         return e;
     }
-    passwd *pw = getpwuid(getuid());
-    if (auto const &e = merge_settings(fs::path { pw->pw_dir } / ".aragorn"); e.is_error()) {
+    if (auto const &e = merge_settings(user_config_dir); e.is_error()) {
         return e;
     }
     if (auto const &e = merge_settings(".aragorn"); e.is_error()) {
@@ -389,12 +425,15 @@ EError Aragorn::load_theme(std::string_view const &name)
         return AragornError { theme_maybe.error() };
     }
     m_theme = theme_maybe.value();
-    for (auto const &buffer : buffers) {
-        bool is_saved = buffer->version == buffer->saved_version;
-        ++buffer->version;
-        buffer->lex();
-        if (is_saved) {
-            buffer->saved_version = buffer->version;
+    if (!widgets.empty()) {
+        resize();
+        for (auto const &buffer : buffers) {
+            bool is_saved = buffer->version == buffer->saved_version;
+            ++buffer->version;
+            buffer->lex();
+            if (is_saved) {
+                buffer->saved_version = buffer->version;
+            }
         }
     }
     return {};

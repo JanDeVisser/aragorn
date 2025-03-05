@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <memory>
+#include <filesystem>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -18,6 +18,8 @@
 #include <App/Theme.h>
 
 namespace Aragorn {
+
+namespace fs = std::filesystem;
 
 enum AppStateItem {
     ASMonitor = 0,
@@ -111,6 +113,8 @@ public:
 
 struct Aragorn : public App {
     AppState             app_state {};
+    fs::path             system_config_dir {};
+    fs::path             user_config_dir {};
     std::vector<pBuffer> buffers {};
     FT_Library           ft_library {};
     JSONValue            settings;

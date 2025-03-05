@@ -80,9 +80,9 @@ struct Buffer : public Widget {
     void                              edit(BufferEvent const &event);
     void                              undo();
     void                              redo();
-    void                              insert(size_t pos, std::string_view const &text);
+    void                              insert(size_t pos, std::string text);
     void                              del(size_t pos, size_t count);
-    void                              replace(size_t pos, size_t num, std::string_view const &replacement);
+    void                              replace(size_t pos, size_t num, std::string replacement);
     size_t                            line_for_index(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;
     Vec<size_t>                       index_to_position(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;
     size_t                            position_to_index(Vec<size_t> position) const;
@@ -94,11 +94,6 @@ struct Buffer : public Widget {
     size_t                            word_boundary_right(size_t index) const;
     void                              add_listener(BufferEventListener const &listener);
     std::string const                &uri();
-
-    rune_view                         text()
-    {
-        return substr(0);
-    }
 
     size_t length() const
     {
@@ -126,7 +121,7 @@ struct Buffer : public Widget {
     }
 
     [[nodiscard]] rune at(size_t pos) const;
-    rune_view          substr(size_t pos, size_t len = rune_view::npos);
+    rune_string        substr(size_t pos, size_t len = rune_view::npos);
 
 private:
     std::vector<rune> m_text {};
@@ -136,8 +131,6 @@ private:
 
     void set(size_t pos);
     void insert_rune(size_t pos, rune r);
-    rune delete_rune_backwards(size_t pos);
-    rune delete_rune_forward(size_t pos);
     void ensure_capacity(size_t num);
     void insert_string(size_t pos, rune_view s);
     void append_string(rune_view s);

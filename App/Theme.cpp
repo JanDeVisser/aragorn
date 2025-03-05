@@ -81,10 +81,20 @@ Result<Theme, JSONError> Theme::decode(JSONValue const &json)
         } else if (s == "editor.foreground") {
             ret.m_default_colours = Colours { ret.m_default_colours.bg(), colour };
         }
-        if (s == "editor.selectionBackground") {
+        if ((s == "editor.selectionBackground") || (s == "selectionHighlightBackground")) {
             ret.m_selection = Colours { colour, ret.m_selection.fg() };
         } else if (s == "editor.selectionForeground") {
             ret.m_selection = Colours { ret.m_selection.bg(), colour };
+        }
+    }
+    if (static_cast<Color>(ret.m_selection.fg()).a == 0 && static_cast<Color>(ret.m_selection.bg()).a == 0) {
+        ret.m_selection = Colours { ret.m_default_colours.fg(), ret.m_default_colours.bg() };
+    } else {
+        if (static_cast<Color>(ret.m_selection.fg()).a == 0) {
+            ret.m_selection = Colours { ret.m_selection.bg(), ret.m_default_colours.fg() };
+        }
+        if (static_cast<Color>(ret.m_selection.bg()).a == 0) {
+            ret.m_selection = Colours { ret.m_default_colours.bg(), ret.m_selection.fg() };
         }
     }
     add_scope("", ret.m_default_colours);
@@ -205,9 +215,8 @@ Scope Theme::get_scope(SemanticTokenTypes type)
 
 Scope Theme::get_scope(std::string_view const &name)
 {
-    std::string n { name };
-    if (m_scope_ids.contains(n)) {
-	Scope ret = m_scope_ids[n];
+    if (m_scope_ids.contains(name)) {
+	Scope ret = m_scope_ids[name];
 	trace(THEME, "get_scope({}) mapped to scope_id {}: {}", name, ret, m_colours[ret].colours.to_string());
         return ret;
     }
@@ -229,7 +238,7 @@ Scope Theme::get_scope(std::string_view const &name)
     }
     assert(ss_match >= 0);
     trace(THEME, "get_scope({}) matches '{}' ({}): {}", name, m_colours[ss_match].scope, ss_match, m_colours[ss_match].colours.to_string());
-    m_scope_ids[n] = ss_match;
+    m_scope_ids[name] = ss_match;
     return ss_match;
 }
 

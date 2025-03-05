@@ -13,6 +13,7 @@ namespace Aragorn {
 struct StatusBar : public Layout {
     explicit StatusBar(pWidget const& parent);
     void initialize() override;
+    void on_resize() override;
     void on_draw() override;
 };
 

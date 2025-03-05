@@ -261,8 +261,9 @@ Label::Label(pWidget const &parent, std::string_view const &text, Color color)
 
 void Label::draw()
 {
+    auto app = App::the();
     if (!text.empty()) {
-        render_text(0, 0, text, App::the()->font.value(), color);
+        render_text(app->padding.x, (app->cell.y - app->font_size) / 2, text, app->font.value(), color);
     }
 }
 

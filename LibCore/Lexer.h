@@ -417,7 +417,7 @@ private:
                     }
                     type = NumberType::HexNumber;
                     predicate = isxdigit;
-                    ix = 2;
+                    ix = m_index + 2;
                 } else if (m_buffer[m_index + 1] == 'b' || m_buffer[m_index + 1] == 'B') {
                     if (m_index == m_buffer.length() - 2 || !isbdigit(m_buffer[m_index + 2])) {
                         m_index += 1;

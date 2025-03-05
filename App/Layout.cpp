@@ -37,7 +37,7 @@ void Layout::resize()
     float fixed_pos = viewport.position.coords[fixed_coord];
     float var_offset = viewport.position.coords[var_coord];
 
-    trace(LAYOUT, "Total available {}, orintation {}", total, ContainerOrientation_name(orientation));
+    trace(LAYOUT, "Total available {}, orientation {}", total, ContainerOrientation_name(orientation));
     // printf("Fixed %s: %f, fixed %s position: %f\n",
     //     (layout->orientation == CO_VERTICAL) ? "width" : "height",
     //     fixed_size,
@@ -130,11 +130,11 @@ void Layout::dump()
             return;
         }
         if (auto layout = std::dynamic_pointer_cast<Layout>(w); layout) {
-            std::cout << std::format("{:{}s}+ | {:} {:}", "", dump_indent, layout->widgets.size(), w->viewport.to_string()) << std::endl;
+            std::println("{:{}s}+ | {:} {:} {}", "", dump_indent, layout->widgets.size(), w->viewport.to_string(), layout->orientation);
             dump_indent += 2;
             return;
         }
-        std::cout << std::format("{:{}s}+-> {:} {:}\n", "", dump_indent, typeid(w).name(), w->viewport.to_string()) << std::endl;
+        std::println("{:{}s}+-> {:} {:}", "", dump_indent, typeid(*w).name(), w->viewport.to_string());
     };
     std::string_view s;
     traverse(dump_fnc);
