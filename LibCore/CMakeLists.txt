@@ -15,6 +15,7 @@ add_library(
         ScopeGuard.h
         StringUtil.cpp
         Token.cpp
+        Utf8.cpp
 )
 
 target_link_libraries(

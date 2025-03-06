@@ -97,17 +97,17 @@ struct MiniBuffer : public Widget {
     }
 
     template<class C, typename Query>
-    static void query(std::shared_ptr<C> const &target, std::string_view const &prompt, Query fnc)
+    static void query(std::shared_ptr<C> const &target, rune_view const &prompt, Query fnc)
     {
         struct MiniBufferQuery : public Widget {
-            std::string                 prompt {};
+            rune_string                 prompt {};
             std::shared_ptr<C>          target { nullptr };
-            std::string                 text {};
+            rune_string                 text {};
             size_t                      cursor { 0 };
             Query                       query { nullptr };
             std::shared_ptr<MiniBuffer> minibuffer { nullptr };
 
-            MiniBufferQuery(pWidget const& minibuffer, Query query, std::string_view const &prompt, std::shared_ptr<C> target)
+            MiniBufferQuery(pWidget const& minibuffer, Query query, rune_view const &prompt, std::shared_ptr<C> target)
                 : Widget(minibuffer, SizePolicy::Characters, 1.0f)
                 , query(std::move(query))
                 , prompt(prompt)
@@ -165,7 +165,7 @@ struct MiniBuffer : public Widget {
 
             bool character(int ch) override
             {
-                text.insert(cursor, static_cast<char>(ch), 1);
+                text.insert(cursor, static_cast<rune>(ch), 1);
                 ++cursor;
                 return true;
             }
@@ -176,7 +176,7 @@ struct MiniBuffer : public Widget {
 
             void draw() override
             {
-                render_text(0, 0, std::format("{}: {}", prompt, text), Aragorn::the()->font.value(), RAYWHITE /*colour_to_color(aragorn.theme.editor.fg)*/);
+                render_text(0, 0, std::format(L"{}: {}", prompt, text), Aragorn::the()->font.value(), RAYWHITE /*colour_to_color(aragorn.theme.editor.fg)*/);
                 double t = GetTime();
                 if ((t - floor(t)) < 0.5) {
                     auto x = static_cast<float>(prompt.length() + 2 + cursor);

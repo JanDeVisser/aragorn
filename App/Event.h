@@ -32,11 +32,11 @@ struct Buffer;
 
 struct BufferEvent {
     struct Replacement {
-        std::string overwritten {};
-        std::string replacement {};
+        rune_string overwritten {};
+        rune_string replacement {};
     };
 
-    using Change = std::variant<std::string, Replacement, std::optional<std::string>>;
+    using Change = std::variant<rune_string, Replacement, std::optional<std::string>>;
 
     BufferEventType type { BufferEventType::None };
     size_t          position { 0 };
@@ -50,8 +50,8 @@ struct BufferEvent {
         case BufferEventType::Insert: {
             ret.type = BufferEventType::Delete;
             ret.position = position;
-            auto const &insert = std::get<std::string>(change);
-            ret.change = std::string { insert };
+            auto const &insert = std::get<rune_string>(change);
+            ret.change = rune_string { insert };
         } break;
         case BufferEventType::Delete:
             ret.type = BufferEventType::Insert;
@@ -73,16 +73,16 @@ struct BufferEvent {
         return ret;
     }
 
-    [[nodiscard]] std::string const &insert() const
+    [[nodiscard]] rune_string const &insert() const
     {
         assert(type == BufferEventType::Insert);
-        return std::get<std::string>(change);
+        return std::get<rune_string>(change);
     }
 
-    [[nodiscard]] std::string const &deletion() const
+    [[nodiscard]] rune_string const &deletion() const
     {
         assert(type == BufferEventType::Delete);
-        return std::get<std::string>(change);
+        return std::get<rune_string>(change);
     }
 
     [[nodiscard]] Replacement const &replacement() const
@@ -97,7 +97,7 @@ struct BufferEvent {
         return std::get<std::optional<std::string>>(change);
     }
 
-    static BufferEvent make_insert(EventRange const &range, size_t at, std::string text)
+    static BufferEvent make_insert(EventRange const &range, size_t at, rune_string text)
     {
         BufferEvent ret;
         ret.type = BufferEventType::Insert;
@@ -107,7 +107,7 @@ struct BufferEvent {
         return ret;
     }
 
-    static BufferEvent make_delete(EventRange const &range, size_t at, std::string deletion)
+    static BufferEvent make_delete(EventRange const &range, size_t at, rune_string deletion)
     {
         BufferEvent ret;
         ret.type = BufferEventType::Delete;
@@ -117,7 +117,7 @@ struct BufferEvent {
         return ret;
     }
 
-    static BufferEvent make_replacement(EventRange const &range, size_t at, std::string overwritten, std::string replacement)
+    static BufferEvent make_replacement(EventRange const &range, size_t at, rune_string overwritten, rune_string replacement)
     {
         BufferEvent ret;
         ret.type = BufferEventType::Delete;

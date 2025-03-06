@@ -5,6 +5,7 @@
  */
 
 #include <cctype>
+#include <codecvt>
 #include <print>
 
 #include <LibCore/IO.h>
@@ -16,6 +17,7 @@
 namespace Aragorn {
 
 using namespace LibCore;
+using namespace std::literals::string_literals;
 
 Buffer::Buffer(pWidget const &parent)
     : Widget(parent)
@@ -26,6 +28,15 @@ Buffer::Buffer(pWidget const &parent)
     //        (WidgetCommandHandler) buffer_semantic_tokens_response);
 }
 
+// utility wrapper to adapt locale-bound facets for wstring/wbuffer convert
+template<class Facet>
+struct deletable_facet : Facet
+{
+    template<class... Args>
+    deletable_facet(Args&&... args) : Facet(std::forward<Args>(args)...) {}
+    ~deletable_facet() {}
+};
+
 Result<pBuffer> Buffer::open(std::string_view const &name)
 {
     auto buffer = Widget::make<Buffer>(Aragorn::the());
@@ -34,7 +45,7 @@ Result<pBuffer> Buffer::open(std::string_view const &name)
     if (auto listener = buffer->m_mode->event_listener(); listener) {
         buffer->add_listener(listener);
     }
-    auto contents = TRY_EVAL(read_file_by_name(name));
+    auto contents = TRY_EVAL(read_file_by_name<rune>(name));
     auto cap = static_cast<size_t>(static_cast<float>(contents.length()) * 1.2);
     buffer->text_size = contents.length();
     buffer->end_gap = cap - buffer->text_size;
@@ -79,7 +90,7 @@ bool Buffer::lex()
     ScopeGuard sg { [this]() {
         unlock();
     } };
-    std::println("Lexing...");
+    // std::println("Lexing...");
 
     auto new_line = [this]() -> Line * {
         return &lines.emplace_back();
@@ -87,21 +98,21 @@ bool Buffer::lex()
     bool   done = false;
     Line  *current = new_line();
     size_t lineno { 0 };
-    std::print("{}: ", lineno);
+    // std::print("{}: ", lineno);
     do {
         auto const t = mode()->lex();
-        std::print("{} ", t.index());
-        switch (t.kind()) {
-        case TokenKind::EndOfLine:
-            std::println("\\n");
-            break;
-        case TokenKind::Symbol:
-            std::print("{} [{:c}] ", t.kind(), at(t.index()));
-            break;
-        default:
-            std::print("{} ", t.kind());
-            break;
-        }
+        // std::print("{} ", t.index());
+        // switch (t.kind()) {
+        // case TokenKind::EndOfLine:
+        //     std::println("\\n");
+        //     break;
+        // case TokenKind::Symbol:
+        //     std::print("{} [{}] ", t.kind(), at(t.index()));
+        //     break;
+        // default:
+        //     std::print("{} ", t.kind());
+        //     break;
+        // }
         current->tokens.emplace_back(t);
         switch (t.kind()) {
         case TokenKind::EndOfFile:
@@ -111,21 +122,21 @@ bool Buffer::lex()
             assert(t.index() <= length());
             current = new_line();
             ++lineno;
-            std::print("{}: ", lineno);
+            // std::print("{}: ", lineno);
         } break;
         default:
             break;
         }
         assert(lineno < 200);
     } while (!done);
-    std::println("Lexed...");
+    // std::println("Lexed...");
     indexed_version = version;
     BufferEvent event;
     event.type = BufferEventType::Indexed;
     for (auto &listener : listeners) {
         listener(std::dynamic_pointer_cast<Buffer>(self()), event);
     }
-    std::println("Lexing done...");
+    // std::println("Lexing done...");
     return true;
 }
 
@@ -294,14 +305,14 @@ rune_string Buffer::substr(size_t pos, size_t len)
     if (len == rune_view::npos || pos + len > text_size) {
         len = text_size - pos;
     }
-    std::string ret;
+    rune_string ret;
     if (pos < cursor) {
-        ret = std::string { m_text.data() + pos, std::min(len, cursor - pos) };
+        ret = rune_string { m_text.data() + pos, std::min(len, cursor - pos) };
         if (pos + len > cursor) {
-            ret += std::string { m_text.data() + end_gap, len - cursor };
+            ret += rune_string { m_text.data() + end_gap, len - cursor };
         }
     } else {
-        ret = std::string { m_text.data() + end_gap + (pos - cursor), len };
+        ret = rune_string { m_text.data() + end_gap + (pos - cursor), len };
     }
     return ret;
 }
@@ -403,7 +414,7 @@ void Buffer::redo()
     apply(edit);
 }
 
-void Buffer::insert(size_t pos, std::string insert)
+void Buffer::insert(size_t pos, rune_string insert)
 {
     if (insert.empty()) {
         return;
@@ -411,7 +422,7 @@ void Buffer::insert(size_t pos, std::string insert)
     pos = clamp(pos, 0, text_size);
     EventRange range;
     range.start = range.end = index_to_position(static_cast<int>(pos));
-    edit(BufferEvent::make_insert(range, pos, insert));
+    edit(BufferEvent::make_insert(range, pos, std::move(insert)));
 }
 
 void Buffer::del(size_t pos, size_t count)
@@ -428,7 +439,7 @@ void Buffer::del(size_t pos, size_t count)
     edit(BufferEvent::make_delete(range, pos, del));
 }
 
-void Buffer::replace(size_t pos, size_t num, std::string replacement)
+void Buffer::replace(size_t pos, size_t num, rune_string replacement)
 {
     pos = clamp(pos, 0, text_size);
     num = clamp(num, 0, text_size - pos);
@@ -448,7 +459,7 @@ void Buffer::merge_lines(size_t top_line)
         return;
     }
     Line &line = lines[top_line];
-    replace(line.end(), 1, " ");
+    replace(line.end(), 1, L" "s);
 }
 
 size_t Buffer::find(rune_view needle, size_t offset)

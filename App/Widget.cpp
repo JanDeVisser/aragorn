@@ -123,23 +123,30 @@ Widget::Widget(pWidget parent, SizePolicy policy, float policy_size)
 {
 }
 
-void Widget::render_sized_text_(float x, float y, std::string_view const &text, Font font, float size, Color color) const
+void Widget::render_sized_text_(float x, float y, rune_view const &text, Font font, float size, Color color) const
 {
     if (text.empty()) {
         return;
     }
-    std::string t { text };
+    rune_string t { text };
     if (x < 0 || y < 0) {
-        Vector2 m = MeasureTextEx(font, t.c_str(), (float) font.baseSize * size, 2);
+        auto text_width = 0;
+        auto text_height = 0;
+        for (auto &ch : t) {
+            auto glyph = GetGlyphInfo(font, ch);
+            text_width += glyph.advanceX;
+            text_height = std::max(text_height, glyph.offsetY + glyph.image.height);
+        }
         if (x < 0) {
-            x = viewport.width - m.x + x;
+            x = viewport.width - text_width + x;
         }
         if (y < 0) {
-            y = viewport.height - m.y + y;
+            y = viewport.height - text_height + y;
         }
     }
     Vector2 pos { viewport.x + x, viewport.y + y };
-    DrawTextEx(font, t.c_str(), pos, (float) font.baseSize * size, 2, color);
+    assert(sizeof(rune) == sizeof(int));
+    DrawTextCodepoints(font, reinterpret_cast<int const*>(t.c_str()), t.length(), pos, (float) font.baseSize * size, 2, color);
 }
 
 void Widget::render_text_bitmap_(float x, float y, std::string_view const &text, Color color) const

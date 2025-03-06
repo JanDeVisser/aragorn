@@ -13,6 +13,7 @@
 #include <raylib.h>
 
 #include <LibCore/JSON.h>
+#include <LibCore/Utf8.h>
 
 namespace Aragorn {
 
@@ -53,6 +54,10 @@ enum class SizePolicy {
     Calculated,
     Stretch,
 };
+
+using rune = wchar_t;
+using rune_view = std::basic_string_view<rune>;
+using rune_string = std::basic_string<rune>;
 
 template<typename T1, typename T2>
     requires std::convertible_to<T2, T1>
@@ -237,7 +242,7 @@ public:
     virtual bool process_key(KeyboardModifier, int) { return false; }
     virtual void process_input() { }
 
-    void render_sized_text_(float x, float y, std::string_view const &text, Font font, float size, Color color) const;
+    void render_sized_text_(float x, float y, rune_view const &text, Font font, float size, Color color) const;
     void render_text_bitmap_(float x, float y, std::string_view const &text, Color color) const;
     void draw_rectangle_(float x, float y, float width, float height, Color color) const;
     void draw_outline_(float x, float y, float width, float height, Color color) const;
@@ -248,14 +253,21 @@ public:
 
     template<typename Tx, typename Ty>
         requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
-    void render_text(Tx x, Ty y, std::string_view const &text, Font font, Color color) const
+    void render_text(Tx x, Ty y, rune_view const &text, Font font, Color color) const
     {
         render_sized_text_(x, y, text, font, 1.0, color);
     }
 
     template<typename Tx, typename Ty>
         requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
-    void render_codepoint(Tx x, Ty y, int ch, Font font, Color color) const
+    void render_text(Tx x, Ty y, std::string_view const &text, Font font, Color color) const
+    {
+        render_sized_text_(x, y, MUST_EVAL(to_wstring(text)), font, 1.0, color);
+    }
+
+    template<typename Tx, typename Ty>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float>)
+    void render_codepoint(Tx x, Ty y, rune ch, Font font, Color color) const
     {
         if (!ch) {
             return;
@@ -266,9 +278,16 @@ public:
 
     template<typename Tx, typename Ty, typename Ts>
         requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Ts, float>)
-    void render_sized_text(Tx x, Ty y, std::string_view const &text, Font font, Ts size, Color color) const
+    void render_sized_text(Tx x, Ty y, rune_view const &text, Font font, Ts size, Color color) const
     {
         render_sized_text_(x, y, text, font, size, color);
+    }
+
+    template<typename Tx, typename Ty, typename Ts>
+        requires(std::convertible_to<Tx, float> && std::convertible_to<Ty, float> && std::convertible_to<Ts, float>)
+    void render_sized_text(Tx x, Ty y, std::string_view const &text, Font font, Ts size, Color color) const
+    {
+        render_sized_text_(x, y, MUST_EVAL(to_wstring(text)), font, size, color);
     }
 
     template<typename Tx, typename Ty>

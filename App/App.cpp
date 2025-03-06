@@ -37,12 +37,19 @@ void App::draw()
     }
 }
 
+int codepoints[65504] {};
+
 void App::set_font(std::string_view const &path, int sz)
 {
     sz = clamp(sz, 4, 48);
     std::string p { path };
     info(App, "Loading font '{:}', size {:}", p, sz);
-    auto f = LoadFontEx(p.c_str(), sz, nullptr, 0);
+    if (codepoints[0] != 32) {
+        for (auto ix = 0; ix < 65504; ++ix) {
+            codepoints[ix] = ix + 32;
+        }
+    }
+    auto f = LoadFontEx(p.c_str(), sz, codepoints, 65504);
     if (f.baseSize == 0) {
         return;
     }

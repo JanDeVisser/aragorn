@@ -229,14 +229,14 @@ void cmd_redo(pBufferView const &view, JSONValue const &)
     view->buffer()->redo();
 }
 
-void do_find(pBufferView const &view, std::string const &query)
+void do_find(pBufferView const &view, rune_string const &query)
 {
     view->find_first(query);
 }
 
 void cmd_find(pBufferView const &view, JSONValue const &)
 {
-    MiniBuffer::query(view, "Find", do_find);
+    MiniBuffer::query(view, L"Find", do_find);
 }
 
 void cmd_find_next(pBufferView const &view, JSONValue const &)
@@ -244,7 +244,7 @@ void cmd_find_next(pBufferView const &view, JSONValue const &)
     view->find_next();
 }
 
-void do_ask_replace(pBufferView const &view, std::string const &reply)
+void do_ask_replace(pBufferView const &view, rune_string const &reply)
 {
     int cmd = 0;
     if (!reply.empty()) {
@@ -265,39 +265,39 @@ void do_ask_replace(pBufferView const &view, std::string const &reply)
     case 'Q':
         return;
     default:
-        MiniBuffer::query(view, "Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
+        MiniBuffer::query(view, L"Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
         return;
     }
     if (view->find_next()) {
-        MiniBuffer::query(view, "Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
+        MiniBuffer::query(view, L"Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
         return;
     }
     Aragorn::set_message("Not found");
 }
 
-void do_replacement_query(pBufferView const &view, std::string const &replacement)
+void do_replacement_query(pBufferView const &view, rune_string const &replacement)
 {
     view->replacement(replacement);
-    MiniBuffer::query(view, "Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
+    MiniBuffer::query(view, L"Replace ((Y)es/(N)o/(A)ll/(Q)uit)", do_ask_replace);
 }
 
-void do_find_query(pBufferView const &view, std::string const &query)
+void do_find_query(pBufferView const &view, rune_string const &query)
 {
     if (!view->find_first(query)) {
         Aragorn::set_message("Not found");
         return;
     }
-    MiniBuffer::query(view, "Replace with", do_replacement_query);
+    MiniBuffer::query(view, L"Replace with", do_replacement_query);
 }
 
 void cmd_find_replace(pBufferView const &view, JSONValue const &)
 {
-    MiniBuffer::query(view, "Find", do_find_query);
+    MiniBuffer::query(view, L"Find", do_find_query);
 }
 
-void do_goto(pBufferView const &view, std::string const &query)
+void do_goto(pBufferView const &view, rune_string const &query)
 {
-    auto coords = split(query, ':');
+    auto coords = split(MUST_EVAL(to_utf8(query)), ':');
     int  line = -1;
     int  col = -1;
     if (!coords.empty()) {
@@ -324,7 +324,7 @@ void do_goto(pBufferView const &view, std::string const &query)
 
 void cmd_goto(pBufferView const &view, JSONValue const &)
 {
-    MiniBuffer::query(view, "Move to", do_goto);
+    MiniBuffer::query(view, L"Move to", do_goto);
 }
 
 void save_as_submit(pBufferView const &view, std::string const &filename)
@@ -545,9 +545,9 @@ void BufferView::select_word()
     move_cursor(CursorMovement::by_index(m_buf->word_boundary_right(cursor), true));
 }
 
-void BufferView::insert(size_t at, std::string_view const &text)
+void BufferView::insert(size_t at, rune_view const &text)
 {
-    m_buf->insert(at, std::string {text});
+    m_buf->insert(at, rune_string {text});
     move_cursor(CursorMovement::by_index(at + text.length()));
 }
 
@@ -607,8 +607,8 @@ bool BufferView::character(int ch)
         case '<':
         case '{': {
             int close = get_closing_brace_code(ch);
-            insert(sel->coords[0], std::string { (char const *) &ch, 1 });
-            insert(sel->coords[1] + 1, std::string { (char const *) &close, 1 });
+            insert(sel->coords[0], rune_string { (wchar_t const *) &ch, 1 });
+            insert(sel->coords[1] + 1, rune_string { (wchar_t const *) &close, 1 });
             auto new_cursor = sel->coords[0] + 1;
             set_mark(sel->coords[1] + 1);
             if (cursor == sel->coords[1]) {
@@ -623,11 +623,11 @@ bool BufferView::character(int ch)
             return true;
         }
     }
-    insert(at, std::string { (char const *) &ch, 1 });
+    insert(at, rune_string { (wchar_t const *) &ch, 1 });
     return true;
 }
 
-void BufferView::insert_string(std::string_view const &sv)
+void BufferView::insert_string(rune_view const &sv)
 {
     auto at = cursor;
     if (has_selection()) {
@@ -640,7 +640,7 @@ void BufferView::insert_string(std::string_view const &sv)
 void BufferView::selection_to_clipboard()
 {
     if (auto sel = selection(); sel.has_value()) {
-        SetClipboardText(std::string { m_buf->substr(sel->coords[0], sel->coords[1] - sel->coords[0]) }.c_str());
+        SetClipboardText(reinterpret_cast<char const *>(m_buf->substr(sel->coords[0], sel->coords[1] - sel->coords[0]).c_str()));
     }
 }
 
@@ -835,7 +835,13 @@ void BufferView::cut()
 
 void BufferView::paste()
 {
-    insert_string(GetClipboardText());
+    auto text = GetClipboardText();
+    std::print("{} -", strlen(text));
+    for (auto ix = 0; ix < strlen(text); ++ix) {
+        std::print(" {:02x} ", static_cast<uint8_t>(text[ix]));
+    }
+    std::println("");
+    insert_string(MUST_EVAL(to_wstring(GetClipboardText())));
 }
 
 void BufferView::move_up(bool select)
@@ -1009,7 +1015,7 @@ void BufferView::set_mark(size_t at)
     m_selection = at;
 }
 
-bool BufferView::find_first(std::string_view const &pattern)
+bool BufferView::find_first(rune_view const &pattern)
 {
     m_find_text = pattern;
     return find_next();
@@ -1031,14 +1037,14 @@ bool BufferView::find_next()
     return false;
 }
 
-void BufferView::replacement(std::string_view const &replacement)
+void BufferView::replacement(rune_view const &replacement)
 {
     m_replacement = replacement;
 }
 
 void BufferView::clear_replacement()
 {
-    m_replacement = "";
+    m_replacement = L"";
 }
 
 void BufferView::replace()

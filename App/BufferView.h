@@ -46,8 +46,8 @@ public:
     bool                       character(int ch) override;
     void                       unselected();
     void                       selected();
-    void                       insert(size_t at, std::string_view const &text);
-    void                       insert_string(std::string_view const &sv);
+    void                       insert(size_t at, rune_view const &text);
+    void                       insert_string(rune_view const &sv);
     void                       del(size_t at, size_t count);
     void                       lines_up(size_t count, bool select);
     void                       lines_down(size_t count, bool select);
@@ -82,9 +82,9 @@ public:
     bool                       has_selection() const;
     void                       clear_selection();
     void                       set_mark(size_t at);
-    bool                       find_first(std::string_view const &pattern);
+    bool                       find_first(rune_view const &pattern);
     bool                       find_next();
-    void                       replacement(std::string_view const &replacement);
+    void                       replacement(rune_view const &replacement);
     void                       clear_replacement();
     void                       replace();
     void                       move_cursor(CursorMovement const &move);
@@ -103,8 +103,8 @@ private:
     size_t                left_column { 0 };
     std::optional<size_t> m_selection {};
     double                cursor_flash { 0.0 };
-    std::string           m_find_text {};
-    std::string           m_replacement {};
+    rune_string           m_find_text {};
+    rune_string           m_replacement {};
     pWidget               mode { nullptr };
     pBuffer               m_buf { nullptr };
     double                clicks[3] { 0.0, 0.0, 0.0 };

@@ -104,10 +104,12 @@ add_library(
         LibCore/ScopeGuard.h
         LibCore/StringUtil.cpp
         LibCore/Token.cpp
+        LibCore/Utf8.cpp
 )
 
 target_link_libraries(
         LibCore
+        iconv
         dl
 )
 

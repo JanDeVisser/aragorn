@@ -263,10 +263,11 @@ LibCError::LibCError(int err) noexcept
     err_no = err;
     switch (err) {
 #undef S
-#define S(N, D)    \
-    case N:        \
-        code = #N; \
-        description = D;
+#define S(N, D)          \
+    case N:              \
+        code = #N;       \
+        description = D; \
+        break;
         ERRORCODES(S)
 #undef S
         break;

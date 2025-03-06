@@ -52,10 +52,6 @@ struct Line {
 
 using pBuffer = std::shared_ptr<Buffer>;
 
-using rune = char;
-using rune_view = std::basic_string_view<rune>;
-using rune_string = std::basic_string<rune>;
-
 struct Buffer : public Widget {
     std::string                      name {};
     int                              buffer_ix { -1 };
@@ -80,9 +76,9 @@ struct Buffer : public Widget {
     void                              edit(BufferEvent const &event);
     void                              undo();
     void                              redo();
-    void                              insert(size_t pos, std::string text);
+    void                              insert(size_t pos, rune_string text);
     void                              del(size_t pos, size_t count);
-    void                              replace(size_t pos, size_t num, std::string replacement);
+    void                              replace(size_t pos, size_t num, rune_string replacement);
     size_t                            line_for_index(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;
     Vec<size_t>                       index_to_position(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;
     size_t                            position_to_index(Vec<size_t> position) const;

@@ -6,13 +6,15 @@
 
 #pragma once
 
+#include <fstream>
+#include <locale>
 #include <netinet/in.h>
 #include <string>
 
 #include <LibCore/Result.h>
+#include <LibCore/Utf8.h>
 
 namespace LibCore {
-
 using socket_t = std::shared_ptr<struct Socket>;
 
 struct Socket {
@@ -40,11 +42,60 @@ private:
 
 Result<struct sockaddr_in> tcpip_address_resolve(std::string_view const &ip_address);
 CError                     fd_make_nonblocking(int fd);
-Result<std::string>        read_file_by_name(std::string_view const &file_name);
-Result<std::string>        read_file_at(int dir_fd, std::string_view const &file_name);
-Result<std::string>        read_file(int fd);
-Result<ssize_t>             write_file_by_name(std::string_view const &file_name, std::string_view const &contents);
-Result<ssize_t>             write_file_at(int dir_fd, std::string_view const &file_name, std::string_view const &contents);
-Result<ssize_t>             write_file(int fd, std::string_view const &contents);
+
+
+template <typename T=char>
+Result<std::basic_string<T>> read_file_by_name(std::string_view const& file_name)
+{
+    std::ifstream is(file_name);
+    if (!is) {
+        return LibCError();
+    }
+    std::string ret;
+    for (char ch; is.get(ch); ) {
+        ret += ch;
+    }
+    return ret;
+}
+
+template <>
+inline Result<std::wstring> read_file_by_name(std::string_view const& file_name)
+{
+    std::ifstream is(file_name);
+    if (!is) {
+        return LibCError();
+    }
+    return read_utf8(is);
+}
+
+template<typename T=char>
+Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::basic_string_view<T> const &contents)
+{
+    std::basic_fstream<T> os(file_name);
+    if (!os) {
+        return LibCError();
+    }
+    os.write(contents.data(), contents.length());
+    if (os.fail() || os.bad()) {
+        return LibCError();
+    }
+    return contents.length();
+}
+
+template<>
+inline Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::wstring_view const &contents)
+{
+    std::ofstream os(file_name);
+    if (!os) {
+        return LibCError();
+    }
+    return write_utf8(os, contents);
+}
+
+template<typename T=char>
+Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::basic_string<T> const &contents)
+{
+    return write_file_by_name(file_name, std::basic_string_view<T> {contents});
+}
 
 }
