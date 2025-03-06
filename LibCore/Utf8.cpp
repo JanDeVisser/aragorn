@@ -4,13 +4,12 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <iconv.h>
 #include <fstream>
+#include <iconv.h>
 
 #include <LibCore/Utf8.h>
 
 namespace LibCore {
-
 
 struct UTF8_std {
     UTF8_std()
@@ -20,8 +19,8 @@ struct UTF8_std {
 
     static UTF8_std utf8;
 
-    std::locale locale;
-    std::codecvt<wchar_t, char, mbstate_t> const& converter;
+    std::locale                                   locale;
+    std::codecvt<wchar_t, char, mbstate_t> const &converter;
 
     Result<std::string> to_utf8(std::wstring_view const &s)
     {
@@ -33,12 +32,12 @@ struct UTF8_std {
                 &ret[0], &ret[ret.size()], to_next);
             res != std::codecvt_base::ok) {
             return LibCError(EINVAL);
-            }
+        }
         ret.resize(to_next - &ret[0]);
         return ret;
     }
 
-    Result<std::wstring> to_wstring(std::string_view const& s)
+    Result<std::wstring> to_wstring(std::string_view const &s)
     {
         std::mbstate_t mb {}; // initial shift state
         std::wstring   ret(s.size(), '\0');
@@ -48,7 +47,7 @@ struct UTF8_std {
                 &ret[0], &ret[ret.size()], to_next);
             res != std::codecvt_base::ok) {
             return LibCError(EINVAL);
-            }
+        }
         ret.resize(to_next - &ret[0]);
         return ret;
     }
@@ -67,20 +66,19 @@ struct UTF8_std {
     {
         is.imbue(locale);
         std::wstring ret;
-        for (wchar_t ch; is.get(ch); ) {
+        for (wchar_t ch; is.get(ch);) {
             ret += ch;
         }
         std::println("Read file:");
         std::wcout << ret << std::endl;
         return ret;
     }
-
 };
 
 struct UTF8 {
     UTF8()
         : cd_in(iconv_open("UTF-32-INTERNAL", "UTF-8"))
-        , cd_out(iconv_open("UTF-8", "UTF-32"))
+        , cd_out(iconv_open("UTF-8", "UTF-32-INTERNAL"))
     {
         assert(cd_in != reinterpret_cast<iconv_t>(-1));
         assert(cd_out != reinterpret_cast<iconv_t>(-1));
@@ -93,35 +91,45 @@ struct UTF8 {
 
     Result<std::string> to_utf8(std::wstring_view const &s)
     {
-        auto data = const_cast<wchar_t *>(&s[0]);
-        size_t in_count = s.length() * sizeof(wchar_t);
-        size_t out_count = 0;
+        auto        data = const_cast<wchar_t *>(&s[0]);
+        size_t      in_count = s.length() * sizeof(wchar_t);
         std::string ret;
         ret.resize(s.length() * 16, '\0');
-        auto out_buffer = ret.data();
+        size_t out_count = s.length() * 16;
+        auto   out_buffer = ret.data();
         if (auto done = iconv(cd_out,
-            reinterpret_cast<char**>(&data), &in_count,
-            &out_buffer, &out_count); static_cast<int>(done) < 0) {
+                reinterpret_cast<char **>(&data), &in_count,
+                &out_buffer, &out_count);
+            static_cast<int>(done) < 0) {
             return LibCError();
         }
-        ret.resize(out_buffer - ret.data());
+        ret.resize(s.length() * 16 - out_count - 1);
+        while (!ret.empty() && ret[ret.size() - 1] == 0) {
+            ret.resize(ret.size() - 1); // HACK somehow iconv sometimes leaves
+                                        // '0' chars at the end of the
+                                        // converted string
+        }
         return ret;
     }
 
-    Result<std::wstring> to_wstring(std::string_view const& s)
+    Result<std::wstring> to_wstring(std::string_view const &s)
     {
-        auto data = const_cast<char *>(s.data());
-        size_t in_count = s.length();
+        auto         data = const_cast<char *>(s.data());
+        size_t       in_count = s.length();
         std::wstring ret;
-        ret.resize(2*s.length(),'\0');
-        size_t out_count = 2* s.length() * sizeof(wchar_t);
-        auto out_buffer = ret.data();
+        ret.resize(2 * s.length(), '\0');
+        size_t out_count = 2 * s.length() * sizeof(wchar_t);
+        auto   out_buffer = ret.data();
         if (auto done = iconv(cd_in,
-            &data, &in_count,
-            reinterpret_cast<char **>(&out_buffer), &out_count); static_cast<int>(done) < 0) {
+                &data, &in_count,
+                reinterpret_cast<char **>(&out_buffer), &out_count);
+            static_cast<int>(done) < 0) {
             return LibCError();
         }
-        ret.resize(out_buffer - ret.data());
+        ret.resize(2 * s.length() * sizeof(wchar_t) - out_count);
+        while (!ret.empty() && ret[ret.size() - 1] == 0) {
+            ret.resize(ret.size() - 1);
+        }
         return ret;
     }
 
@@ -140,15 +148,12 @@ struct UTF8 {
     Result<std::wstring> read(std::ifstream &is)
     {
         std::string contents;
-        for (char ch; is.get(ch); ) {
+        for (char ch; is.get(ch);) {
             contents += ch;
         }
         auto ret = TRY_EVAL(to_wstring(contents));
-        std::println("Read file:");
-        std::wcout << ret << std::endl;
         return ret;
     }
-
 };
 
 UTF8 UTF8::utf8 {};
@@ -158,7 +163,7 @@ Result<std::string> to_utf8(std::wstring_view const &s)
     return UTF8::utf8.to_utf8(s);
 }
 
-Result<std::wstring> to_wstring(std::string_view const& s)
+Result<std::wstring> to_wstring(std::string_view const &s)
 {
     return UTF8::utf8.to_wstring(s);
 }

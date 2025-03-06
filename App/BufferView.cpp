@@ -836,11 +836,6 @@ void BufferView::cut()
 void BufferView::paste()
 {
     auto text = GetClipboardText();
-    std::print("{} -", strlen(text));
-    for (auto ix = 0; ix < strlen(text); ++ix) {
-        std::print(" {:02x} ", static_cast<uint8_t>(text[ix]));
-    }
-    std::println("");
     insert_string(MUST_EVAL(to_wstring(GetClipboardText())));
 }
 
