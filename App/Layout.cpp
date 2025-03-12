@@ -134,7 +134,8 @@ void Layout::dump()
             dump_indent += 2;
             return;
         }
-        std::println("{:{}s}+-> {:} {:}", "", dump_indent, typeid(*w).name(), w->viewport.to_string());
+        auto &obj = *w;
+        std::println("{:{}s}+-> {:} {:}", "", dump_indent, typeid(obj).name(), w->viewport.to_string());
     };
     std::string_view s;
     traverse(dump_fnc);

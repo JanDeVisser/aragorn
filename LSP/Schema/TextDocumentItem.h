@@ -13,29 +13,30 @@
 
 namespace LSP {
 
-struct TextDocumentItem : public LSPObject {
+struct TextDocumentItem {
     DocumentUri uri;
     std::string languageId;
     int         version;
     std::string text;
 
-    static Result<TextDocumentItem, JSONError> decode(JSONValue const &json)
+    static Decoded<TextDocumentItem> decode(JSONValue const &json)
     {
         TextDocumentItem ret;
-        ret.uri = TRY_EVAL(json.try_get<DocumentUri>(uri));
-        ret.languageId = TRY_EVAL(json.try_get<std::string>(languageId));
-        ret.version = TRY_EVAL(json.try_get<int>(version));
-        ret.text = TRY_EVAL(json.try_get<std::string>(text));
-        return ret;
+        ret.uri = TRY_EVAL(json.try_get<DocumentUri>("uri"));
+        ret.languageId = TRY_EVAL(json.try_get<std::string>("languageId"));
+        ret.version = TRY_EVAL(json.try_get<int>("version"));
+        ret.text = TRY_EVAL(json.try_get<std::string>("text"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "uri", encode<DocumentUri>(uri));
-        set(ret, "languageId", encode<std::string>(languageId));
-        set(ret, "version", encode<int>(version));
-        set(ret, "text", encode<std::string>(text));
         JSONValue ret;
+        set(ret, "uri", uri);
+        set(ret, "languageId", languageId);
+        set(ret, "version", version);
+        set(ret, "text", text);
+        return ret;
     };
 };
 

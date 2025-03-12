@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "LibCore/Utf8.h"
+
 #include <LibCore/JSON.h>
 #include <LibCore/Lexer.h>
 
@@ -64,16 +66,16 @@ enum class BasicType {
 };
 
 struct EnumerationValue {
-    std::string                    name;
-    std::variant<std::string, int> value;
+    std::wstring                    name;
+    std::variant<std::wstring, int> value;
 
-    EnumerationValue(std::string_view const &name, std::string_view const &value)
+    EnumerationValue(std::wstring_view const &name, std::wstring_view const &value)
         : name(name)
-        , value(std::string { value })
+        , value(std::wstring { value })
     {
     }
 
-    EnumerationValue(std::string_view const &name, int value)
+    EnumerationValue(std::wstring_view const &name, int value)
         : name(name)
         , value(value)
     {
@@ -90,9 +92,9 @@ struct Enumeration {
 using pEnumeration = std::shared_ptr<Enumeration>;
 
 struct ConstantType {
-    std::string                          name;
-    BasicType                            type;
-    std::variant<std::string, int, bool> value;
+    std::wstring                          name;
+    BasicType                             type;
+    std::variant<std::wstring, int, bool> value;
 
     ConstantType(BasicType t)
         : type(t)
@@ -117,10 +119,10 @@ struct ConstantType {
         value.emplace<bool>(v);
     }
 
-    ConstantType(std::string_view const &v)
+    ConstantType(std::wstring_view const &v)
         : type(BasicType::String)
     {
-        value.emplace<std::string>(std::string { v });
+        value.emplace<std::wstring>(std::wstring { v });
     }
 
     JSONValue encode() const;
@@ -135,11 +137,11 @@ struct Variant {
 };
 
 struct Property {
-    std::string name;
-    bool        optional { false };
-    pType       type { nullptr };
+    std::wstring name;
+    bool         optional { false };
+    pType        type { nullptr };
 
-    Property(std::string_view const &n)
+    Property(std::wstring_view const &n)
         : name(n)
     {
     }
@@ -148,7 +150,7 @@ struct Property {
 };
 
 struct Interface {
-    StringList            extends;
+    WStringList           extends;
     std::vector<Property> properties;
     Interface() = default;
 
@@ -161,7 +163,7 @@ private:
 using pInterface = std::shared_ptr<Interface>;
 
 struct Type {
-    using TypeDefinition = std::variant<std::string,
+    using TypeDefinition = std::variant<std::wstring,
         BasicType,
         ConstantType,
         Enumeration,
@@ -171,7 +173,7 @@ struct Type {
     TypeKind       kind { TypeKind::None };
     bool           array { false };
     TypeDefinition definition;
-    std::string    synthetic_name;
+    std::wstring   synthetic_name;
 
     Type() = default;
 
@@ -223,16 +225,16 @@ struct Type {
         return std::get<Interface>(definition);
     }
 
-    std::string &type_name()
+    std::wstring &type_name()
     {
         assert(kind == TypeKind::Type);
-        return std::get<std::string>(definition);
+        return std::get<std::wstring>(definition);
     }
 
-    std::string const &type_name() const
+    std::wstring const &type_name() const
     {
         assert(kind == TypeKind::Type);
-        return std::get<std::string>(definition);
+        return std::get<std::wstring>(definition);
     }
 
     JSONValue encode() const;
@@ -250,12 +252,12 @@ using pTypeDef = std::shared_ptr<struct TypeDef>;
 class TypeDef {
 public:
     using TypeDefinition = std::variant<pType, Interface, Enumeration, Variant>;
-    TypeDefKind           kind { TypeDefKind::None };
-    std::string           name {};
-    std::set<std::string> dependencies;
-    TypeDefinition        definition;
+    TypeDefKind            kind { TypeDefKind::None };
+    std::wstring           name {};
+    std::set<std::wstring> dependencies;
+    TypeDefinition         definition;
 
-    TypeDef(TypeDefKind kind, std::string_view const &name)
+    TypeDef(TypeDefKind kind, std::wstring_view const &name)
         : kind(kind)
         , name(name)
     {
@@ -309,40 +311,40 @@ public:
         return std::get<Variant>(definition);
     }
 
-    static TypeDef &get(std::string_view const &name)
+    static TypeDef &get(std::wstring_view const &name)
     {
-        std::string n { name };
+        std::wstring n { name };
         assert(s_typedefs.contains(n));
         return s_typedefs.at(n);
     }
 
-    static bool has(std::string_view const &name)
+    static bool has(std::wstring_view const &name)
     {
-        return s_typedefs.contains(std::string { name });
+        return s_typedefs.contains(std::wstring { name });
     }
 
-    static TypeDef &make_interface(std::string_view const &name)
+    static TypeDef &make_interface(std::wstring_view const &name)
     {
         auto &td = make(TypeDefKind::Interface, name);
         td.definition.emplace<Interface>();
         return td;
     }
 
-    static TypeDef &make_alias(std::string_view const &name, pType type)
+    static TypeDef &make_alias(std::wstring_view const &name, pType type)
     {
         auto &td = make(TypeDefKind::Alias, name);
         td.definition = std::move(type);
         return td;
     }
 
-    static TypeDef &make_enumeration(std::string_view const &name)
+    static TypeDef &make_enumeration(std::wstring_view const &name)
     {
         auto &td = make(TypeDefKind::Enumeration, name);
         td.definition.emplace<Enumeration>();
         return td;
     }
 
-    static TypeDef &make_enumeration(std::string_view const &name, Enumeration e)
+    static TypeDef &make_enumeration(std::wstring_view const &name, Enumeration e)
     {
         auto &td = make_enumeration(name);
         td.definition = std::move(e);
@@ -355,18 +357,19 @@ public:
     static auto cend() { return s_typedefs.cend(); }
 
 private:
-    static TypeDef &make(TypeDefKind kind, std::string_view const &name)
+    static TypeDef &make(TypeDefKind kind, std::wstring_view const &name)
     {
-        std::string n { name };
+        std::wstring n { name };
         if (s_typedefs.contains(n)) {
-            fatal("Type '{}' already registered", n);
+            auto n_utf8 = MUST_EVAL(to_utf8(n));
+            fatal("Type '{}' already registered", n_utf8);
         }
-        auto const &p = s_typedefs.try_emplace(std::string { name }, kind, name);
+        auto const &p = s_typedefs.try_emplace(std::wstring { name }, kind, name);
         assert(p.second);
         return (*(p.first)).second;
     }
 
-    static std::map<std::string, TypeDef> s_typedefs;
+    static std::map<std::wstring, TypeDef> s_typedefs;
 };
 
 class Module {
@@ -374,10 +377,10 @@ private:
     class Sentinel { };
 
 public:
-    std::string name;
-    StringList  types;
+    std::wstring name;
+    WStringList  types;
 
-    Module(Sentinel, std::string_view const &modname)
+    Module(Sentinel, std::wstring_view const &modname)
         : name(modname)
     {
     }
@@ -388,7 +391,7 @@ public:
     auto      begin() { return TypeDef::cbegin(); }
     auto      end() { return TypeDef::cend(); }
 
-    static Module &make(std::string_view const &modname);
+    static Module &make(std::wstring_view const &modname);
 
 private:
     static std::vector<Module> s_modules;
@@ -396,7 +399,7 @@ private:
 
 class Parser {
 public:
-    using TSLexer = LibCore::Lexer<std::string_view, TSKeyword>;
+    using TSLexer = Lexer<std::wstring_view, EnumKeywords<std::wstring_view, SimpleKeywordCategory, TSKeyword>>;
     Parser(std::string_view const &fname);
     Module const &parse();
 
@@ -430,7 +433,7 @@ extern char const *BasicType_name(BasicType basic_type);
 extern char const *TypeKind_name(TypeKind kind);
 extern char const *TypeDefKind_name(TypeDefKind kind);
 
-extern void generate_typedef(std::string_view const &name);
+extern void generate_typedef(std::wstring_view const &name);
 
 }
 
@@ -439,14 +442,20 @@ namespace LibCore {
 using namespace TSParser;
 
 template<>
-inline std::map<std::string_view, TSKeyword> get_keywords()
+[[nodiscard]] inline std::optional<std::tuple<SimpleKeywordCategory, TSKeyword, MatchType>> match_keyword(std::string const &str)
 {
-    return std::map<std::string_view, TSKeyword> {
 #undef S
-#define S(kw, str) { str, TSKeyword::kw },
-        TS_KEYWORDS(S)
+#define S(KW, STR)                                                       \
+    if (std::string_view(STR).starts_with(str)) {                        \
+        return std::tuple {                                              \
+            SimpleKeywordCategory::Keyword,                              \
+            TSKeyword::KW,                                               \
+            (str == STR) ? MatchType::FullMatch : MatchType::PrefixMatch \
+        };                                                               \
+    }
+    TS_KEYWORDS(S)
 #undef S
-    };
+    return {};
 }
 
 }

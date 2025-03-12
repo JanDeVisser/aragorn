@@ -13,20 +13,21 @@
 
 namespace LSP {
 
-struct SemanticTokensParams : public LSPObject {
+struct SemanticTokensParams {
     TextDocumentIdentifier textDocument;
 
-    static Result<SemanticTokensParams, JSONError> decode(JSONValue const &json)
+    static Decoded<SemanticTokensParams> decode(JSONValue const &json)
     {
         SemanticTokensParams ret;
-        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>(textDocument));
-        return ret;
+        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>("textDocument"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "textDocument", encode<TextDocumentIdentifier>(textDocument));
         JSONValue ret;
+        set(ret, "textDocument", textDocument);
+        return ret;
     };
 };
 

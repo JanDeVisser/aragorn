@@ -13,25 +13,26 @@
 
 namespace LSP {
 
-struct CompletionContext : public LSPObject {
+struct CompletionContext {
     CompletionTriggerKind      triggerKind;
     std::optional<std::string> triggerCharacter;
 
-    static Result<CompletionContext, JSONError> decode(JSONValue const &json)
+    static Decoded<CompletionContext> decode(JSONValue const &json)
     {
         CompletionContext ret;
-        ret.triggerKind = TRY_EVAL(json.try_get<CompletionTriggerKind>(triggerKind));
-        if (json.has("triggerCharacter") {
-            ret.triggerCharacter = TRY_EVAL(json.try_get<std::string>(triggerCharacter));
+        ret.triggerKind = TRY_EVAL(json.try_get<CompletionTriggerKind>("triggerKind"));
+        if (json.has("triggerCharacter")) {
+            ret.triggerCharacter = TRY_EVAL(json.try_get<std::string>("triggerCharacter"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "triggerKind", encode<CompletionTriggerKind>(triggerKind));
-        set(ret, "triggerCharacter", encode<std::optional<std::string>>(triggerCharacter));
         JSONValue ret;
+        set(ret, "triggerKind", triggerKind);
+        set(ret, "triggerCharacter", triggerCharacter);
+        return ret;
     };
 };
 

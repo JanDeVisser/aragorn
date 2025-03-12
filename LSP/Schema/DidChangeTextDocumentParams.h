@@ -14,23 +14,24 @@
 
 namespace LSP {
 
-struct DidChangeTextDocumentParams : public LSPObject {
+struct DidChangeTextDocumentParams {
     VersionedTextDocumentIdentifier             textDocument;
     std::vector<TextDocumentContentChangeEvent> contentChanges;
 
-    static Result<DidChangeTextDocumentParams, JSONError> decode(JSONValue const &json)
+    static Decoded<DidChangeTextDocumentParams> decode(JSONValue const &json)
     {
         DidChangeTextDocumentParams ret;
-        ret.textDocument = TRY_EVAL(json.try_get<VersionedTextDocumentIdentifier>(textDocument));
-        ret.contentChanges = TRY_EVAL(json.try_get<std::vector<TextDocumentContentChangeEvent>>(contentChanges));
-        return ret;
+        ret.textDocument = TRY_EVAL(json.try_get<VersionedTextDocumentIdentifier>("textDocument"));
+        ret.contentChanges = TRY_EVAL(json.try_get_array<TextDocumentContentChangeEvent>("contentChanges"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "textDocument", encode<VersionedTextDocumentIdentifier>(textDocument));
-        set(ret, "contentChanges", encode<std::vector<TextDocumentContentChangeEvent>>(contentChanges));
         JSONValue ret;
+        set(ret, "textDocument", textDocument);
+        set(ret, "contentChanges", contentChanges);
+        return ret;
     };
 };
 

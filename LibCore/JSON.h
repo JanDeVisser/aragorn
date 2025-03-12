@@ -25,7 +25,7 @@ template<typename T>
 concept Integer = (std::is_integral_v<T> && !Boolean<T>);
 
 template<typename T>
-concept UnsignedInteger = (std::is_integral_v<T> && std::is_unsigned_v<T> && !Boolean<T>);
+concept UnsignedInteger = ((std::is_integral_v<T> && std::is_unsigned_v<T> && !Boolean<T>) || std::is_same_v<T, unsigned char>);
 
 template<typename T>
 concept SignedInteger = (std::is_integral_v<T> && std::is_signed_v<T> && !Boolean<T>);
@@ -140,7 +140,7 @@ enum class JSONType {
 #undef S
 };
 
-static inline char const *JSONType_name(JSONType type)
+static char const *JSONType_name(JSONType type)
 {
     switch (type) {
 #undef S
@@ -149,6 +149,8 @@ static inline char const *JSONType_name(JSONType type)
         return #type;
         JSONTYPES(S)
 #undef S
+    default:
+        UNREACHABLE();
     }
 }
 
@@ -221,6 +223,9 @@ public:
     }
 };
 
+template<typename T>
+using Decoded = Result<T, JSONError>;
+
 #define CHECK_JSON_TYPE(expr, T)                                 \
     do {                                                         \
         auto t__ = (expr).type();                                \
@@ -239,6 +244,8 @@ class JSONValue {
 public:
     using Array = std::vector<JSONValue>;
     using Object = std::map<std::string, JSONValue>;
+    using JSONValueValue = std::variant<std::string, int64_t, bool, double, Array, Object>;
+    using EJSON = Error<JSONError>;
 
     JSONValue() = default;
     JSONValue(JSONValue const &) = default;
@@ -249,7 +256,7 @@ public:
         switch (m_type) {
         case JSONType::Null:
         case JSONType::Integer:
-            m_value = 0;
+            m_value.emplace<1>(0ul);
             break;
         case JSONType::Boolean:
             m_value = false;
@@ -337,59 +344,187 @@ public:
     [[nodiscard]] std::string serialize(bool pretty = false, int indent_width = 4, int indent = 0) const;
 
     template<typename Target>
-    using DecodeResult = Result<Target, JSONError>;
+    friend Decoded<Target> decode(JSONValue const &);
 
     template<typename Target>
-    [[nodiscard]] DecodeResult<Target> convert() const
+    [[nodiscard]] EJSON convert(Target &t) const
     {
-        if (!is_object())
-            return JSONError {
-                JSONError::Code::TypeMismatch,
-                std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(Target).name()),
-            };
-        return Target::decode_json(*this);
+        t = TRY_EVAL(decode<Target>(*this));
+        return {};
     }
 
-    template<Integer Int>
-    [[nodiscard]] DecodeResult<Int> convert() const
+    template<SignedInteger Int>
+    [[nodiscard]] EJSON convert(Int &i) const
     {
-        auto v = value<Int>(*this);
-        if (!v)
+        switch (type()) {
+        case JSONType::Integer: {
+            auto v = std::get<int64_t>(m_value);
+            if ((v < min_value<Int>()) || (static_cast<uint64_t>(v) > max_value<Int>())) {
+                return JSONError {
+                    JSONError::Code::TypeMismatch,
+                    std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(Int).name()),
+                };
+            }
+            i = static_cast<Int>(v);
+            return {};
+        }
+        case JSONType::Double: {
+            auto v = std::get<double>(m_value);
+            if ((v < min_value<Int>()) || (static_cast<uint64_t>(v) > max_value<Int>())) {
+                return JSONError {
+                    JSONError::Code::TypeMismatch,
+                    std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(Int).name()),
+                };
+            }
+            i = static_cast<Int>(v);
+            return {};
+        }
+        case JSONType::Boolean:
+            i = std::get<bool>(m_value) ? 1 : 0;
+            return {};
+        default:
             return JSONError {
                 JSONError::Code::TypeMismatch,
-                std::format("Cannot convert JSON value '{}' to integer", to_string()),
+                std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(Int).name()),
             };
-        return *v;
+        }
+    }
+
+    template<UnsignedInteger UInt>
+    [[nodiscard]] EJSON convert(UInt &i) const
+    {
+        switch (type()) {
+        case JSONType::Integer: {
+            auto v = std::get<int64_t>(m_value);
+            if ((v < 0) || (static_cast<uint64_t>(v) > max_value<UInt>())) {
+                return JSONError {
+                    JSONError::Code::TypeMismatch,
+                    std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(UInt).name()),
+                };
+            }
+            i = static_cast<UInt>(v);
+            return {};
+        }
+        case JSONType::Double: {
+            auto v = std::get<double>(m_value);
+            if ((v < 0) || (static_cast<uint64_t>(v) > max_value<UInt>())) {
+                return JSONError {
+                    JSONError::Code::TypeMismatch,
+                    std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(UInt).name()),
+                };
+            }
+            i = static_cast<UInt>(v);
+            return {};
+        }
+        case JSONType::Boolean:
+            i = std::get<bool>(m_value) ? 1 : 0;
+            return {};
+        default:
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(UInt).name()),
+            };
+        }
     }
 
     template<String Str>
-    [[nodiscard]] DecodeResult<Str> convert() const
+    [[nodiscard]] EJSON convert(Str &s) const
     {
-        return to_string();
-    }
-
-    template<Boolean Bool>
-    [[nodiscard]] DecodeResult<Bool> convert() const
-    {
-        auto v = value<Bool>(*this);
-        if (!v)
+        switch (type()) {
+        case JSONType::String:
+            s = std::get<std::string>(m_value);
+            return {};
+        default:
             return JSONError {
                 JSONError::Code::TypeMismatch,
-                std::format("Cannot convert JSON value '{}' to bool", to_string()),
+                std::format("Cannot convert JSON value of type {} to std::string", JSONType_name(type())),
             };
-        return *v;
+        }
     }
 
     template<std::floating_point Float>
-    [[nodiscard]] DecodeResult<Float> convert() const
+    [[nodiscard]] EJSON convert(Float &flt) const
     {
-        auto v = value<Float>(*this);
-        if (!v)
+        switch (type()) {
+        case JSONType::Integer:
+            flt = static_cast<Float>(std::get<int64_t>(m_value));
+            return {};
+        case JSONType::Double:
+            flt = static_cast<Float>(std::get<double>(m_value));
+            return {};
+        default:
             return JSONError {
                 JSONError::Code::TypeMismatch,
-                std::format("Cannot convert JSON value '{}' to floating point", to_string()),
+                std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(Float).name()),
             };
-        return *v;
+        }
+    }
+
+    template<Boolean B = bool>
+    [[nodiscard]] EJSON convert(B &b) const
+    {
+        switch (type()) {
+        case JSONType::Null:
+            b = false;
+            return {};
+        case JSONType::Integer:
+            b = std::get<int64_t>(m_value) != 0;
+            return {};
+        case JSONType::Boolean:
+            b = std::get<bool>(m_value);
+            return {};
+        default:
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Cannot convert JSON value of type {} to {}", JSONType_name(type()), typeid(B).name()),
+            };
+        }
+    }
+
+    template<typename T>
+    [[nodiscard]] EJSON convert(std::vector<T> &vec) const
+    {
+        switch (type()) {
+        case JSONType::Array: {
+            for (auto &v : std::get<Array>(m_value)) {
+                T converted;
+                TRY(v.convert(converted));
+                vec.emplace_back(std::move(converted));
+            }
+            return {};
+        }
+        default:
+            return JSONError {
+                JSONError::Code::TypeMismatch,
+                std::format("Cannot convert JSON value of type {} to std::vector<{}>", JSONType_name(type()), typeid(T).name()),
+            };
+        }
+    }
+
+    template<size_t N, typename... Ts>
+        requires(sizeof...(Ts) > 1)
+    [[nodiscard]] EJSON convert(std::variant<Ts...> &var) const
+    {
+        static_assert(N < sizeof...(Ts));
+        using V = std::variant<Ts...>;
+        using T = std::variant_alternative_t<N, V>;
+        T v;
+        V ret;
+        if (!convert(v).is_error()) {
+            var.template emplace<N>(std::move(v));
+            return {};
+        }
+        if constexpr (N > 0) {
+            return convert<N - 1, Ts...>(var);
+        }
+        return JSONError { JSONError::Code::TypeMismatch, "" };
+    }
+
+    template<typename... Ts>
+        requires(sizeof...(Ts) > 1)
+    [[nodiscard]] EJSON convert(std::variant<Ts...> &var) const
+    {
+        return convert<sizeof...(Ts) - 1, Ts...>(var);
     }
 
     [[nodiscard]] std::optional<Array> to_array() const
@@ -488,7 +623,7 @@ public:
     }
 
     template<typename T>
-    [[nodiscard]] Result<T, JSONError> try_get(std::string_view const &key) const
+    [[nodiscard]] Decoded<T> try_get(std::string_view const &key) const
     {
         if (!is_object()) {
             return JSONError { JSONError::Code::TypeMismatch, "" };
@@ -497,8 +632,40 @@ public:
         if (!maybe.has_value()) {
             return JSONError { JSONError::Code::MissingValue, std::string(key) };
         }
-        auto v = TRY_EVAL(decode<T>(maybe.value()));
-        return v;
+        T result;
+        TRY(maybe.value().convert<T>(result));
+        return result;
+    }
+
+    template<typename T>
+    [[nodiscard]] Decoded<std::vector<T>> try_get_array(std::string_view const &key) const
+    {
+        if (!is_object()) {
+            return JSONError { JSONError::Code::TypeMismatch, "" };
+        }
+        auto maybe = get(key);
+        if (!maybe.has_value()) {
+            return JSONError { JSONError::Code::MissingValue, std::string(key) };
+        }
+        std::vector<T> result;
+        TRY(maybe.value().convert(result));
+        return result;
+    }
+
+    template<typename... Ts>
+        requires(sizeof...(Ts) > 1)
+    [[nodiscard]] Decoded<std::variant<Ts...>> try_get_variant(std::string_view const &key) const
+    {
+        if (!is_object()) {
+            return JSONError { JSONError::Code::TypeMismatch, "" };
+        }
+        auto maybe = get(key);
+        if (!maybe.has_value()) {
+            return JSONError { JSONError::Code::MissingValue, std::string(key) };
+        }
+        std::variant<Ts...> result;
+        TRY(maybe.value().convert<sizeof...(Ts) - 1, Ts...>(result));
+        return result;
     }
 
     JSONValue &operator[](std::string_view const &key)
@@ -660,7 +827,7 @@ public:
         }
         return *this;
     }
-    using JSONValueValue = std::variant<std::string, int64_t, bool, double, Array, Object>;
+
     [[nodiscard]] JSONValueValue const &raw_value() const { return m_value; }
 
     using ReadError = std::variant<LibCError, JSONError>;
@@ -682,104 +849,24 @@ concept JSON = std::is_same_v<std::remove_cvref_t<T>, JSONValue>;
 // }
 
 template<JSON J>
-[[nodiscard]] inline std::optional<J> value(JSONValue const &json)
+[[nodiscard]] std::optional<J> value(JSONValue const &json)
 {
-    return json;
-}
-
-template<String Str>
-[[nodiscard]] inline std::optional<Str> value(JSONValue const &json)
-{
-    return json.to_string();
-}
-
-template<SignedInteger Int>
-[[nodiscard]] inline std::optional<Int> value(JSONValue const &json)
-{
-    switch (json.type()) {
-    case JSONType::Integer: {
-        auto v = std::get<int64_t>(json.raw_value());
-        if ((v < min_value<Int>()) || (static_cast<uint64_t>(v) > max_value<Int>())) {
-            return {};
-        }
-        return static_cast<Int>(v);
-    }
-    case JSONType::Double: {
-        auto v = std::get<double>(json.raw_value());
-        if ((v < min_value<Int>()) || (static_cast<uint64_t>(v) > max_value<Int>())) {
-            return {};
-        }
-        return static_cast<Int>(v);
-    }
-    case JSONType::Boolean:
-        return std::get<bool>(json.raw_value()) ? 1 : 0;
-    default:
+    if (auto converted = json.convert<J>(); converted.is_error()) {
         return {};
-    }
-}
-
-template<UnsignedInteger UInt>
-[[nodiscard]] inline std::optional<UInt> value(JSONValue const &json)
-{
-    switch (json.type()) {
-    case JSONType::Integer: {
-        auto v = std::get<int64_t>(json.raw_value());
-        if ((v < 0) || (static_cast<uint64_t>(v) > max_value<UInt>())) {
-            return {};
-        }
-        return static_cast<UInt>(v);
-    }
-    case JSONType::Double: {
-        auto v = std::get<double>(json.raw_value());
-        if ((v < 0) || (static_cast<uint64_t>(v) > max_value<UInt>())) {
-            return {};
-        }
-        return static_cast<UInt>(v);
-    }
-    case JSONType::Boolean:
-        return std::get<bool>(json.raw_value()) ? 1 : 0;
-    default:
-        return {};
-    }
-}
-
-template<std::floating_point Float>
-[[nodiscard]] inline std::optional<Float> value(JSONValue const &json)
-{
-    switch (json.type()) {
-    case JSONType::Integer:
-        return static_cast<Float>(std::get<int64_t>(json.raw_value()));
-    case JSONType::Double:
-        return static_cast<Float>(std::get<double>(json.raw_value()));
-    default:
-        return {};
-    }
-}
-
-template<Boolean B = bool>
-[[nodiscard]] inline std::optional<B> value(JSONValue const &json)
-{
-    switch (json.type()) {
-    case JSONType::Null:
-        return false;
-    case JSONType::Integer:
-        return std::get<int64_t>(json.raw_value()) != 0;
-    case JSONType::Boolean:
-        return std::get<bool>(json.raw_value());
-    default:
-        return {};
+    } else {
+        return converted.value();
     }
 }
 
 template<typename T>
-[[nodiscard]] inline std::optional<std::vector<T>> values(JSONValue const &json)
+[[nodiscard]] std::optional<std::vector<T>> values(JSONValue const &json)
 {
     if (json.type() != JSONType::Array) {
         return {};
     }
     std::vector<T> ret {};
     for (auto const &v : json) {
-        auto res = decode<T>(v);
+        auto res = v.convert<T>();
         if (res.is_error()) {
             return {};
         }
@@ -789,9 +876,17 @@ template<typename T>
 }
 
 template<typename T>
-inline JSONValue encode(T const &value)
+JSONValue encode(T const &value)
 {
     return value.encode();
+}
+
+template<typename O>
+JSONValue encode(std::optional<O> const &value)
+{
+    if (value)
+        return encode(*value);
+    return {};
 }
 
 template<>
@@ -801,37 +896,37 @@ inline JSONValue encode(JSONValue const &value)
 }
 
 template<String Str>
-inline JSONValue encode(Str const &value)
+JSONValue encode(Str const &value)
 {
     return JSONValue { value };
 }
 
 template<Integer Int>
-inline JSONValue encode(Int const &value)
+JSONValue encode(Int const &value)
 {
     return JSONValue { value };
 }
 
 template<Boolean B>
-inline JSONValue encode(B const &value)
+JSONValue encode(B const &value)
 {
     return JSONValue { value };
 }
 
 template<std::floating_point Float>
-inline JSONValue encode(Float const &value)
+JSONValue encode(Float const &value)
 {
     return JSONValue { value };
 }
 
 template<typename T>
-inline JSONValue encode(std::shared_ptr<T> const &value)
+JSONValue encode(std::shared_ptr<T> const &value)
 {
     return encode(*value);
 }
 
 template<typename Element>
-inline JSONValue encode(std::vector<Element> const &value)
+JSONValue encode(std::vector<Element> const &value)
 {
     JSONValue ret = JSONValue::array();
     for (auto const &elem : value) {
@@ -841,7 +936,7 @@ inline JSONValue encode(std::vector<Element> const &value)
 }
 
 template<typename Value>
-inline JSONValue encode(std::map<std::string, Value> const &value)
+JSONValue encode(std::map<std::string, Value> const &value)
 {
     JSONValue ret = JSONValue::object();
     for (auto const &[key, v] : value) {
@@ -850,34 +945,41 @@ inline JSONValue encode(std::map<std::string, Value> const &value)
     return ret;
 }
 
-template<typename T>
-inline JSONValue encode(std::optional<T> const &value)
+template<>
+inline JSONValue encode(std::optional<std::string> const &value)
 {
     if (value)
         return encode(*value);
     return {};
 }
 
-template<typename... Ts, size_t N = sizeof...(Ts) - 1>
-inline JSONValue encode(std::variant<Ts...> const &value)
+template<size_t N, typename... Ts>
+JSONValue encode(std::variant<Ts...> const &value)
 {
     if (N == value.index()) {
         return encode(std::get<N, Ts...>(value));
     }
     if constexpr (N > 0) {
-        return encode<Ts..., N - 1>(value);
+        return encode<N - 1, Ts...>(value);
     }
+    return {};
+}
+
+template<typename... Ts>
+JSONValue encode(std::variant<Ts...> const &value)
+{
+    return encode<sizeof...(Ts) - 1, Ts...>(value);
 }
 
 template<typename T>
-inline void set(JSONValue &obj, std::string const &key, T const &value)
+void set(JSONValue &obj, std::string const &key, T const &value)
 {
     assert(obj.is_object());
     obj.set(key, encode(value));
 }
 
 template<typename T>
-inline void set(JSONValue &obj, std::string const &key, std::optional<T> const &value)
+void set(JSONValue &obj, std::string const &key, std::optional<T> const &value)
 {
     assert(obj.is_object());
     if (value.has_value()) {
@@ -887,139 +989,9 @@ inline void set(JSONValue &obj, std::string const &key, std::optional<T> const &
 }
 
 template<typename T>
-inline Result<T, JSONError> decode(JSONValue const &json)
+Decoded<T> decode(JSONValue const &json)
 {
-    return TRY_EVAL(T::decode(json));
-}
-
-template<Integer Int>
-inline Result<Int, JSONError> decode(JSONValue const &json)
-{
-    if (!json.is_integer()) {
-        return JSONError { JSONError::Code::TypeMismatch, "" };
-    }
-    auto v = value<Int>(json);
-    if (!v) {
-        return JSONError { JSONError::Code::TypeMismatch, "Integer out of range" };
-    }
-    return *v;
-}
-
-template<Boolean Bool>
-inline Result<Bool, JSONError> decode(JSONValue const &json)
-{
-    if (!json.is_boolean())
-        return JSONError { JSONError::Code::TypeMismatch, "" };
-    return *(value<bool>(json));
-}
-
-template<std::floating_point Float>
-inline Result<Float, JSONError> decode(JSONValue const &json)
-{
-    if (!json.is_double())
-        return JSONError {
-            JSONError::Code::TypeMismatch,
-            std::format("Cannot convert JSON value {} to floating point", json.to_string()),
-        };
-    return *(value<Float>(json));
-}
-
-template<String Str>
-inline Result<Str, JSONError> decode(JSONValue const &value)
-{
-    if (!value.is_string())
-        return JSONError {
-            JSONError::Code::TypeMismatch,
-            std::format("Cannot convert JSON value {} to string", value.to_string()),
-        };
-    return value.to_string();
-}
-
-template<typename T>
-inline Result<std::vector<T>, JSONError> decode_array(JSONValue const &value)
-{
-    if (!value.is_array())
-        return JSONError {
-            JSONError::Code::TypeMismatch,
-            std::format("Cannot convert JSON value {} to vector", value.to_string()),
-        };
-    auto ret = std::vector<T> {};
-    for (auto ix = 0u; ix < value.size(); ++ix) {
-        ret.push_back(TRY_EVAL(decode<T>(value[ix])));
-    }
-    return ret;
-}
-
-template<typename T>
-inline Result<std::map<std::string, T>, JSONError> decode_map(JSONValue const &value)
-{
-    if (!value.is_object())
-        return JSONError {
-            JSONError::Code::TypeMismatch,
-            std::format("Cannot convert JSON value {} to map", value.to_string()),
-        };
-    auto map = *(value.to_object());
-    auto ret = std::map<std::string, T> {};
-    for (auto const &[k, _] : map) {
-        ret[k] = TRY_EVAL(decode<T>(value, k));
-    }
-    return {};
-}
-
-template<typename... Ts, size_t N = sizeof...(Ts) - 1>
-requires (sizeof...(Ts) > 1)
-inline Result<std::variant<Ts...>, JSONError> decode_variant(JSONValue const &value)
-{
-    static_assert(N < sizeof...(Ts));
-    using V = std::variant<Ts...>;
-    using T = std::variant_alternative_t<N, V>;
-    T    v;
-    V    ret;
-    auto converted_maybe = decode<T>(value);
-    if (!converted_maybe.is_error()) {
-        ret.template emplace<N>(v);
-        return ret;
-    }
-    if constexpr (N > 0)
-        return decode<N - 1, Ts...>(value);
-    return JSONError { JSONError::Code::TypeMismatch, "" };
-}
-
-template<typename T>
-inline Result<T, JSONError> decode(JSONValue const &obj, std::string const &key)
-{
-    //    std::cerr << "decode<" << to_string<std::type_info>()(typeid(decltype(target))) << ">(" << key << ")\n";
-    assert(obj.is_object());
-    auto value = obj.get(key);
-    if (!value)
-        return JSONError {
-            JSONError::Code::TypeMismatch,
-            std::format("JSON object has no key '{}'", key),
-        };
-    auto decoded_maybe = decode<T>(*value);
-    if (decoded_maybe.is_error()) {
-        auto err = decoded_maybe.error();
-        err.key = key;
-        return err;
-    }
-    return decoded_maybe.value();
-    ;
-}
-
-template<typename T>
-inline Result<std::optional<T>, JSONError> decode(JSONValue const &obj, std::string const &key)
-{
-    //    std::cerr << "decode<std::optional<" << to_string<std::type_info>()(typeid(decltype(target))) << ">>(" << key << ")\n";
-    assert(obj.is_object());
-    auto value = obj.get(key);
-    if (!value) {
-        return std::optional<T> {};
-    }
-    auto decoded_maybe = decode<T>(obj, key);
-    if (decoded_maybe.is_error()) {
-        return decoded_maybe.error();
-    }
-    return decoded_maybe.value();
+    return T::decode(json);
 }
 
 }

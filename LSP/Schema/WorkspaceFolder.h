@@ -13,23 +13,24 @@
 
 namespace LSP {
 
-struct WorkspaceFolder : public LSPObject {
+struct WorkspaceFolder {
     URI         uri;
     std::string name;
 
-    static Result<WorkspaceFolder, JSONError> decode(JSONValue const &json)
+    static Decoded<WorkspaceFolder> decode(JSONValue const &json)
     {
         WorkspaceFolder ret;
-        ret.uri = TRY_EVAL(json.try_get<URI>(uri));
-        ret.name = TRY_EVAL(json.try_get<std::string>(name));
-        return ret;
+        ret.uri = TRY_EVAL(json.try_get<URI>("uri"));
+        ret.name = TRY_EVAL(json.try_get<std::string>("name"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "uri", encode<URI>(uri));
-        set(ret, "name", encode<std::string>(name));
         JSONValue ret;
+        set(ret, "uri", uri);
+        set(ret, "name", name);
+        return ret;
     };
 };
 

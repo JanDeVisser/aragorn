@@ -18,8 +18,7 @@ enum class TraceValue {
     Verbose,
 };
 
-template<>
-inline std::string as_string(TraceValue obj)
+inline std::string TraceValue_as_string(TraceValue obj)
 {
     switch (obj) {
     case TraceValue::Off:
@@ -33,8 +32,7 @@ inline std::string as_string(TraceValue obj)
     }
 }
 
-template<>
-inline std::optional<TraceValue> from_string<TraceValue>(std::string_view const &s)
+inline std::optional<TraceValue> TraceValue_from_string(std::string_view const &s)
 {
     if (s == "off")
         return TraceValue::Off;
@@ -54,13 +52,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode(TraceValue const &obj)
 {
-    return encode_string_enum<TraceValue>(obj);
+    return JSONValue { TraceValue_as_string(obj) };
 }
 
 template<>
-inline Result<TraceValue, JSONError> decode(JSONValue const &json)
+inline Decoded<TraceValue> decode(JSONValue const &json)
 {
-    return decode_string_enum<TraceValue>(json);
+    return TraceValue_from_string(json.to_string());
 }
 
 } /* namespace LibCore */

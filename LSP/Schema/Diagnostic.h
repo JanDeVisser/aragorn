@@ -17,7 +17,7 @@
 
 namespace LSP {
 
-struct Diagnostic : public LSPObject {
+struct Diagnostic {
     Range                                                    range;
     std::optional<DiagnosticSeverity>                        severity;
     std::optional<std::variant<int, std::string>>            code;
@@ -26,49 +26,50 @@ struct Diagnostic : public LSPObject {
     std::string                                              message;
     std::optional<std::vector<DiagnosticTag>>                tags;
     std::optional<std::vector<DiagnosticRelatedInformation>> relatedInformation;
-    std::optional<LSP::Any>                                  data;
+    std::optional<Any>                                       data;
 
-    static Result<Diagnostic, JSONError> decode(JSONValue const &json)
+    static Decoded<Diagnostic> decode(JSONValue const &json)
     {
         Diagnostic ret;
-        ret.range = TRY_EVAL(json.try_get<Range>(range));
-        if (json.has("severity") {
-            ret.severity = TRY_EVAL(json.try_get<DiagnosticSeverity>(severity));
+        ret.range = TRY_EVAL(json.try_get<Range>("range"));
+        if (json.has("severity")) {
+            ret.severity = TRY_EVAL(json.try_get<DiagnosticSeverity>("severity"));
         }
-        if (json.has("code") {
-            ret.code = TRY_EVAL(json.try_get<std::variant<int, std::string>>(code));
+        if (json.has("code")) {
+            ret.code = TRY_EVAL(json.try_get_variant<int, std::string>("code"));
         }
-        if (json.has("codeDescription") {
-            ret.codeDescription = TRY_EVAL(json.try_get<CodeDescription>(codeDescription));
+        if (json.has("codeDescription")) {
+            ret.codeDescription = TRY_EVAL(json.try_get<CodeDescription>("codeDescription"));
         }
-        if (json.has("source") {
-            ret.source = TRY_EVAL(json.try_get<std::string>(source));
+        if (json.has("source")) {
+            ret.source = TRY_EVAL(json.try_get<std::string>("source"));
         }
-        ret.message = TRY_EVAL(json.try_get<std::string>(message));
-        if (json.has("tags") {
-            ret.tags = TRY_EVAL(json.try_get<std::vector<DiagnosticTag>>(tags));
+        ret.message = TRY_EVAL(json.try_get<std::string>("message"));
+        if (json.has("tags")) {
+            ret.tags = TRY_EVAL(json.try_get_array<DiagnosticTag>("tags"));
         }
-        if (json.has("relatedInformation") {
-            ret.relatedInformation = TRY_EVAL(json.try_get<std::vector<DiagnosticRelatedInformation>>(relatedInformation));
+        if (json.has("relatedInformation")) {
+            ret.relatedInformation = TRY_EVAL(json.try_get_array<DiagnosticRelatedInformation>("relatedInformation"));
         }
-        if (json.has("data") {
-            ret.data = TRY_EVAL(json.try_get<LSP::Any>(data));
+        if (json.has("data")) {
+            ret.data = TRY_EVAL(json.try_get<Any>("data"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "range", encode<Range>(range));
-        set(ret, "severity", encode<std::optional<DiagnosticSeverity>>(severity));
-        set(ret, "code", encode<std::optional<std::variant<int, std::string>>>(code));
-        set(ret, "codeDescription", encode<std::optional<CodeDescription>>(codeDescription));
-        set(ret, "source", encode<std::optional<std::string>>(source));
-        set(ret, "message", encode<std::string>(message));
-        set(ret, "tags", encode<std::optional<std::vector<DiagnosticTag>>>(tags));
-        set(ret, "relatedInformation", encode<std::optional<std::vector<DiagnosticRelatedInformation>>>(relatedInformation));
-        set(ret, "data", encode<std::optional<LSP::Any>>(data));
         JSONValue ret;
+        set(ret, "range", range);
+        set(ret, "severity", severity);
+        set(ret, "code", code);
+        set(ret, "codeDescription", codeDescription);
+        set(ret, "source", source);
+        set(ret, "message", message);
+        set(ret, "tags", tags);
+        set(ret, "relatedInformation", relatedInformation);
+        set(ret, "data", data);
+        return ret;
     };
 };
 

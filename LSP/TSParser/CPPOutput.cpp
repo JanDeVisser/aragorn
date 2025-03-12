@@ -7,16 +7,17 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
-#include <print>
 #include <sstream>
 
 #include "config.h"
+
 #include <LSP/TSParser/TSParser.h>
+#include <LibCore/Utf8.h>
 
 namespace TSParser {
 
 struct License {
-    static constexpr auto text { R"(/**
+    static constexpr auto text { LR"(/**
  * Copyright (c) 2024, Jan de Visser <jan@finiandarcy.com>
  *
  * SPDX-License-Identifier: MIT
@@ -27,7 +28,7 @@ struct License {
 )" };
     static License        MIT;
 
-    friend std::ostream &operator<<(std::ostream &os, License const &)
+    friend std::wostream &operator<<(std::wostream &os, License const &)
     {
         return os << License::text;
     }
@@ -38,19 +39,19 @@ private:
 
 License License::MIT;
 
-void emit_string_enum_header(std::ostream &os, TypeDef const &type)
+void emit_string_enum_header(std::wostream &os, TypeDef const &type)
 {
     auto &e = type.enumeration();
 
-    os << License::MIT << R"(#pragma once
+    os << License::MIT << LR"(#pragma once
 
 #include <LSP/Schema/LSPBase.h>
 )";
     for (auto const &dep : type.dependencies) {
-        os << "#include <LSP/Schema/" << dep << ".h>\n";
+        os << L"#include <LSP/Schema/" << dep << L".h>\n";
     }
 
-    os << std::format(R"(
+    os << std::format(LR"(
 namespace LSP {{
 
 enum class {} {{
@@ -58,36 +59,34 @@ enum class {} {{
         type.name);
 
     for (auto const &value : e.values) {
-        os << std::format("    {},\n", capitalize(value.name));
+        os << std::format(L"    {},\n", capitalize(value.name));
     }
-    os << std::format(R"(}};
+    os << std::format(LR"(}};
 
-template<>
-inline std::string as_string({} obj)
+inline std::string {0}_as_string({0} obj)
 {{
     switch (obj) {{
 )",
         type.name);
     for (auto const &value : e.values) {
-        os << std::format(R"(    case {}::{}: return "{}";
+        os << std::format(LR"(    case {}::{}: return "{}";
 )",
-            type.name, capitalize(value.name), std::get<std::string>(value.value));
+            type.name, capitalize(value.name), std::get<std::wstring>(value.value));
     }
-    os << std::format(R"(    default: return "unknown";
+    os << std::format(LR"(    default: return "unknown";
     }}
 }}
 
-template<>
-inline std::optional<{}> from_string<{}>(std::string_view const& s)
+inline std::optional<{0}> {0}_from_string(std::string_view const& s)
 {{
 )",
-        type.name, type.name);
+        type.name);
     for (auto const &value : e.values) {
-        os << std::format(R"(    if (s == "{}") return {}::{};
+        os << std::format(LR"(    if (s == "{}") return {}::{};
 )",
-            std::get<std::string>(value.value), type.name, capitalize(value.name));
+            std::get<std::wstring>(value.value), type.name, capitalize(value.name));
     }
-    os << std::format(R"(    return {{}};
+    os << std::format(LR"(    return {{ }};
 }}
 
 }} /* namespace LSP */
@@ -99,13 +98,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode({0} const &obj)
 {{
-    return encode_string_enum<{0}>(obj);
+    return JSONValue {{ {0}_as_string(obj) }};
 }}
 
 template<>
-inline Result<{0}, JSONError> decode(JSONValue const &json)
+inline Decoded<{0}> decode(JSONValue const &json)
 {{
-    return decode_string_enum<{0}>(json);
+    return {0}_from_string(json.to_string());
 }}
 
 }} /* namespace LibCore */
@@ -113,19 +112,19 @@ inline Result<{0}, JSONError> decode(JSONValue const &json)
         type.name);
 }
 
-void emit_int_enum_header(std::ostream &os, TypeDef const &type)
+void emit_int_enum_header(std::wostream &os, TypeDef const &type)
 {
     auto &e = type.enumeration();
 
-    os << License::MIT << R"(#pragma once
+    os << License::MIT << LR"(#pragma once
 
 #include <LSP/Schema/LSPBase.h>
 )";
     for (auto const &dep : type.dependencies) {
-        os << "#include <LSP/Schema/" << dep << ".h>\n";
+        os << L"#include <LSP/Schema/" << dep << L".h>\n";
     }
 
-    os << std::format(R"(
+    os << std::format(LR"(
 namespace LSP {{
 
 enum class {} {{
@@ -133,21 +132,20 @@ enum class {} {{
         type.name);
 
     for (auto const &value : e.values) {
-        os << std::format("    {} = {},\n", capitalize(value.name), std::get<int>(value.value));
+        os << std::format(L"    {} = {},\n", capitalize(value.name), std::get<int>(value.value));
     }
-    os << std::format(R"(}};
+    os << std::format(LR"(}};
 
-template<>
-inline std::optional<{}> from_int<{}>(int i)
+inline std::optional<{0}> {0}_from_int(int i)
 {{
 )",
-        type.name, type.name);
+        type.name);
     for (auto const &value : e.values) {
-        os << std::format(R"(    if (i == {}) return {}::{};
+        os << std::format(LR"(    if (i == {}) return {}::{};
 )",
             std::get<int>(value.value), type.name, capitalize(value.name));
     }
-    os << std::format(R"(    return {{}};
+    os << std::format(LR"(    return {{ }};
 }}
 
 }} /* namespace LSP */
@@ -159,13 +157,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode({0} const &obj)
 {{
-    return encode_int_enum(obj);
+    return JSONValue {{ static_cast<int>(obj) }};
 }}
 
 template<>
-inline Result<{0}, JSONError> decode(JSONValue const &json)
+inline Decoded<{0}> decode(JSONValue const &json)
 {{
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = {0}_from_int(int_val); !v) {{
+        return JSONError {{
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type '{0}' to integer",
+        }};
+    }} else {{
+        return *v;
+    }}
 }}
 
 }} /* namespace LibCore */
@@ -173,12 +180,12 @@ inline Result<{0}, JSONError> decode(JSONValue const &json)
         type.name);
 }
 
-void emit_prop_def(std::ostream &os, Property const &prop);
+void emit_prop_def(std::wostream &os, Property const &prop);
 
-void render_type(std::ostream &os, pType type)
+void render_type(std::wostream &os, pType type, bool bare = false)
 {
-    if (type->array) {
-        os << "std::vector<";
+    if (type->array && !bare) {
+        os << L"std::vector<";
     }
     switch (type->kind) {
     case TypeKind::Type: {
@@ -192,75 +199,76 @@ void render_type(std::ostream &os, pType type)
         os << type->synthetic_name;
     } break;
     case TypeKind::Variant: {
-        char sep = '<';
-        os << "std::variant";
+        wchar_t sep = '<';
+        if (!bare) {
+            os << L"std::variant";
+        }
         for (auto const &t : type->variant().options) {
             os << sep;
             render_type(os, t);
             sep = ',';
         }
-        os << ">";
+        if (!bare) {
+            os << L">";
+        }
     } break;
     default:
-        std::cout << "render_type(" << TypeKind_name(type->kind) << ")\n";
         UNREACHABLE();
     }
-    if (type->array) {
-        os << ">";
+    if (type->array && !bare) {
+        os << L">";
     }
 }
 
-void inline_struct(std::ostream &os, std::string_view const &name, Interface const &iface)
+void inline_struct(std::wostream &os, std::wstring_view const &name, Interface const &iface)
 {
-    os << "struct " << name << " ";
-    if (iface.extends.empty()) {
-        os << ": public LSPObject ";
-    } else {
+    os << L"struct " << name << L" ";
+    if (!iface.extends.empty()) {
         char sep = ':';
         for (auto const &ext : iface.extends) {
-            os << std::format("{:c} public {} ", sep, ext);
+            os << std::format(L"{:c} public {} ", sep, ext);
             sep = ',';
         }
     }
-    os << "{\n";
+    os << L"{\n";
     for (auto const &prop : iface.properties) {
         emit_prop_def(os, prop);
     }
-    os << "\nstatic Result<" << name << ", JSONError> decode(JSONValue const& json) {\n"
-       << name << " ret;\n";
+    os << L"\nstatic Decoded<" << name << L"> decode(JSONValue const& json) {\n"
+       << name << L" ret;\n";
     for (auto const &prop : iface.properties) {
-	if (prop.optional) {
-            os << "        if (json.has(\"" << prop.name << "\") {\n";
-	}
-        os << "        ret." << prop.name << " = TRY_EVAL(json.try_get<";
-	render_type(os, prop.type);
-        os << ">(" << prop.name << "));\n";
-	if (prop.optional) {
-            os << "        }\n";
-	}
+        if (prop.optional) {
+            os << L"        if (json.has(\"" << prop.name << L"\")) {\n";
+        }
+        if (prop.type->array) {
+            os << L"        ret." << prop.name << " = TRY_EVAL(json.try_get_array<";
+        } else if (prop.type->kind == TypeKind::Variant) {
+            os << L"        ret." << prop.name << " = TRY_EVAL(json.try_get_variant";
+        } else {
+            os << L"        ret." << prop.name << " = TRY_EVAL(json.try_get<";
+        }
+        render_type(os, prop.type, true);
+        os << L">(\"" << prop.name << L"\"));\n";
+        if (prop.optional) {
+            os << L"        }\n";
+        }
     }
-    os << "         return ret;\n";
-    os << "    }\n\n";
+    os << L"         return std::move(ret);\n";
+    os << L"    }\n\n";
 
-    os << "JSONValue encode() {\n";
+    os << L"JSONValue encode() const {\n";
+    os << L"JSONValue ret;\n";
     for (auto const &prop : iface.properties) {
-        os << "set(ret, \"" << prop.name << "\", ";
-        os << "encode<";
-        if (prop.optional) {
-	    os << "std::optional<";
-	}
-        render_type(os, prop.type);
-        if (prop.optional) {
-	    os << ">";
-	}
-	os << ">(" << prop.name << "));\n";
+        auto n = MUST_EVAL(to_utf8(prop.name));
+        os << L"set(ret, \"" << prop.name << L"\", ";
+        os << prop.name << L");\n";
     }
-    os << "JSONValue ret;\n";  
-    os << "};\n";
-    os << "};\n";
+    os << L"return ret;\n";
+    os << L"};\n";
+    os << L"};\n";
 }
 
-void emit_prop_def(std::ostream &os, Property const &prop)
+void emit_prop_def(std::wostream &os, Property const &prop)
 {
     if (prop.type->kind == TypeKind::Struct) {
         prop.type->synthetic_name = capitalize(prop.name);
@@ -271,80 +279,80 @@ void emit_prop_def(std::ostream &os, Property const &prop)
         auto        ix = 0u;
         for (auto const &option : variant.options) {
             if (option->kind == TypeKind::Struct) {
-                option->synthetic_name = std::format("{}_{}", capitalize(prop.name), ix);
+                option->synthetic_name = std::format(L"{}_{}", capitalize(prop.name), ix);
                 inline_struct(os, option->synthetic_name, option->interface());
             }
             ++ix;
         }
     }
-    os << "    ";
+    os << L"    ";
     if (prop.optional) {
-        os << "std::optional<";
+        os << L"std::optional<";
     }
     render_type(os, prop.type);
     if (prop.optional) {
-        os << ">";
+        os << L">";
     }
-    os << " " << prop.name << ";\n";
+    os << L" " << prop.name << L";\n";
 }
 
-void emit_interface_header(std::ostream &os, TypeDef const &type)
+void emit_interface_header(std::wostream &os, TypeDef const &type)
 {
     auto &iface = type.interface();
 
-    os << License::MIT << R"(#pragma once
+    os << License::MIT << LR"(#pragma once
 
 #include <LSP/Schema/LSPBase.h>
 )";
     for (auto const &dep : type.dependencies) {
-        os << "#include <LSP/Schema/" << dep << ".h>\n";
+        os << L"#include <LSP/Schema/" << dep << L".h>\n";
     }
 
-    os << std::format(R"(
+    os << std::format(LR"(
 namespace LSP {{
 
 )");
     inline_struct(os, type.name, iface);
-    os << R"(
+    os << LR"(
 
 } /* namespace LSP */
 )";
 }
 
-void emit_variant_header(std::ostream &os, TypeDef const &type)
+void emit_variant_header(std::wostream &os, TypeDef const &type)
 {
     auto &variant = type.variant();
 
-    os << License::MIT << R"(#pragma once
+    os << License::MIT << LR"(#pragma once
 
 #include <LSP/Schema/LSPBase.h>
 )";
     for (auto const &dep : type.dependencies) {
-        os << "#include <LSP/Schema/" << dep << ".h>\n";
+        os << L"#include <LSP/Schema/" << dep << L".h>\n";
     }
 
-    os << R"(
+    os << LR"(
 namespace LSP {{
 
 )";
 
-    auto        ix = 0u;
+    auto ix = 0u;
     for (auto const &option : variant.options) {
-	if (option->kind == TypeKind::Struct) {
-	    option->synthetic_name = std::format("{}_{}", capitalize(type.name), ix);
-	    inline_struct(os, option->synthetic_name, option->interface());
-	}
-	++ix;
+        if (option->kind == TypeKind::Struct) {
+            option->synthetic_name = std::format(L"{}_{}", capitalize(type.name), ix);
+            inline_struct(os, option->synthetic_name, option->interface());
+        }
+        ++ix;
     }
-    os << std::format("using {} = std::variant", type.name);
+    os << std::format(L"using {} = std::variant", type.name);
     ix = 0;
-    auto sep = '<';
+    wchar_t sep = '<';
     for (auto const &option : variant.options) {
         os << sep;
-	render_type(os, option);
-	sep = ',';
+        render_type(os, option);
+        sep = ',';
     }
-    os << R"(>;
+    os << LR"(>;
 
 } /* namespace LSP */
 )";
@@ -353,7 +361,7 @@ namespace LSP {{
 struct Header {
     TypeDef const &type;
 
-    friend std::ostream &operator<<(std::ostream &os, Header const &self)
+    friend std::wostream &operator<<(std::wostream &os, Header const &self)
     {
         switch (self.type.kind) {
         case TypeDefKind::Enumeration: {
@@ -372,8 +380,8 @@ struct Header {
             emit_interface_header(os, self.type);
             break;
         case TypeDefKind::Variant: {
-	    emit_variant_header(os, self.type);
-	} break;
+            emit_variant_header(os, self.type);
+        } break;
         case TypeDefKind::Alias:
             break;
         default:
@@ -385,11 +393,15 @@ struct Header {
 
 void CPPOutputter::output()
 {
-    Header        h { m_type };
-    std::ofstream os { std::format("{}.h", m_type.name), std::ios::trunc | std::ios::out };
-    os << h;
-    os.close();
-    std::system(std::format("clang-format -i {}.h", m_type.name).c_str());
+    Header      h { m_type };
+    std::string n { as_utf8(m_type.name) };
+    {
+        std::wofstream os { std::format("{}.h", n), std::ios::trunc | std::ios::out };
+        os << h;
+        os.close();
+    }
+    auto cmd = std::format("clang-format -i {}.h", n);
+    std::system(cmd.c_str());
 }
 
 }

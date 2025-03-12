@@ -17,8 +17,7 @@ enum class InsertTextFormat {
     Snippet = 2,
 };
 
-template<>
-inline std::optional<InsertTextFormat> from_int<InsertTextFormat>(int i)
+inline std::optional<InsertTextFormat> InsertTextFormat_from_int(int i)
 {
     if (i == 1)
         return InsertTextFormat::PlainText;
@@ -36,13 +35,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(InsertTextFormat const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<InsertTextFormat, JSONError> decode(JSONValue const &json)
+inline Decoded<InsertTextFormat> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = InsertTextFormat_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'InsertTextFormat' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

@@ -13,22 +13,23 @@
 
 namespace LSP {
 
-struct ClientCapabilities : public LSPObject {
+struct ClientCapabilities {
     std::optional<TextDocumentClientCapabilities> textDocument;
 
-    static Result<ClientCapabilities, JSONError> decode(JSONValue const &json)
+    static Decoded<ClientCapabilities> decode(JSONValue const &json)
     {
         ClientCapabilities ret;
-        if (json.has("textDocument") {
-            ret.textDocument = TRY_EVAL(json.try_get<TextDocumentClientCapabilities>(textDocument));
+        if (json.has("textDocument")) {
+            ret.textDocument = TRY_EVAL(json.try_get<TextDocumentClientCapabilities>("textDocument"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "textDocument", encode<std::optional<TextDocumentClientCapabilities>>(textDocument));
         JSONValue ret;
+        set(ret, "textDocument", textDocument);
+        return ret;
     };
 };
 

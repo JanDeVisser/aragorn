@@ -11,9 +11,11 @@
 #include <LibCore/Result.h>
 #include <LibCore/StringUtil.h>
 
-namespace LibCore {
-
+extern "C" {
 void sigchld(int);
+}
+
+namespace LibCore {
 
 template<class T = void *>
 class Process {
@@ -37,7 +39,19 @@ public:
 
     pid_t pid() const { return m_pid; }
 
-    Result<int, LibCError> start(T const &ctx)
+    Process &on_stdout_read(typename ReadPipe<T>::OnPipeRead on_read)
+    {
+        m_on_stdout_read = on_read;
+        return *this;
+    }
+
+    Process &on_stderr_read(typename ReadPipe<T>::OnPipeRead on_read)
+    {
+        m_on_stderr_read = on_read;
+        return *this;
+    }
+
+    CError start(T const &ctx)
     {
         signal(SIGCHLD, sigchld);
         size_t sz = m_arguments.size();
@@ -61,11 +75,11 @@ public:
         if (auto err = m_in.initialize(); err) {
             return err;
         }
-        if (auto err = m_out.initialize(); err) {
+        if (auto err = m_out.initialize(m_on_stdout_read); err) {
             return err;
         }
         m_out.context(ctx);
-        if (auto err = m_err.initialize(); err) {
+        if (auto err = m_err.initialize(m_on_stderr_read); err) {
             return err;
         }
         m_err.context(ctx);
@@ -82,28 +96,27 @@ public:
                     pipe.connect_child(fileno);
                 } else {
                     int fd = open(redirect.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0777);
-                    assert_msg(fd, "Could not open stdout stream '%s' for '%s': %s",
-                        redirect, m_command, strerror(errno));
+                    assert(fd);
                     while (dup2(fd, fileno) == -1 && (errno == EINTR)) { }
                 }
             };
-            connect_stream(m_out, STDOUT_FILENO, m_stdout_file);
-            connect_stream(m_err, STDERR_FILENO, m_stderr_file);
+            connect_stream(m_out, STDOUT_FILENO, stdout_file);
+            connect_stream(m_err, STDERR_FILENO, stderr_file);
             ::execvp(argv[0], (char *const *) argv);
             fatal("execvp({}) failed: {}", m_command, LibCError(errno).description);
         }
         m_in.connect_parent();
         m_out.connect_parent();
         m_err.connect_parent();
-        return m_pid;
+        return {};
     }
 
-    Result<int, LibCError> background()
+    CError background(T const &ctx)
     {
-        return start();
+        return start(ctx);
     }
 
-    Result<int, LibCError> wait()
+    Result<int> wait()
     {
         if (m_pid == 0) {
             return { 0 };
@@ -120,19 +133,26 @@ public:
         return { WEXITSTATUS(exit_code) };
     }
 
-    Result<int, LibCError> start()
+    CError start()
     {
-        T ctx = {};
+        T ctx {};
         return start(ctx);
     }
 
-    Result<int, LibCError> execute()
+    Result<int> execute()
     {
-        if (auto err = start(); err) {
-            return err;
-        }
+        TRY(start());
         return wait();
     }
+
+    CError write_to(std::string_view const &msg)
+    {
+        TRY(m_in.write(msg));
+        return {};
+    }
+
+    std::string stdout_file;
+    std::string stderr_file;
 
 private:
     void set_arguments(StringList const &cmd_args)
@@ -147,14 +167,14 @@ private:
         set_arguments(cmd_args, std::forward<Args>(args)...);
     }
 
-    pid_t                    m_pid;
-    std::string              m_command;
-    std::vector<std::string> m_arguments;
-    WritePipe                m_in;
-    ReadPipe<T>              m_out;
-    ReadPipe<T>              m_err;
-    std::string              m_stdout_file;
-    std::string              m_stderr_file;
+    pid_t                            m_pid { -1 };
+    std::string                      m_command;
+    std::vector<std::string>         m_arguments;
+    WritePipe                        m_in {};
+    ReadPipe<T>                      m_out {};
+    ReadPipe<T>                      m_err {};
+    typename ReadPipe<T>::OnPipeRead m_on_stdout_read;
+    typename ReadPipe<T>::OnPipeRead m_on_stderr_read;
 };
 
 }

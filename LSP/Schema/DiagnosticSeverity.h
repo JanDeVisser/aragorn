@@ -19,8 +19,7 @@ enum class DiagnosticSeverity {
     Hint = 4,
 };
 
-template<>
-inline std::optional<DiagnosticSeverity> from_int<DiagnosticSeverity>(int i)
+inline std::optional<DiagnosticSeverity> DiagnosticSeverity_from_int(int i)
 {
     if (i == 1)
         return DiagnosticSeverity::Error;
@@ -42,13 +41,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(DiagnosticSeverity const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<DiagnosticSeverity, JSONError> decode(JSONValue const &json)
+inline Decoded<DiagnosticSeverity> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = DiagnosticSeverity_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'DiagnosticSeverity' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

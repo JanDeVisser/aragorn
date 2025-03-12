@@ -13,23 +13,24 @@
 
 namespace LSP {
 
-struct MarkupContent : public LSPObject {
+struct MarkupContent {
     MarkupKind  kind;
     std::string value;
 
-    static Result<MarkupContent, JSONError> decode(JSONValue const &json)
+    static Decoded<MarkupContent> decode(JSONValue const &json)
     {
         MarkupContent ret;
-        ret.kind = TRY_EVAL(json.try_get<MarkupKind>(kind));
-        ret.value = TRY_EVAL(json.try_get<std::string>(value));
-        return ret;
+        ret.kind = TRY_EVAL(json.try_get<MarkupKind>("kind"));
+        ret.value = TRY_EVAL(json.try_get<std::string>("value"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "kind", encode<MarkupKind>(kind));
-        set(ret, "value", encode<std::string>(value));
         JSONValue ret;
+        set(ret, "kind", kind);
+        set(ret, "value", value);
+        return ret;
     };
 };
 

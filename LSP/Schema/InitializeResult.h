@@ -13,46 +13,48 @@
 
 namespace LSP {
 
-struct InitializeResult : public LSPObject {
+struct InitializeResult {
     ServerCapabilities capabilities;
-    struct ServerInfo : public LSPObject {
+    struct ServerInfo {
         std::string                name;
         std::optional<std::string> version;
 
-        static Result<ServerInfo, JSONError> decode(JSONValue const &json)
+        static Decoded<ServerInfo> decode(JSONValue const &json)
         {
             ServerInfo ret;
-            ret.name = TRY_EVAL(json.try_get<std::string>(name));
-        if (json.has("version") {
-                ret.version = TRY_EVAL(json.try_get<std::string>(version));
-        }
-         return ret;
+            ret.name = TRY_EVAL(json.try_get<std::string>("name"));
+            if (json.has("version")) {
+                ret.version = TRY_EVAL(json.try_get<std::string>("version"));
+            }
+            return std::move(ret);
         }
 
-        JSONValue encode()
+        JSONValue encode() const
         {
-            set(ret, "name", encode<std::string>(name));
-            set(ret, "version", encode<std::optional<std::string>>(version));
             JSONValue ret;
+            set(ret, "name", name);
+            set(ret, "version", version);
+            return ret;
         };
     };
     std::optional<ServerInfo> serverInfo;
 
-    static Result<InitializeResult, JSONError> decode(JSONValue const &json)
+    static Decoded<InitializeResult> decode(JSONValue const &json)
     {
         InitializeResult ret;
-        ret.capabilities = TRY_EVAL(json.try_get<ServerCapabilities>(capabilities));
-        if (json.has("serverInfo") {
-            ret.serverInfo = TRY_EVAL(json.try_get<ServerInfo>(serverInfo));
+        ret.capabilities = TRY_EVAL(json.try_get<ServerCapabilities>("capabilities"));
+        if (json.has("serverInfo")) {
+            ret.serverInfo = TRY_EVAL(json.try_get<ServerInfo>("serverInfo"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "capabilities", encode<ServerCapabilities>(capabilities));
-        set(ret, "serverInfo", encode<std::optional<ServerInfo>>(serverInfo));
         JSONValue ret;
+        set(ret, "capabilities", capabilities);
+        set(ret, "serverInfo", serverInfo);
+        return ret;
     };
 };
 

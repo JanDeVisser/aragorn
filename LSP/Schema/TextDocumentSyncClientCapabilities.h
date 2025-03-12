@@ -12,37 +12,38 @@
 
 namespace LSP {
 
-struct TextDocumentSyncClientCapabilities : public LSPObject {
+struct TextDocumentSyncClientCapabilities {
     std::optional<bool> dynamicRegistration;
     std::optional<bool> willSave;
     std::optional<bool> willSaveWaitUntil;
     std::optional<bool> didSave;
 
-    static Result<TextDocumentSyncClientCapabilities, JSONError> decode(JSONValue const &json)
+    static Decoded<TextDocumentSyncClientCapabilities> decode(JSONValue const &json)
     {
         TextDocumentSyncClientCapabilities ret;
-        if (json.has("dynamicRegistration") {
-            ret.dynamicRegistration = TRY_EVAL(json.try_get<bool>(dynamicRegistration));
+        if (json.has("dynamicRegistration")) {
+            ret.dynamicRegistration = TRY_EVAL(json.try_get<bool>("dynamicRegistration"));
         }
-        if (json.has("willSave") {
-            ret.willSave = TRY_EVAL(json.try_get<bool>(willSave));
+        if (json.has("willSave")) {
+            ret.willSave = TRY_EVAL(json.try_get<bool>("willSave"));
         }
-        if (json.has("willSaveWaitUntil") {
-            ret.willSaveWaitUntil = TRY_EVAL(json.try_get<bool>(willSaveWaitUntil));
+        if (json.has("willSaveWaitUntil")) {
+            ret.willSaveWaitUntil = TRY_EVAL(json.try_get<bool>("willSaveWaitUntil"));
         }
-        if (json.has("didSave") {
-            ret.didSave = TRY_EVAL(json.try_get<bool>(didSave));
+        if (json.has("didSave")) {
+            ret.didSave = TRY_EVAL(json.try_get<bool>("didSave"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "dynamicRegistration", encode<std::optional<bool>>(dynamicRegistration));
-        set(ret, "willSave", encode<std::optional<bool>>(willSave));
-        set(ret, "willSaveWaitUntil", encode<std::optional<bool>>(willSaveWaitUntil));
-        set(ret, "didSave", encode<std::optional<bool>>(didSave));
         JSONValue ret;
+        set(ret, "dynamicRegistration", dynamicRegistration);
+        set(ret, "willSave", willSave);
+        set(ret, "willSaveWaitUntil", willSaveWaitUntil);
+        set(ret, "didSave", didSave);
+        return ret;
     };
 };
 

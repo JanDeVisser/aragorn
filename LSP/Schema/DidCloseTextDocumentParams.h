@@ -13,20 +13,21 @@
 
 namespace LSP {
 
-struct DidCloseTextDocumentParams : public LSPObject {
+struct DidCloseTextDocumentParams {
     TextDocumentIdentifier textDocument;
 
-    static Result<DidCloseTextDocumentParams, JSONError> decode(JSONValue const &json)
+    static Decoded<DidCloseTextDocumentParams> decode(JSONValue const &json)
     {
         DidCloseTextDocumentParams ret;
-        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>(textDocument));
-        return ret;
+        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>("textDocument"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "textDocument", encode<TextDocumentIdentifier>(textDocument));
         JSONValue ret;
+        set(ret, "textDocument", textDocument);
+        return ret;
     };
 };
 

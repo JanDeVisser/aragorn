@@ -49,7 +49,7 @@ private:
 
 class Mode : public Widget {
 public:
-    Mode(pWidget const &parent)
+    explicit Mode(pWidget const &parent)
         : Widget(parent)
     {
     }

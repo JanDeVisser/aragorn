@@ -12,28 +12,29 @@
 
 namespace LSP {
 
-struct LSPCommand : public LSPObject {
-    std::string                          title;
-    std::string                          command;
-    std::optional<std::vector<LSP::Any>> arguments;
+struct LSPCommand {
+    std::string                     title;
+    std::string                     command;
+    std::optional<std::vector<Any>> arguments;
 
-    static Result<LSPCommand, JSONError> decode(JSONValue const &json)
+    static Decoded<LSPCommand> decode(JSONValue const &json)
     {
         LSPCommand ret;
-        ret.title = TRY_EVAL(json.try_get<std::string>(title));
-        ret.command = TRY_EVAL(json.try_get<std::string>(command));
-        if (json.has("arguments") {
-            ret.arguments = TRY_EVAL(json.try_get<std::vector<LSP::Any>>(arguments));
+        ret.title = TRY_EVAL(json.try_get<std::string>("title"));
+        ret.command = TRY_EVAL(json.try_get<std::string>("command"));
+        if (json.has("arguments")) {
+            ret.arguments = TRY_EVAL(json.try_get_array<Any>("arguments"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "title", encode<std::string>(title));
-        set(ret, "command", encode<std::string>(command));
-        set(ret, "arguments", encode<std::optional<std::vector<LSP::Any>>>(arguments));
         JSONValue ret;
+        set(ret, "title", title);
+        set(ret, "command", command);
+        set(ret, "arguments", arguments);
+        return ret;
     };
 };
 

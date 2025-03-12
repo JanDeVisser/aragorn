@@ -12,25 +12,26 @@
 
 namespace LSP {
 
-struct SemanticTokens : public LSPObject {
+struct SemanticTokens {
     std::optional<std::string> resultId;
     std::vector<uint32_t>      data;
 
-    static Result<SemanticTokens, JSONError> decode(JSONValue const &json)
+    static Decoded<SemanticTokens> decode(JSONValue const &json)
     {
         SemanticTokens ret;
-        if (json.has("resultId") {
-            ret.resultId = TRY_EVAL(json.try_get<std::string>(resultId));
+        if (json.has("resultId")) {
+            ret.resultId = TRY_EVAL(json.try_get<std::string>("resultId"));
         }
-        ret.data = TRY_EVAL(json.try_get<std::vector<uint32_t>>(data));
-         return ret;
+        ret.data = TRY_EVAL(json.try_get_array<uint32_t>("data"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "resultId", encode<std::optional<std::string>>(resultId));
-        set(ret, "data", encode<std::vector<uint32_t>>(data));
         JSONValue ret;
+        set(ret, "resultId", resultId);
+        set(ret, "data", data);
+        return ret;
     };
 };
 

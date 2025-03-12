@@ -37,23 +37,43 @@ char const             *LogLevel_name(LogLevel);
 std::optional<LogLevel> LogLevel_by_name(std::string_view const &);
 
 class Logger;
-class LogCategory;
+struct LogCategory;
 
+template<typename T>
 struct LogMessage {
     std::string_view file;
     size_t           line;
     std::string_view function;
     std::string_view category;
     LogLevel         level;
-    std::string      message;
+    T const         *message;
 };
 
 extern std::mutex g_logging_mutex;
 
+template<typename T>
+void print_message(std::basic_string<T> const &msg)
+{
+}
+
+template<>
+inline void print_message(std::string const &msg)
+{
+    std::cerr << msg << std::endl;
+    std::cerr.flush();
+}
+
+template<>
+inline void print_message(std::wstring const &msg)
+{
+    std::wcerr << msg << std::endl;
+    std::wcerr.flush();
+}
+
 class Logger {
 public:
-    template<typename... Args>
-    void logmsg(LogMessage const &msg, Args const &...args)
+    template<typename T, typename... Args>
+    void logmsg(LogMessage<T> const &msg, Args const &...args)
     {
         std::lock_guard<std::mutex> const lock(g_logging_mutex);
         if (!msg.category.empty() && !m_categories.contains(msg.category) && !m_all_enabled) {
@@ -74,31 +94,30 @@ public:
             auto file_line = std::format("{}:{}", f, msg.line);
             auto prefix = std::format("{:<24}:{:<20}:{:<5}:", file_line, msg.function, LogLevel_name(msg.level));
             auto message = std::vformat(msg.message, std::make_format_args(args...));
-            std::cerr << prefix << message << std::endl;
-            std::cerr.flush();
+            print_message(message);
         }
     }
 
-    template<typename... Args>
-    void error_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    template<typename T, typename... Args>
+    void error_msg(std::string_view const &file, size_t line, std::string_view const &function, T const *message, Args &&...args)
     {
-        logmsg({ file, line, function, "", LogLevel::Error, message }, std::forward<Args>(args)...);
+        logmsg<T>({ file, line, function, "", LogLevel::Error, message }, std::forward<Args>(args)...);
         exit(1);
     }
 
-    template<typename... Args>
-    __attribute__ ((noreturn)) void fatal_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args const &...args)
+    template<typename T, typename... Args>
+    __attribute__((noreturn)) void fatal_msg(std::string_view const &file, size_t line, std::string_view const &function, T const *message, Args const &...args)
     {
-        logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
+        logmsg<T>(LogMessage<T> { file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
         abort();
     }
 
-    template<typename... Args>
-    void assert_msg(std::string_view const &file, size_t line, std::string_view const &function, bool condition, char const *message, Args const &...args)
+    template<typename T, typename... Args>
+    void assert_msg(std::string_view const &file, size_t line, std::string_view const &function, bool condition, T const *message, Args const &...args)
     {
         if (condition)
             return;
-        logmsg({ file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
+        logmsg<T>(LogMessage<T> { file, line, function, "", LogLevel::Fatal, message }, std::forward<Args const &>(args)...);
         abort();
     }
     static Logger &get_logger();
@@ -107,9 +126,9 @@ private:
     Logger();
 
     std::set<std::string_view> m_categories {};
-    LogLevel              m_level { LogLevel::Trace };
-    std::string           m_logfile {};
-    bool                  m_all_enabled { false };
+    LogLevel                   m_level { LogLevel::Trace };
+    std::string                m_logfile {};
+    bool                       m_all_enabled { false };
 };
 
 struct LogCategory {
@@ -119,45 +138,45 @@ public:
     LogCategory(std::string_view name) noexcept;
     LogCategory(LogCategory const &) = default;
 
-    template<typename... Args>
-    void logmsg(LogMessage const &msg, Args &&...args)
+    template<typename T, typename... Args>
+    void logmsg(LogMessage<T> const &msg, Args &&...args)
     {
         Logger::get_logger().logmsg(msg, std::forward<Args>(args)...);
     }
 
-    template<typename... Args>
-    void trace_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    template<typename T, typename... Args>
+    void trace_msg(std::string_view const &file, size_t line, std::string_view const &function, T const *message, Args &&...args)
     {
-        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Trace, message }, std::forward<Args>(args)...);
+        Logger::get_logger().logmsg<T>({ file, line, function, name, LogLevel::Trace, message }, std::forward<Args>(args)...);
     }
 
-    template<typename... Args>
-    void info_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    template<typename T, typename... Args>
+    void info_msg(std::string_view const &file, size_t line, std::string_view const &function, T const *message, Args &&...args)
     {
-        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Info, message }, std::forward<Args>(args)...);
+        Logger::get_logger().logmsg<T>({ file, line, function, name, LogLevel::Info, message }, std::forward<Args>(args)...);
     }
 
-    template<typename... Args>
-    void warning_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    template<typename T, typename... Args>
+    void warning_msg(std::string_view const &file, size_t line, std::string_view const &function, T const *message, Args &&...args)
     {
-        Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Warning, message }, std::forward<Args>(args)...);
+        Logger::get_logger().logmsg(LogMessage<char> { file, line, function, name, LogLevel::Warning, message }, std::forward<Args>(args)...);
     }
 
-    template<typename... Args>
-    void error_msg(std::string_view const &file, size_t line, std::string_view const &function, char const *message, Args &&...args)
+    template<typename T, typename... Args>
+    void error_msg(std::string_view const &file, size_t line, std::string_view const &function, T const *message, Args &&...args)
     {
         Logger::get_logger().logmsg({ file, line, function, name, LogLevel::Error, message }, std::forward<Args>(args)...);
     }
 
     static std::clock_t start();
 
-    template<typename... Args>
-    void log_duration(std::clock_t clock_start, std::string_view const &file, size_t line, std::string_view const &caller, char const *msg, Args &&...args)
+    template<typename T, typename... Args>
+    void log_duration(std::clock_t clock_start, std::string_view const &file, size_t line, std::string_view const &caller, T const *msg, Args &&...args)
     {
         auto clock_end = std::clock();
         auto duration_ms = (unsigned long) (1000.0 * ((float) clock_end - (float) clock_start) / CLOCKS_PER_SEC);
 
-        auto       msg_with_timing = std::string(msg).append(" {d}.{03d} sec");
+        auto       msg_with_timing = std::basic_string<T>(msg).append(" {d}.{03d} sec");
         LogMessage log_message {
             file,
             line,

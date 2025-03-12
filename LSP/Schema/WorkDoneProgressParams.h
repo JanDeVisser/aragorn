@@ -12,17 +12,18 @@
 
 namespace LSP {
 
-struct WorkDoneProgressParams : public LSPObject {
+struct WorkDoneProgressParams {
 
-    static Result<WorkDoneProgressParams, JSONError> decode(JSONValue const &json)
+    static Decoded<WorkDoneProgressParams> decode(JSONValue const &json)
     {
         WorkDoneProgressParams ret;
-        return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
         JSONValue ret;
+        return ret;
     };
 };
 

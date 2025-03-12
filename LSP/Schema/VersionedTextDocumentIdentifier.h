@@ -16,17 +16,18 @@ namespace LSP {
 struct VersionedTextDocumentIdentifier : public TextDocumentIdentifier {
     int version;
 
-    static Result<VersionedTextDocumentIdentifier, JSONError> decode(JSONValue const &json)
+    static Decoded<VersionedTextDocumentIdentifier> decode(JSONValue const &json)
     {
         VersionedTextDocumentIdentifier ret;
-        ret.version = TRY_EVAL(json.try_get<int>(version));
-        return ret;
+        ret.version = TRY_EVAL(json.try_get<int>("version"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "version", encode<int>(version));
         JSONValue ret;
+        set(ret, "version", version);
+        return ret;
     };
 };
 

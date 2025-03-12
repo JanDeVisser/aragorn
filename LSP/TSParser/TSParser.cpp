@@ -18,15 +18,15 @@ char const *BasicType_name(BasicType basic_type)
 {
     switch (basic_type) {
     case BasicType::Any:
-        return "LSP::Any";
+        return "Any";
     case BasicType::Bool:
         return "bool";
     case BasicType::Empty:
-        return "LSP::Empty";
+        return "Empty";
     case BasicType::Int:
         return "int";
     case BasicType::Null:
-        return "LSP::Null";
+        return "Null";
     case BasicType::String:
         return "std::string";
     case BasicType::Unsigned:
@@ -78,7 +78,7 @@ JSONValue ConstantType::encode() const
     ret["type"] = BasicType_name(type);
     switch (type) {
     case BasicType::String:
-        ret[BasicType_name(type)] = std::get<std::string>(value);
+        ret[BasicType_name(type)] = MUST_EVAL(to_utf8(std::get<std::wstring>(value)));
         ret["ctype"] = "std::string";
         break;
     case BasicType::Int:
@@ -151,7 +151,7 @@ JSONValue Type::encode() const
     case TypeKind::Type: {
         ret["kind"] = "typeref";
         auto typeref = JSONValue::object();
-        typeref["type"] = std::get<std::string>(definition);
+        typeref["type"] = MUST_EVAL(to_utf8(std::get<std::wstring>(definition)));
         typeref["ctype"] = typeref["type"];
         ret["typeref"] = typeref;
     } break;
@@ -198,7 +198,7 @@ JSONValue Variant::encode() const
 JSONValue Property::encode() const
 {
     auto prop = JSONValue::object();
-    prop["name"] = name;
+    prop["name"] = MUST_EVAL(to_utf8(name));
     prop["optional"] = optional;
     prop["type"] = type->encode();
     return prop;
@@ -254,10 +254,10 @@ JSONValue Enumeration::encode() const
     auto vals = JSONValue::array();
     for (auto const &value : values) {
         auto val = JSONValue::object();
-        val["name"] = value.name;
+        val["name"] = MUST_EVAL(to_utf8(value.name));
         auto capitalized = value.name;
-        capitalized[0] = toupper(capitalized[0]);
-        val["capitalized"] = capitalized;
+        capitalized[0] = towupper(capitalized[0]);
+        val["capitalized"] = MUST_EVAL(to_utf8(capitalized));
         val["type"] = BasicType_name(value_type);
         switch (value_type) {
         case BasicType::Int:
@@ -265,7 +265,7 @@ JSONValue Enumeration::encode() const
             val[BasicType_name(value_type)] = std::get<int>(value.value);
             break;
         case BasicType::String:
-            val[BasicType_name(value_type)] = std::get<std::string>(value.value);
+            val[BasicType_name(value_type)] = MUST_EVAL(to_utf8(std::get<std::wstring>(value.value)));
             break;
         default:
             UNREACHABLE();
@@ -282,15 +282,15 @@ JSONValue Enumeration::encode() const
  * ---------------------------------------------------------------------------
  */
 
-std::map<std::string, TypeDef> TypeDef::s_typedefs {};
+std::map<std::wstring, TypeDef> TypeDef::s_typedefs {};
 
 JSONValue TypeDef::encode() const
 {
     auto ret = JSONValue::object();
-    ret["name"] = name;
+    ret["name"] = MUST_EVAL(to_utf8(name));
     auto deps = JSONValue::array();
     for (auto const &dep : dependencies) {
-        deps.append(dep);
+        deps.append(MUST_EVAL(to_utf8(dep)));
     }
     ret["dependencies"] = deps;
     switch (kind) {
@@ -319,9 +319,9 @@ JSONValue TypeDef::encode() const
 void TypeDef::get_dependencies(pType const &type)
 {
     switch (type->kind) {
-    case TypeKind::Type:
+    case TypeKind::Type: {
         dependencies.insert(type->type_name());
-        break;
+    } break;
     case TypeKind::Struct: {
         for (auto const &prop : type->interface().properties) {
             get_dependencies(prop.type);
@@ -348,17 +348,17 @@ std::vector<Module> Module::s_modules;
 JSONValue Module::encode() const
 {
     auto ret = JSONValue::object();
-    ret["name"] = name;
+    ret["name"] = MUST_EVAL(to_utf8(name));
     auto types_array = JSONValue::array();
     for (auto const &type_name : types) {
-        auto const &type_def = TypeDef::get(name);
+        auto const &type_def = TypeDef::get(type_name);
         types_array += type_def.encode();
     }
     ret["types"] = types_array;
     return ret;
 }
 
-Module &Module::make(std::string_view const &modname)
+Module &Module::make(std::wstring_view const &modname)
 {
     return s_modules.emplace_back(Sentinel {}, modname);
 }
@@ -385,7 +385,7 @@ int main(int argc, char const **argv)
         std::cout << "Generating C++ code" << std::endl;
         for (auto const &type_pair : module) {
             auto &type = type_pair.second;
-            std::cout << type.name << "..." << std::endl;
+            std::wcout << type.name << "..." << std::endl;
             CPPOutputter outputter { type };
             outputter.output();
         }
@@ -396,12 +396,12 @@ int main(int argc, char const **argv)
         for (auto const &name : module.types) {
             auto const &type_def = TypeDef::get(name);
             auto        typedescr = JSONValue::object();
-            typedescr["name"] = name;
+            typedescr["name"] = MUST_EVAL(to_utf8(name));
             typedescr["kind"] = TypeDefKind_name(type_def.kind);
             mod += typedescr;
         }
         auto const &json = mod.serialize(true);
-        auto const &json_file = std::format("{}.json", module.name);
+        auto const &json_file = std::format("{}.json", MUST_EVAL(to_utf8(module.name)));
 
         MUST(write_file_by_name(json_file, json));
 

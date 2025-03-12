@@ -17,8 +17,7 @@ enum class MarkupKind {
     Markdown,
 };
 
-template<>
-inline std::string as_string(MarkupKind obj)
+inline std::string MarkupKind_as_string(MarkupKind obj)
 {
     switch (obj) {
     case MarkupKind::PlainText:
@@ -30,8 +29,7 @@ inline std::string as_string(MarkupKind obj)
     }
 }
 
-template<>
-inline std::optional<MarkupKind> from_string<MarkupKind>(std::string_view const &s)
+inline std::optional<MarkupKind> MarkupKind_from_string(std::string_view const &s)
 {
     if (s == "arkupKin")
         return MarkupKind::PlainText;
@@ -49,13 +47,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode(MarkupKind const &obj)
 {
-    return encode_string_enum<MarkupKind>(obj);
+    return JSONValue { MarkupKind_as_string(obj) };
 }
 
 template<>
-inline Result<MarkupKind, JSONError> decode(JSONValue const &json)
+inline Decoded<MarkupKind> decode(JSONValue const &json)
 {
-    return decode_string_enum<MarkupKind>(json);
+    return MarkupKind_from_string(json.to_string());
 }
 
 } /* namespace LibCore */

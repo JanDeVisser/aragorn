@@ -17,7 +17,7 @@ namespace Aragorn {
 
 using namespace LibCore;
 
-Theme& Theme::the()
+Theme &Theme::the()
 {
     return Aragorn::the()->theme();
 }
@@ -152,10 +152,10 @@ Scope Theme::get_scope(SemanticTokenTypes type)
     if (m_semantic_token_type_to_scope_id.contains(type)) {
         return m_semantic_token_type_to_scope_id.at(type);
     }
-    auto scope_name = std::format("SemanticTokenTypes.{}", as_string(type));
+    auto scope_name = std::format("SemanticTokenTypes.{}", SemanticTokenTypes_as_string(type));
     if (auto scope_id = get_scope(scope_name); scope_id > 0) {
         m_semantic_token_type_to_scope_id[type] = scope_id;
-	return scope_id;
+        return scope_id;
     }
     std::string scope;
     switch (type) {
@@ -216,8 +216,8 @@ Scope Theme::get_scope(SemanticTokenTypes type)
 Scope Theme::get_scope(std::string_view const &name)
 {
     if (m_scope_ids.contains(name)) {
-	Scope ret = m_scope_ids[name];
-	trace(THEME, "get_scope({}) mapped to scope_id {}: {}", name, ret, m_colours[ret].colours.to_string());
+        Scope ret = m_scope_ids[name];
+        trace(THEME, "get_scope({}) mapped to scope_id {}: {}", name, ret, m_colours[ret].colours.to_string());
         return ret;
     }
 
@@ -228,10 +228,10 @@ Scope Theme::get_scope(std::string_view const &name)
         auto &ss = m_colours[ss_ix];
         if (ss.scope.empty() && ss_match < 0) {
             ss_match = ss_ix;
-	    continue;
-	}
+            continue;
+        }
         if (name.starts_with(ss.scope) && ss.scope.length() > matchlen) {
-	    trace(THEME, "match: {}", ss.scope);
+            trace(THEME, "match: {}", ss.scope);
             ss_match = ss_ix;
             matchlen = ss.scope.length();
         }

@@ -14,42 +14,43 @@
 
 namespace LSP {
 
-struct TextDocumentSyncOptions : public LSPObject {
+struct TextDocumentSyncOptions {
     std::optional<bool>                            openClose;
     std::optional<TextDocumentSyncKind>            change;
     std::optional<bool>                            willSave;
     std::optional<bool>                            willSaveWaitUntil;
     std::optional<std::variant<bool, SaveOptions>> save;
 
-    static Result<TextDocumentSyncOptions, JSONError> decode(JSONValue const &json)
+    static Decoded<TextDocumentSyncOptions> decode(JSONValue const &json)
     {
         TextDocumentSyncOptions ret;
-        if (json.has("openClose") {
-            ret.openClose = TRY_EVAL(json.try_get<bool>(openClose));
+        if (json.has("openClose")) {
+            ret.openClose = TRY_EVAL(json.try_get<bool>("openClose"));
         }
-        if (json.has("change") {
-            ret.change = TRY_EVAL(json.try_get<TextDocumentSyncKind>(change));
+        if (json.has("change")) {
+            ret.change = TRY_EVAL(json.try_get<TextDocumentSyncKind>("change"));
         }
-        if (json.has("willSave") {
-            ret.willSave = TRY_EVAL(json.try_get<bool>(willSave));
+        if (json.has("willSave")) {
+            ret.willSave = TRY_EVAL(json.try_get<bool>("willSave"));
         }
-        if (json.has("willSaveWaitUntil") {
-            ret.willSaveWaitUntil = TRY_EVAL(json.try_get<bool>(willSaveWaitUntil));
+        if (json.has("willSaveWaitUntil")) {
+            ret.willSaveWaitUntil = TRY_EVAL(json.try_get<bool>("willSaveWaitUntil"));
         }
-        if (json.has("save") {
-            ret.save = TRY_EVAL(json.try_get<std::variant<bool, SaveOptions>>(save));
+        if (json.has("save")) {
+            ret.save = TRY_EVAL(json.try_get_variant<bool, SaveOptions>("save"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "openClose", encode<std::optional<bool>>(openClose));
-        set(ret, "change", encode<std::optional<TextDocumentSyncKind>>(change));
-        set(ret, "willSave", encode<std::optional<bool>>(willSave));
-        set(ret, "willSaveWaitUntil", encode<std::optional<bool>>(willSaveWaitUntil));
-        set(ret, "save", encode<std::optional<std::variant<bool, SaveOptions>>>(save));
         JSONValue ret;
+        set(ret, "openClose", openClose);
+        set(ret, "change", change);
+        set(ret, "willSave", willSave);
+        set(ret, "willSaveWaitUntil", willSaveWaitUntil);
+        set(ret, "save", save);
+        return ret;
     };
 };
 

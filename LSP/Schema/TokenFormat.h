@@ -16,8 +16,7 @@ enum class TokenFormat {
     Relative,
 };
 
-template<>
-inline std::string as_string(TokenFormat obj)
+inline std::string TokenFormat_as_string(TokenFormat obj)
 {
     switch (obj) {
     case TokenFormat::Relative:
@@ -27,8 +26,7 @@ inline std::string as_string(TokenFormat obj)
     }
 }
 
-template<>
-inline std::optional<TokenFormat> from_string<TokenFormat>(std::string_view const &s)
+inline std::optional<TokenFormat> TokenFormat_from_string(std::string_view const &s)
 {
     if (s == "relative")
         return TokenFormat::Relative;
@@ -44,13 +42,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode(TokenFormat const &obj)
 {
-    return encode_string_enum<TokenFormat>(obj);
+    return JSONValue { TokenFormat_as_string(obj) };
 }
 
 template<>
-inline Result<TokenFormat, JSONError> decode(JSONValue const &json)
+inline Decoded<TokenFormat> decode(JSONValue const &json)
 {
-    return decode_string_enum<TokenFormat>(json);
+    return TokenFormat_from_string(json.to_string());
 }
 
 } /* namespace LibCore */

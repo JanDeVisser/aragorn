@@ -13,26 +13,27 @@
 
 namespace LSP {
 
-struct InsertReplaceEdit : public LSPObject {
+struct InsertReplaceEdit {
     std::string newText;
     Range       insert;
     Range       replace;
 
-    static Result<InsertReplaceEdit, JSONError> decode(JSONValue const &json)
+    static Decoded<InsertReplaceEdit> decode(JSONValue const &json)
     {
         InsertReplaceEdit ret;
-        ret.newText = TRY_EVAL(json.try_get<std::string>(newText));
-        ret.insert = TRY_EVAL(json.try_get<Range>(insert));
-        ret.replace = TRY_EVAL(json.try_get<Range>(replace));
-        return ret;
+        ret.newText = TRY_EVAL(json.try_get<std::string>("newText"));
+        ret.insert = TRY_EVAL(json.try_get<Range>("insert"));
+        ret.replace = TRY_EVAL(json.try_get<Range>("replace"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "newText", encode<std::string>(newText));
-        set(ret, "insert", encode<Range>(insert));
-        set(ret, "replace", encode<Range>(replace));
         JSONValue ret;
+        set(ret, "newText", newText);
+        set(ret, "insert", insert);
+        set(ret, "replace", replace);
+        return ret;
     };
 };
 

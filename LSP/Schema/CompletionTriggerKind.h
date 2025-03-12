@@ -18,8 +18,7 @@ enum class CompletionTriggerKind {
     TriggerForIncompleteCompletions = 3,
 };
 
-template<>
-inline std::optional<CompletionTriggerKind> from_int<CompletionTriggerKind>(int i)
+inline std::optional<CompletionTriggerKind> CompletionTriggerKind_from_int(int i)
 {
     if (i == 1)
         return CompletionTriggerKind::Invoked;
@@ -39,13 +38,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(CompletionTriggerKind const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<CompletionTriggerKind, JSONError> decode(JSONValue const &json)
+inline Decoded<CompletionTriggerKind> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = CompletionTriggerKind_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'CompletionTriggerKind' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

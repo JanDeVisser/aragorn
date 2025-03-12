@@ -12,23 +12,24 @@
 
 namespace LSP {
 
-struct SemanticTokensLegend : public LSPObject {
+struct SemanticTokensLegend {
     std::vector<std::string> tokenTypes;
     std::vector<std::string> tokenModifiers;
 
-    static Result<SemanticTokensLegend, JSONError> decode(JSONValue const &json)
+    static Decoded<SemanticTokensLegend> decode(JSONValue const &json)
     {
         SemanticTokensLegend ret;
-        ret.tokenTypes = TRY_EVAL(json.try_get<std::vector<std::string>>(tokenTypes));
-        ret.tokenModifiers = TRY_EVAL(json.try_get<std::vector<std::string>>(tokenModifiers));
-        return ret;
+        ret.tokenTypes = TRY_EVAL(json.try_get_array<std::string>("tokenTypes"));
+        ret.tokenModifiers = TRY_EVAL(json.try_get_array<std::string>("tokenModifiers"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "tokenTypes", encode<std::vector<std::string>>(tokenTypes));
-        set(ret, "tokenModifiers", encode<std::vector<std::string>>(tokenModifiers));
         JSONValue ret;
+        set(ret, "tokenTypes", tokenTypes);
+        set(ret, "tokenModifiers", tokenModifiers);
+        return ret;
     };
 };
 

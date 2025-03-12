@@ -18,8 +18,7 @@ enum class PositionEncodingKind {
     UTF32,
 };
 
-template<>
-inline std::string as_string(PositionEncodingKind obj)
+inline std::string PositionEncodingKind_as_string(PositionEncodingKind obj)
 {
     switch (obj) {
     case PositionEncodingKind::UTF8:
@@ -33,8 +32,7 @@ inline std::string as_string(PositionEncodingKind obj)
     }
 }
 
-template<>
-inline std::optional<PositionEncodingKind> from_string<PositionEncodingKind>(std::string_view const &s)
+inline std::optional<PositionEncodingKind> PositionEncodingKind_from_string(std::string_view const &s)
 {
     if (s == "ositionEncodingKin")
         return PositionEncodingKind::UTF8;
@@ -54,13 +52,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode(PositionEncodingKind const &obj)
 {
-    return encode_string_enum<PositionEncodingKind>(obj);
+    return JSONValue { PositionEncodingKind_as_string(obj) };
 }
 
 template<>
-inline Result<PositionEncodingKind, JSONError> decode(JSONValue const &json)
+inline Decoded<PositionEncodingKind> decode(JSONValue const &json)
 {
-    return decode_string_enum<PositionEncodingKind>(json);
+    return PositionEncodingKind_from_string(json.to_string());
 }
 
 } /* namespace LibCore */

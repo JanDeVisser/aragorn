@@ -12,30 +12,31 @@
 
 namespace LSP {
 
-struct ChangeAnnotation : public LSPObject {
+struct ChangeAnnotation {
     std::string                label;
     std::optional<bool>        needsConfirmation;
     std::optional<std::string> description;
 
-    static Result<ChangeAnnotation, JSONError> decode(JSONValue const &json)
+    static Decoded<ChangeAnnotation> decode(JSONValue const &json)
     {
         ChangeAnnotation ret;
-        ret.label = TRY_EVAL(json.try_get<std::string>(label));
-        if (json.has("needsConfirmation") {
-            ret.needsConfirmation = TRY_EVAL(json.try_get<bool>(needsConfirmation));
+        ret.label = TRY_EVAL(json.try_get<std::string>("label"));
+        if (json.has("needsConfirmation")) {
+            ret.needsConfirmation = TRY_EVAL(json.try_get<bool>("needsConfirmation"));
         }
-        if (json.has("description") {
-            ret.description = TRY_EVAL(json.try_get<std::string>(description));
+        if (json.has("description")) {
+            ret.description = TRY_EVAL(json.try_get<std::string>("description"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "label", encode<std::string>(label));
-        set(ret, "needsConfirmation", encode<std::optional<bool>>(needsConfirmation));
-        set(ret, "description", encode<std::optional<std::string>>(description));
         JSONValue ret;
+        set(ret, "label", label);
+        set(ret, "needsConfirmation", needsConfirmation);
+        set(ret, "description", description);
+        return ret;
     };
 };
 

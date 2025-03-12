@@ -13,23 +13,24 @@
 
 namespace LSP {
 
-struct DiagnosticRelatedInformation : public LSPObject {
+struct DiagnosticRelatedInformation {
     Location    location;
     std::string message;
 
-    static Result<DiagnosticRelatedInformation, JSONError> decode(JSONValue const &json)
+    static Decoded<DiagnosticRelatedInformation> decode(JSONValue const &json)
     {
         DiagnosticRelatedInformation ret;
-        ret.location = TRY_EVAL(json.try_get<Location>(location));
-        ret.message = TRY_EVAL(json.try_get<std::string>(message));
-        return ret;
+        ret.location = TRY_EVAL(json.try_get<Location>("location"));
+        ret.message = TRY_EVAL(json.try_get<std::string>("message"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "location", encode<Location>(location));
-        set(ret, "message", encode<std::string>(message));
         JSONValue ret;
+        set(ret, "location", location);
+        set(ret, "message", message);
+        return ret;
     };
 };
 

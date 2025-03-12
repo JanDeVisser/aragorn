@@ -40,8 +40,7 @@ enum class CompletionItemKind {
     TypeParameter = 25,
 };
 
-template<>
-inline std::optional<CompletionItemKind> from_int<CompletionItemKind>(int i)
+inline std::optional<CompletionItemKind> CompletionItemKind_from_int(int i)
 {
     if (i == 1)
         return CompletionItemKind::Text;
@@ -105,13 +104,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(CompletionItemKind const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<CompletionItemKind, JSONError> decode(JSONValue const &json)
+inline Decoded<CompletionItemKind> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = CompletionItemKind_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'CompletionItemKind' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

@@ -14,31 +14,32 @@
 
 namespace LSP {
 
-struct LocationLink : public LSPObject {
+struct LocationLink {
     std::optional<Range> originSelectionRange;
     DocumentUri          targetUri;
     Range                targetRange;
     Range                targetSelectionRange;
 
-    static Result<LocationLink, JSONError> decode(JSONValue const &json)
+    static Decoded<LocationLink> decode(JSONValue const &json)
     {
         LocationLink ret;
-        if (json.has("originSelectionRange") {
-            ret.originSelectionRange = TRY_EVAL(json.try_get<Range>(originSelectionRange));
+        if (json.has("originSelectionRange")) {
+            ret.originSelectionRange = TRY_EVAL(json.try_get<Range>("originSelectionRange"));
         }
-        ret.targetUri = TRY_EVAL(json.try_get<DocumentUri>(targetUri));
-        ret.targetRange = TRY_EVAL(json.try_get<Range>(targetRange));
-        ret.targetSelectionRange = TRY_EVAL(json.try_get<Range>(targetSelectionRange));
-         return ret;
+        ret.targetUri = TRY_EVAL(json.try_get<DocumentUri>("targetUri"));
+        ret.targetRange = TRY_EVAL(json.try_get<Range>("targetRange"));
+        ret.targetSelectionRange = TRY_EVAL(json.try_get<Range>("targetSelectionRange"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "originSelectionRange", encode<std::optional<Range>>(originSelectionRange));
-        set(ret, "targetUri", encode<DocumentUri>(targetUri));
-        set(ret, "targetRange", encode<Range>(targetRange));
-        set(ret, "targetSelectionRange", encode<Range>(targetSelectionRange));
         JSONValue ret;
+        set(ret, "originSelectionRange", originSelectionRange);
+        set(ret, "targetUri", targetUri);
+        set(ret, "targetRange", targetRange);
+        set(ret, "targetSelectionRange", targetSelectionRange);
+        return ret;
     };
 };
 

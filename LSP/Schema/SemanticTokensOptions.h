@@ -13,61 +13,64 @@
 
 namespace LSP {
 
-struct SemanticTokensOptions : public LSPObject {
+struct SemanticTokensOptions {
     SemanticTokensLegend legend;
-    struct Range_1 : public LSPObject {
+    struct Range_1 {
 
-        static Result<Range_1, JSONError> decode(JSONValue const &json)
+        static Decoded<Range_1> decode(JSONValue const &json)
         {
             Range_1 ret;
-            return ret;
+            return std::move(ret);
         }
 
-        JSONValue encode()
+        JSONValue encode() const
         {
             JSONValue ret;
+            return ret;
         };
     };
     std::optional<std::variant<bool, Range_1>> range;
-    struct Full_1 : public LSPObject {
+    struct Full_1 {
         std::optional<bool> delta;
 
-        static Result<Full_1, JSONError> decode(JSONValue const &json)
+        static Decoded<Full_1> decode(JSONValue const &json)
         {
             Full_1 ret;
-        if (json.has("delta") {
-                ret.delta = TRY_EVAL(json.try_get<bool>(delta));
-        }
-         return ret;
+            if (json.has("delta")) {
+                ret.delta = TRY_EVAL(json.try_get<bool>("delta"));
+            }
+            return std::move(ret);
         }
 
-        JSONValue encode()
+        JSONValue encode() const
         {
-            set(ret, "delta", encode<std::optional<bool>>(delta));
             JSONValue ret;
+            set(ret, "delta", delta);
+            return ret;
         };
     };
     std::optional<std::variant<bool, Full_1>> full;
 
-    static Result<SemanticTokensOptions, JSONError> decode(JSONValue const &json)
+    static Decoded<SemanticTokensOptions> decode(JSONValue const &json)
     {
         SemanticTokensOptions ret;
-        ret.legend = TRY_EVAL(json.try_get<SemanticTokensLegend>(legend));
-        if (json.has("range") {
-            ret.range = TRY_EVAL(json.try_get<std::variant<bool, Range_1>>(range));
+        ret.legend = TRY_EVAL(json.try_get<SemanticTokensLegend>("legend"));
+        if (json.has("range")) {
+            ret.range = TRY_EVAL(json.try_get_variant<bool, Range_1>("range"));
         }
-        if (json.has("full") {
-            ret.full = TRY_EVAL(json.try_get<std::variant<bool, Full_1>>(full));
+        if (json.has("full")) {
+            ret.full = TRY_EVAL(json.try_get_variant<bool, Full_1>("full"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "legend", encode<SemanticTokensLegend>(legend));
-        set(ret, "range", encode<std::optional<std::variant<bool, Range_1>>>(range));
-        set(ret, "full", encode<std::optional<std::variant<bool, Full_1>>>(full));
         JSONValue ret;
+        set(ret, "legend", legend);
+        set(ret, "range", range);
+        set(ret, "full", full);
+        return ret;
     };
 };
 

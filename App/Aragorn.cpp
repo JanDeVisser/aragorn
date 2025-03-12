@@ -10,7 +10,6 @@
 #include <system_error>
 #include <unistd.h>
 
-#include <LibCore/IO.h>
 #include <config.h>
 
 #include <App/Aragorn.h>
@@ -19,6 +18,7 @@
 #include <App/MiniBuffer.h>
 #include <App/Modal.h>
 #include <App/StatusBar.h>
+#include <LibCore/IO.h>
 
 namespace Aragorn {
 
@@ -86,8 +86,8 @@ void Aragorn::on_resize()
 {
     App::on_resize();
 
-    auto const& appearance = settings.get("appearance").value_or(JSONValue(JSONType::Object));
-    auto lines = static_cast<int>(viewport.height) / static_cast<int>(cell.y * line_height);
+    auto const &appearance = settings.get("appearance").value_or(JSONValue(JSONType::Object));
+    auto        lines = static_cast<int>(viewport.height) / static_cast<int>(cell.y * line_height);
     cell.y = viewport.height / static_cast<float>(lines);
     auto cols = static_cast<int>(viewport.width) / static_cast<int>(cell.x);
     cell.x = viewport.width / static_cast<float>(cols);
@@ -152,7 +152,7 @@ void cmd_select_font(pAragorn const &aragorn, JSONValue const &)
         explicit Fonts()
             : ListBox("Select font")
         {
-            auto push_fonts = [this](std::string const& dir) -> void {
+            auto push_fonts = [this](std::string const &dir) -> void {
                 for (auto const &entry : fs::directory_iterator(dir)) {
                     FT_Face face;
                     if (FT_New_Face(Aragorn::the()->ft_library, entry.path().c_str(), 0, &face) != 0) {
@@ -167,7 +167,7 @@ void cmd_select_font(pAragorn const &aragorn, JSONValue const &)
                     entries.emplace_back(entry.path().stem().string(), entry);
                 }
             };
-            for (auto const& dir : Aragorn::the()->get_font_dirs()) {
+            for (auto const &dir : Aragorn::the()->get_font_dirs()) {
                 push_fonts(dir);
             }
         }
@@ -189,7 +189,7 @@ void cmd_select_theme(pAragorn const &aragorn, JSONValue const &)
         explicit Themes()
             : ListBox("Select Theme")
         {
-            auto push_themes = [this](fs::path const& dir) -> void {
+            auto push_themes = [this](fs::path const &dir) -> void {
                 if (exists(dir) && is_directory(dir)) {
                     for (auto const &entry : fs::directory_iterator(dir)) {
                         if (entry.path().extension().string() == ".json") {
@@ -320,7 +320,7 @@ void Aragorn::initialize()
     ImageDrawLine(
         &tab_img,
         static_cast<int>(1.5 * cell.x), static_cast<int>(cell.y / 2),
-        static_cast<int>(cell.x), static_cast<int>(2* cell.y / 3),
+        static_cast<int>(cell.x), static_cast<int>(2 * cell.y / 3),
         Theme::the().fg());
     tab_char = LoadTextureFromImage(tab_img);
 }
@@ -408,9 +408,13 @@ EError Aragorn::read_settings()
     }
     TRY(load_theme(theme_name));
 
-    line_height = value<float>(appearance.get("line_height").value_or(JSONValue(1.5))).value_or(1.5f);
-    for (auto const &guides_cols = appearance.get("guides").value_or(JSONValue(JSONType::Array)); auto const& guide : guides_cols) {
-        if (auto const g = value<int>(guide).value_or(0); g > 0) {
+    auto h = appearance.get("line_height").value_or(JSONValue(1.5));
+    if (h.convert<float>(line_height).is_error()) {
+        line_height = 1.5f;
+    }
+    for (auto const &guides_cols = appearance.get("guides").value_or(JSONValue(JSONType::Array)); auto const &guide : guides_cols) {
+        int g;
+        if (!guide.convert(g).is_error()) {
             guides.emplace_back(g);
         }
     }
@@ -466,8 +470,9 @@ StringList Aragorn::get_font_dirs()
         if (directories.is_string()) {
             append_dir(directories.to_string());
         } else if (directories.is_array()) {
-            if (auto dirs_maybe = decode_array<std::string>(directories); !dirs_maybe.is_error()) {
-                for (auto const &dir : dirs_maybe.value()) {
+            std::vector<std::string> dirs;
+            if (!directories.convert(dirs).is_error()) {
+                for (auto const &dir : dirs) {
                     append_dir(dir);
                 }
             }
@@ -521,11 +526,15 @@ EError Aragorn::open_dir(std::string_view const &dir)
 
 pMode Aragorn::get_mode_for_buffer(pBuffer const &buffer)
 {
-    auto const &name = buffer->name;
+    auto const      &name = buffer->name;
+    std::string_view content_type = "text/plain";
+    pMode            ret {};
     if (name.ends_with(".cpp") || name.ends_with(".c") || name.ends_with(".h")) {
-        return Widget::make<LexerMode<CLexer>>(buffer);
+        ret = Widget::make<LexerMode<CLexer>>(buffer);
+    } else {
+        ret = Widget::make<LexerMode<PlainTextLexer>>(buffer);
     }
-    return Widget::make<LexerMode<PlainTextLexer>>(buffer);
+    return ret;
 }
 
 void Aragorn::set_message(std::string_view const &text)

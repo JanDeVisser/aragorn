@@ -21,21 +21,22 @@ struct DocumentRangeFormattingParams : public WorkDoneProgressParams {
     Range                  range;
     FormattingOptions      options;
 
-    static Result<DocumentRangeFormattingParams, JSONError> decode(JSONValue const &json)
+    static Decoded<DocumentRangeFormattingParams> decode(JSONValue const &json)
     {
         DocumentRangeFormattingParams ret;
-        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>(textDocument));
-        ret.range = TRY_EVAL(json.try_get<Range>(range));
-        ret.options = TRY_EVAL(json.try_get<FormattingOptions>(options));
-        return ret;
+        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>("textDocument"));
+        ret.range = TRY_EVAL(json.try_get<Range>("range"));
+        ret.options = TRY_EVAL(json.try_get<FormattingOptions>("options"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "textDocument", encode<TextDocumentIdentifier>(textDocument));
-        set(ret, "range", encode<Range>(range));
-        set(ret, "options", encode<FormattingOptions>(options));
         JSONValue ret;
+        set(ret, "textDocument", textDocument);
+        set(ret, "range", range);
+        set(ret, "options", options);
+        return ret;
     };
 };
 

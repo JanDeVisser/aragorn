@@ -14,27 +14,28 @@
 
 namespace LSP {
 
-struct TextDocumentClientCapabilities : public LSPObject {
+struct TextDocumentClientCapabilities {
     std::optional<TextDocumentSyncClientCapabilities> synchronization;
     std::optional<SemanticTokensClientCapabilities>   semanticTokens;
 
-    static Result<TextDocumentClientCapabilities, JSONError> decode(JSONValue const &json)
+    static Decoded<TextDocumentClientCapabilities> decode(JSONValue const &json)
     {
         TextDocumentClientCapabilities ret;
-        if (json.has("synchronization") {
-            ret.synchronization = TRY_EVAL(json.try_get<TextDocumentSyncClientCapabilities>(synchronization));
+        if (json.has("synchronization")) {
+            ret.synchronization = TRY_EVAL(json.try_get<TextDocumentSyncClientCapabilities>("synchronization"));
         }
-        if (json.has("semanticTokens") {
-            ret.semanticTokens = TRY_EVAL(json.try_get<SemanticTokensClientCapabilities>(semanticTokens));
+        if (json.has("semanticTokens")) {
+            ret.semanticTokens = TRY_EVAL(json.try_get<SemanticTokensClientCapabilities>("semanticTokens"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "synchronization", encode<std::optional<TextDocumentSyncClientCapabilities>>(synchronization));
-        set(ret, "semanticTokens", encode<std::optional<SemanticTokensClientCapabilities>>(semanticTokens));
         JSONValue ret;
+        set(ret, "synchronization", synchronization);
+        set(ret, "semanticTokens", semanticTokens);
+        return ret;
     };
 };
 

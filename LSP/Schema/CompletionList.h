@@ -16,85 +16,88 @@
 
 namespace LSP {
 
-struct CompletionList : public LSPObject {
+struct CompletionList {
     bool isIncomplete;
-    struct ItemDefaults : public LSPObject {
+    struct ItemDefaults {
         std::optional<std::vector<std::string>> commitCharacters;
-        struct EditRange_1 : public LSPObject {
+        struct EditRange_1 {
             Range insert;
             Range replace;
 
-            static Result<EditRange_1, JSONError> decode(JSONValue const &json)
+            static Decoded<EditRange_1> decode(JSONValue const &json)
             {
                 EditRange_1 ret;
-                ret.insert = TRY_EVAL(json.try_get<Range>(insert));
-                ret.replace = TRY_EVAL(json.try_get<Range>(replace));
-                return ret;
+                ret.insert = TRY_EVAL(json.try_get<Range>("insert"));
+                ret.replace = TRY_EVAL(json.try_get<Range>("replace"));
+                return std::move(ret);
             }
 
-            JSONValue encode()
+            JSONValue encode() const
             {
-                set(ret, "insert", encode<Range>(insert));
-                set(ret, "replace", encode<Range>(replace));
                 JSONValue ret;
+                set(ret, "insert", insert);
+                set(ret, "replace", replace);
+                return ret;
             };
         };
         std::optional<std::variant<Range, EditRange_1>> editRange;
         std::optional<InsertTextFormat>                 insertTextFormat;
         std::optional<InsertTextMode>                   insertTextMode;
-        std::optional<LSP::Any>                         data;
+        std::optional<Any>                              data;
 
-        static Result<ItemDefaults, JSONError> decode(JSONValue const &json)
+        static Decoded<ItemDefaults> decode(JSONValue const &json)
         {
             ItemDefaults ret;
-        if (json.has("commitCharacters") {
-                ret.commitCharacters = TRY_EVAL(json.try_get<std::vector<std::string>>(commitCharacters));
-        }
-        if (json.has("editRange") {
-                ret.editRange = TRY_EVAL(json.try_get<std::variant<Range, EditRange_1>>(editRange));
-        }
-        if (json.has("insertTextFormat") {
-                ret.insertTextFormat = TRY_EVAL(json.try_get<InsertTextFormat>(insertTextFormat));
-        }
-        if (json.has("insertTextMode") {
-                ret.insertTextMode = TRY_EVAL(json.try_get<InsertTextMode>(insertTextMode));
-        }
-        if (json.has("data") {
-                ret.data = TRY_EVAL(json.try_get<LSP::Any>(data));
-        }
-         return ret;
+            if (json.has("commitCharacters")) {
+                ret.commitCharacters = TRY_EVAL(json.try_get_array<std::string>("commitCharacters"));
+            }
+            if (json.has("editRange")) {
+                ret.editRange = TRY_EVAL(json.try_get_variant<Range, EditRange_1>("editRange"));
+            }
+            if (json.has("insertTextFormat")) {
+                ret.insertTextFormat = TRY_EVAL(json.try_get<InsertTextFormat>("insertTextFormat"));
+            }
+            if (json.has("insertTextMode")) {
+                ret.insertTextMode = TRY_EVAL(json.try_get<InsertTextMode>("insertTextMode"));
+            }
+            if (json.has("data")) {
+                ret.data = TRY_EVAL(json.try_get<Any>("data"));
+            }
+            return std::move(ret);
         }
 
-        JSONValue encode()
+        JSONValue encode() const
         {
-            set(ret, "commitCharacters", encode<std::optional<std::vector<std::string>>>(commitCharacters));
-            set(ret, "editRange", encode<std::optional<std::variant<Range, EditRange_1>>>(editRange));
-            set(ret, "insertTextFormat", encode<std::optional<InsertTextFormat>>(insertTextFormat));
-            set(ret, "insertTextMode", encode<std::optional<InsertTextMode>>(insertTextMode));
-            set(ret, "data", encode<std::optional<LSP::Any>>(data));
             JSONValue ret;
+            set(ret, "commitCharacters", commitCharacters);
+            set(ret, "editRange", editRange);
+            set(ret, "insertTextFormat", insertTextFormat);
+            set(ret, "insertTextMode", insertTextMode);
+            set(ret, "data", data);
+            return ret;
         };
     };
     std::optional<ItemDefaults> itemDefaults;
     std::vector<CompletionItem> items;
 
-    static Result<CompletionList, JSONError> decode(JSONValue const &json)
+    static Decoded<CompletionList> decode(JSONValue const &json)
     {
         CompletionList ret;
-        ret.isIncomplete = TRY_EVAL(json.try_get<bool>(isIncomplete));
-        if (json.has("itemDefaults") {
-            ret.itemDefaults = TRY_EVAL(json.try_get<ItemDefaults>(itemDefaults));
+        ret.isIncomplete = TRY_EVAL(json.try_get<bool>("isIncomplete"));
+        if (json.has("itemDefaults")) {
+            ret.itemDefaults = TRY_EVAL(json.try_get<ItemDefaults>("itemDefaults"));
         }
-        ret.items = TRY_EVAL(json.try_get<std::vector<CompletionItem>>(items));
-         return ret;
+        ret.items = TRY_EVAL(json.try_get_array<CompletionItem>("items"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "isIncomplete", encode<bool>(isIncomplete));
-        set(ret, "itemDefaults", encode<std::optional<ItemDefaults>>(itemDefaults));
-        set(ret, "items", encode<std::vector<CompletionItem>>(items));
         JSONValue ret;
+        set(ret, "isIncomplete", isIncomplete);
+        set(ret, "itemDefaults", itemDefaults);
+        set(ret, "items", items);
+        return ret;
     };
 };
 

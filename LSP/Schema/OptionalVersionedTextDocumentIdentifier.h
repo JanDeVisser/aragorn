@@ -14,19 +14,20 @@
 namespace LSP {
 
 struct OptionalVersionedTextDocumentIdentifier : public TextDocumentIdentifier {
-    std::variant<int, LSP::Null> version;
+    std::variant<int, Null> version;
 
-    static Result<OptionalVersionedTextDocumentIdentifier, JSONError> decode(JSONValue const &json)
+    static Decoded<OptionalVersionedTextDocumentIdentifier> decode(JSONValue const &json)
     {
         OptionalVersionedTextDocumentIdentifier ret;
-        ret.version = TRY_EVAL(json.try_get<std::variant<int, LSP::Null>>(version));
-        return ret;
+        ret.version = TRY_EVAL(json.try_get_variant<int, Null>("version"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "version", encode<std::variant<int, LSP::Null>>(version));
         JSONValue ret;
+        set(ret, "version", version);
+        return ret;
     };
 };
 

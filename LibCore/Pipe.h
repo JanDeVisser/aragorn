@@ -15,8 +15,8 @@
 #include <thread>
 #include <unistd.h>
 
-#include <LibCore/Result.h>
 #include <LibCore/Logging.h>
+#include <LibCore/Result.h>
 
 namespace LibCore {
 
@@ -26,9 +26,14 @@ constexpr static int PipeEndWrite = 1;
 template<typename T = void *>
 class ReadPipe {
 public:
-    using OnPipeRead = std::function<void(ReadPipe<T> &)>;
+    using OnPipeRead = std::function<void(ReadPipe &)>;
 
     ReadPipe() = default;
+    ReadPipe(OnPipeRead on_read)
+        : m_on_read(std::move(on_read))
+    {
+    }
+
     ReadPipe(ReadPipe const &) = delete;
     ReadPipe(ReadPipe &&) = delete;
     ~ReadPipe()
@@ -36,7 +41,7 @@ public:
         close();
     }
 
-    Error<LibCError> initialize()
+    Error<> initialize()
     {
         if (pipe(m_pipe) == -1) {
             return LibCError();
@@ -44,7 +49,13 @@ public:
         return {};
     }
 
-    Error<LibCError> connect(int fd)
+    Error<> initialize(OnPipeRead on_read)
+    {
+        m_on_read = std::move(on_read);
+        return initialize();
+    }
+
+    Error<> connect(int fd)
     {
         m_fd = fd;
         if (fcntl(m_fd, F_SETFL, O_NONBLOCK) < 0) {
@@ -58,11 +69,11 @@ public:
 
     void connect_parent()
     {
-        connect(m_pipe[PipeEndRead]);
+        MUST(connect(m_pipe[PipeEndRead]));
         ::close(m_pipe[PipeEndWrite]);
     }
 
-    void connect_child(int fd)
+    void connect_child(int fd) const
     {
         while ((dup2(m_pipe[PipeEndWrite], fd) == -1) && (errno == EINTR)) { }
         ::close(m_pipe[PipeEndRead]);
@@ -80,7 +91,7 @@ public:
 
     bool expect()
     {
-        std::unique_lock<std::recursive_mutex> lk(m_mutex);
+        std::unique_lock lk(m_mutex);
         m_condition.wait(lk, [this]() {
             return !m_current.empty() || m_fd < 0;
         });
@@ -92,7 +103,7 @@ public:
 
     std::string current()
     {
-        std::unique_lock<std::recursive_mutex> lk(m_mutex);
+        std::unique_lock lk(m_mutex);
         m_condition.wait(lk, [this]() {
             return !m_current.empty() || m_fd < 0;
         });
@@ -129,7 +140,7 @@ private:
                 break;
             }
             if (poll_fd.revents & POLLIN) {
-                drain();
+                MUST(drain());
             }
             if (poll_fd.revents & POLLHUP) {
                 break;
@@ -140,12 +151,12 @@ private:
 
     constexpr static int DRAIN_SIZE = (64 * 1024);
 
-    Error<LibCError> drain()
+    Error<> drain()
     {
-        char                                   buffer[DRAIN_SIZE];
-        std::unique_lock<std::recursive_mutex> lk(m_mutex);
+        char             buffer[DRAIN_SIZE];
+        std::unique_lock lk(m_mutex);
         while (true) {
-            ssize_t count = read(m_fd, buffer, sizeof(buffer) - 1);
+            ssize_t count = ::read(m_fd, buffer, sizeof(buffer) - 1);
             if (count >= 0) {
                 buffer[count] = 0;
                 if (count > 0) {
@@ -162,14 +173,15 @@ private:
             return LibCError();
         }
         if (m_on_read) {
-            m_on_read(pipe);
+            m_on_read(*this);
         }
+        return {};
     }
 
     int                     m_pipe[2] = { 0 };
     int                     m_fd = { -1 };
     std::string             m_current = {};
-    std::recursive_mutex    m_mutex = {};
+    std::mutex              m_mutex = {};
     std::condition_variable m_condition = {};
     OnPipeRead              m_on_read = { nullptr };
     T                       m_context = {};
@@ -209,7 +221,7 @@ public:
         ::close(m_pipe[PipeEndRead]);
     }
 
-    void connect_child(int fd)
+    void connect_child(int fd) const
     {
         while ((dup2(m_pipe[PipeEndRead], fd) == -1) && (errno == EINTR)) { }
         ::close(m_pipe[PipeEndRead]);

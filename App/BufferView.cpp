@@ -20,7 +20,9 @@ int get_closing_brace_code(int brace);
 bool do_select(JSONValue const &key_combo)
 {
     if (key_combo.type() == JSONType::Boolean) {
-        return value<bool>(key_combo).value();
+        bool result;
+        MUST(key_combo.convert<bool>(result));
+        return result;
     }
     assert(key_combo.type() == JSONType::Object);
     auto modifier = KModNone;
@@ -547,7 +549,7 @@ void BufferView::select_word()
 
 void BufferView::insert(size_t at, rune_view const &text)
 {
-    m_buf->insert(at, rune_string {text});
+    m_buf->insert(at, rune_string { text });
     move_cursor(CursorMovement::by_index(at + text.length()));
 }
 

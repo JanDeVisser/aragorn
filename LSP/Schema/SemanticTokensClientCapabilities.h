@@ -13,60 +13,63 @@
 
 namespace LSP {
 
-struct SemanticTokensClientCapabilities : public LSPObject {
+struct SemanticTokensClientCapabilities {
     std::optional<bool> dynamicRegistration;
-    struct Requests : public LSPObject {
-        struct Range_1 : public LSPObject {
+    struct Requests {
+        struct Range_1 {
 
-            static Result<Range_1, JSONError> decode(JSONValue const &json)
+            static Decoded<Range_1> decode(JSONValue const &json)
             {
                 Range_1 ret;
-                return ret;
+                return std::move(ret);
             }
 
-            JSONValue encode()
+            JSONValue encode() const
             {
                 JSONValue ret;
+                return ret;
             };
         };
         std::optional<std::variant<bool, Range_1>> range;
-        struct Full_1 : public LSPObject {
+        struct Full_1 {
             std::optional<bool> delta;
 
-            static Result<Full_1, JSONError> decode(JSONValue const &json)
+            static Decoded<Full_1> decode(JSONValue const &json)
             {
                 Full_1 ret;
-        if (json.has("delta") {
-                    ret.delta = TRY_EVAL(json.try_get<bool>(delta));
-        }
-         return ret;
+                if (json.has("delta")) {
+                    ret.delta = TRY_EVAL(json.try_get<bool>("delta"));
+                }
+                return std::move(ret);
             }
 
-            JSONValue encode()
+            JSONValue encode() const
             {
-                set(ret, "delta", encode<std::optional<bool>>(delta));
                 JSONValue ret;
+                set(ret, "delta", delta);
+                return ret;
             };
         };
         std::optional<std::variant<bool, Full_1>> full;
 
-        static Result<Requests, JSONError> decode(JSONValue const &json)
+        static Decoded<Requests> decode(JSONValue const &json)
         {
             Requests ret;
-        if (json.has("range") {
-                ret.range = TRY_EVAL(json.try_get<std::variant<bool, Range_1>>(range));
-        }
-        if (json.has("full") {
-                ret.full = TRY_EVAL(json.try_get<std::variant<bool, Full_1>>(full));
-        }
-         return ret;
+            if (json.has("range")) {
+                ret.range = TRY_EVAL(json.try_get_variant<bool, Range_1>("range"));
+            }
+            if (json.has("full")) {
+                ret.full = TRY_EVAL(json.try_get_variant<bool, Full_1>("full"));
+            }
+            return std::move(ret);
         }
 
-        JSONValue encode()
+        JSONValue encode() const
         {
-            set(ret, "range", encode<std::optional<std::variant<bool, Range_1>>>(range));
-            set(ret, "full", encode<std::optional<std::variant<bool, Full_1>>>(full));
             JSONValue ret;
+            set(ret, "range", range);
+            set(ret, "full", full);
+            return ret;
         };
     };
     Requests                 requests;
@@ -78,43 +81,44 @@ struct SemanticTokensClientCapabilities : public LSPObject {
     std::optional<bool>      serverCancelSupport;
     std::optional<bool>      augmentsSyntaxTokens;
 
-    static Result<SemanticTokensClientCapabilities, JSONError> decode(JSONValue const &json)
+    static Decoded<SemanticTokensClientCapabilities> decode(JSONValue const &json)
     {
         SemanticTokensClientCapabilities ret;
-        if (json.has("dynamicRegistration") {
-            ret.dynamicRegistration = TRY_EVAL(json.try_get<bool>(dynamicRegistration));
+        if (json.has("dynamicRegistration")) {
+            ret.dynamicRegistration = TRY_EVAL(json.try_get<bool>("dynamicRegistration"));
         }
-        ret.requests = TRY_EVAL(json.try_get<Requests>(requests));
-        ret.tokenTypes = TRY_EVAL(json.try_get<std::vector<std::string>>(tokenTypes));
-        ret.tokenModifiers = TRY_EVAL(json.try_get<std::vector<std::string>>(tokenModifiers));
-        ret.formats = TRY_EVAL(json.try_get<std::vector<TokenFormat>>(formats));
-        if (json.has("overlappingTokenSupport") {
-            ret.overlappingTokenSupport = TRY_EVAL(json.try_get<bool>(overlappingTokenSupport));
+        ret.requests = TRY_EVAL(json.try_get<Requests>("requests"));
+        ret.tokenTypes = TRY_EVAL(json.try_get_array<std::string>("tokenTypes"));
+        ret.tokenModifiers = TRY_EVAL(json.try_get_array<std::string>("tokenModifiers"));
+        ret.formats = TRY_EVAL(json.try_get_array<TokenFormat>("formats"));
+        if (json.has("overlappingTokenSupport")) {
+            ret.overlappingTokenSupport = TRY_EVAL(json.try_get<bool>("overlappingTokenSupport"));
         }
-        if (json.has("multilineTokenSupport") {
-            ret.multilineTokenSupport = TRY_EVAL(json.try_get<bool>(multilineTokenSupport));
+        if (json.has("multilineTokenSupport")) {
+            ret.multilineTokenSupport = TRY_EVAL(json.try_get<bool>("multilineTokenSupport"));
         }
-        if (json.has("serverCancelSupport") {
-            ret.serverCancelSupport = TRY_EVAL(json.try_get<bool>(serverCancelSupport));
+        if (json.has("serverCancelSupport")) {
+            ret.serverCancelSupport = TRY_EVAL(json.try_get<bool>("serverCancelSupport"));
         }
-        if (json.has("augmentsSyntaxTokens") {
-            ret.augmentsSyntaxTokens = TRY_EVAL(json.try_get<bool>(augmentsSyntaxTokens));
+        if (json.has("augmentsSyntaxTokens")) {
+            ret.augmentsSyntaxTokens = TRY_EVAL(json.try_get<bool>("augmentsSyntaxTokens"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "dynamicRegistration", encode<std::optional<bool>>(dynamicRegistration));
-        set(ret, "requests", encode<Requests>(requests));
-        set(ret, "tokenTypes", encode<std::vector<std::string>>(tokenTypes));
-        set(ret, "tokenModifiers", encode<std::vector<std::string>>(tokenModifiers));
-        set(ret, "formats", encode<std::vector<TokenFormat>>(formats));
-        set(ret, "overlappingTokenSupport", encode<std::optional<bool>>(overlappingTokenSupport));
-        set(ret, "multilineTokenSupport", encode<std::optional<bool>>(multilineTokenSupport));
-        set(ret, "serverCancelSupport", encode<std::optional<bool>>(serverCancelSupport));
-        set(ret, "augmentsSyntaxTokens", encode<std::optional<bool>>(augmentsSyntaxTokens));
         JSONValue ret;
+        set(ret, "dynamicRegistration", dynamicRegistration);
+        set(ret, "requests", requests);
+        set(ret, "tokenTypes", tokenTypes);
+        set(ret, "tokenModifiers", tokenModifiers);
+        set(ret, "formats", formats);
+        set(ret, "overlappingTokenSupport", overlappingTokenSupport);
+        set(ret, "multilineTokenSupport", multilineTokenSupport);
+        set(ret, "serverCancelSupport", serverCancelSupport);
+        set(ret, "augmentsSyntaxTokens", augmentsSyntaxTokens);
+        return ret;
     };
 };
 

@@ -14,6 +14,7 @@
 #include <LibCore/Result.h>
 #include <LibCore/StringUtil.h>
 #include <LibCore/Token.h>
+#include <LibCore/Utf8.h>
 
 namespace LibCore {
 
@@ -34,7 +35,7 @@ struct NoKeywords {
     using Token = Token<KeywordCategoryType, KeywordCodeType>;
     using Keyword = typename Token::Keyword;
 
-    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const&, size_t)
+    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const &, size_t)
     {
         return {};
     }
@@ -72,7 +73,7 @@ struct EnumKeywords {
     using Keywords = CodeType;
     using Categories = CategoryType;
 
-    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const&, size_t)
+    std::optional<std::tuple<Token, size_t>> pre_match(Buffer const &, size_t)
     {
         return {};
     }
@@ -94,7 +95,6 @@ struct EnumKeywords {
                 if (std::get<MatchType>(*m) == MatchType::FullMatch) {
                     return std::tuple { std::get<CategoryType>(*m), std::get<CodeType>(*m), scanned.length() };
                 }
-                ++ix;
             } else {
                 return {};
             }
@@ -102,13 +102,20 @@ struct EnumKeywords {
         return {};
     }
 
-    std::string_view get_scope(Token const&)
+    std::string_view get_scope(Token const &)
     {
         return "identifier";
     }
 };
 
-template<typename Buffer, typename Matcher = NoKeywords<Buffer>, bool Whitespace = false, bool Comments = false, bool BackquotedStrings = false>
+template<bool Whitespace = false, bool Comments = false, bool BackquotedStrings = false>
+struct LexerConfig {
+    bool whitespace { Whitespace };
+    bool comments { Comments };
+    bool backquotedStrings { BackquotedStrings };
+};
+
+template<typename Buffer, typename Matcher = NoKeywords<Buffer>, typename Char = wchar_t, bool Whitespace = false, bool Comments = false, bool BackquotedStrings = false>
 class Lexer {
 public:
     using LexerError = Error<LexerErrorMessage>;
@@ -125,6 +132,16 @@ public:
         if constexpr (!BackquotedStrings) {
             m_sources.back().quote_chars = "\"'";
         }
+    }
+
+    std::basic_string_view<Char> text(Token const &token) const
+    {
+        return m_sources.back().substr(token.location.index, token.location.length);
+    }
+
+    std::string text_utf8(Token const &token) const
+    {
+        return as_utf8(text(token));
     }
 
     Token const &peek()
@@ -216,7 +233,7 @@ public:
     LexerError expect_symbol(int symbol)
     {
         if (auto ret = peek(); !ret.matches_symbol(symbol)) {
-            return LexerErrorMessage { location(), std::format("Expected '{}'", static_cast<char>(symbol)) };
+            return LexerErrorMessage { location(), std::format("Expected '{}' but got '{}'", static_cast<char>(symbol), text_utf8(ret)) };
         }
         lex();
         return {};
@@ -305,7 +322,7 @@ private:
                     ++m_index;
                     return Token::end_of_line();
                 }
-                return block_comment(m_index);
+                return block_comment();
             }
             if (cur == '/') {
                 switch (m_buffer[m_index + 1]) {
@@ -316,7 +333,7 @@ private:
                     return Token::comment(CommentType::Line);
                 }
                 case '*': {
-                    return block_comment(m_index + 2);
+                    return block_comment();
                 }
                 default:
                     break;
@@ -387,7 +404,7 @@ private:
             m_current.reset();
         }
 
-        Token block_comment(size_t ix)
+        Token block_comment()
         {
             for (; m_index < m_buffer.length() && m_buffer[m_index] != '\n' && (m_buffer[m_index - 1] != '*' || m_buffer[m_index] != '/'); ++m_index)
                 ;
@@ -430,7 +447,7 @@ private:
             }
 
             while (ix < m_buffer.length()) {
-                char const ch = m_buffer[ix];
+                Char const ch = m_buffer[ix];
                 if (!predicate(ch) && ((ch != '.') || (type == NumberType::Decimal))) {
                     // FIXME lex '1..10' as '1', '..', '10'. It will now lex as '1.', '.', '10'
                     m_index = ix;
@@ -448,14 +465,19 @@ private:
             return Token::number(type);
         }
 
-        char operator*() const
+        Char operator*() const
         {
             return m_buffer[m_index];
         }
 
-        char operator[](size_t ix) const
+        Char operator[](size_t ix) const
         {
             return m_buffer[ix];
+        }
+
+        [[nodiscard]] std::basic_string_view<Char> substr(size_t pos, size_t len = std::basic_string_view<Char>::npos) const
+        {
+            return m_buffer.substr(pos, len);
         }
 
         [[nodiscard]] size_t length() const

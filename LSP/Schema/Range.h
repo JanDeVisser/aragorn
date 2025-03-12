@@ -13,23 +13,24 @@
 
 namespace LSP {
 
-struct Range : public LSPObject {
+struct Range {
     Position start;
     Position end;
 
-    static Result<Range, JSONError> decode(JSONValue const &json)
+    static Decoded<Range> decode(JSONValue const &json)
     {
         Range ret;
-        ret.start = TRY_EVAL(json.try_get<Position>(start));
-        ret.end = TRY_EVAL(json.try_get<Position>(end));
-        return ret;
+        ret.start = TRY_EVAL(json.try_get<Position>("start"));
+        ret.end = TRY_EVAL(json.try_get<Position>("end"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "start", encode<Position>(start));
-        set(ret, "end", encode<Position>(end));
         JSONValue ret;
+        set(ret, "start", start);
+        set(ret, "end", end);
+        return ret;
     };
 };
 

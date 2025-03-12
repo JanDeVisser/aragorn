@@ -244,7 +244,7 @@ enum class NoKeywordCategory {
 enum class NoKeywordCode {
 };
 
-template<typename KeywordCategoryType = NoKeywordCategory, typename KeywordCodeType = NoKeywordCode>
+template<typename KeywordCategoryType = NoKeywordCategory, typename KeywordCodeType = NoKeywordCode, typename Char = char>
 struct Token {
     using Keywords = KeywordCodeType;
     using Categories = KeywordCategoryType;
@@ -254,7 +254,7 @@ struct Token {
         Keywords   code;
     };
 
-    using TokenValue = std::variant<std::monostate, NumberType, QuotedString, CommentText, Keyword, int>;
+    using TokenValue = std::variant<std::monostate, NumberType, QuotedString, CommentText, Keyword, Char>;
 
     Token() = default;
     Token(Token const &) = default;
@@ -271,7 +271,7 @@ struct Token {
         return ret;
     }
 
-    static Token symbol(int sym)
+    static Token symbol(Char sym)
     {
         Token ret;
         ret.kind = TokenKind::Symbol;
@@ -348,16 +348,23 @@ struct Token {
         return std::get<1>(value);
     }
 
-    [[nodiscard]] int symbol_code() const
+    [[nodiscard]] Char symbol_code() const
     {
         assert(kind == TokenKind::Symbol);
         return std::get<5>(value);
     }
 
-    [[nodiscard]] Keyword keyword() const
+    [[nodiscard]] Keyword const &keyword() const
     {
         assert(kind == TokenKind::Keyword);
         return std::get<4>(value);
+    }
+
+    [[nodiscard]] KeywordCodeType keyword_code() const
+    {
+        assert(kind == TokenKind::Keyword);
+        auto kw = keyword();
+        return kw.code;
     }
 
     [[nodiscard]] QuotedString const &quoted_string() const
@@ -382,12 +389,12 @@ struct Token {
         return k != kind;
     }
 
-    bool operator==(int s) const
+    bool operator==(Char s) const
     {
         return matches(s);
     }
 
-    bool operator!=(int s) const
+    bool operator!=(Char s) const
     {
         return !matches(s);
     }
@@ -403,10 +410,13 @@ struct Token {
     }
 
     [[nodiscard]] bool matches(TokenKind k) const { return kind == k; }
-    [[nodiscard]] bool matches_symbol(int symbol) const { return matches(TokenKind::Symbol) && this->symbol_code() == symbol; }
+    [[nodiscard]] bool matches_symbol(Char symbol) const { return matches(TokenKind::Symbol) && this->symbol_code() == symbol; }
     [[nodiscard]] bool matches_keyword(KeywordCategoryType cat, KeywordCodeType code) const { return matches(TokenKind::Keyword) && this->keyword().category == cat && this->keyword().code == code; }
+    [[nodiscard]] bool matches_keyword(KeywordCodeType code) const { return matches(TokenKind::Keyword) && this->keyword().code == code; }
     [[nodiscard]] bool is_identifier() const { return matches(TokenKind::Identifier); }
 };
+
+#if 0
 
 template<typename KeywordCodeType = int, typename DirectiveCodeType = int>
 inline JSONValue encode(Token<KeywordCodeType, DirectiveCodeType> const &token)
@@ -508,7 +518,7 @@ inline Result<Token<KeywordCategoryType, KeywordCodeType>, JSONError> decode(JSO
     };
 
     auto decode_token_Symbol = [&json, &token]() -> Error<JSONError> {
-        token.value = TRY_EVAL(json.try_get<int>("symbol"));
+        token.value = TRY_EVAL(json.try_get<wchar_t>("symbol"));
         return {};
     };
 
@@ -525,6 +535,8 @@ inline Result<Token<KeywordCategoryType, KeywordCodeType>, JSONError> decode(JSO
     }
     return {};
 }
+
+#endif
 
 }
 

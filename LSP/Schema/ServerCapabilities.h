@@ -16,32 +16,33 @@
 
 namespace LSP {
 
-struct ServerCapabilities : public LSPObject {
+struct ServerCapabilities {
     std::optional<PositionEncodingKind>                                        positionEncoding;
     std::optional<std::variant<TextDocumentSyncOptions, TextDocumentSyncKind>> textDocumentSync;
     std::optional<SemanticTokensOptions>                                       semanticTokensProvider;
 
-    static Result<ServerCapabilities, JSONError> decode(JSONValue const &json)
+    static Decoded<ServerCapabilities> decode(JSONValue const &json)
     {
         ServerCapabilities ret;
-        if (json.has("positionEncoding") {
-            ret.positionEncoding = TRY_EVAL(json.try_get<PositionEncodingKind>(positionEncoding));
+        if (json.has("positionEncoding")) {
+            ret.positionEncoding = TRY_EVAL(json.try_get<PositionEncodingKind>("positionEncoding"));
         }
-        if (json.has("textDocumentSync") {
-            ret.textDocumentSync = TRY_EVAL(json.try_get<std::variant<TextDocumentSyncOptions, TextDocumentSyncKind>>(textDocumentSync));
+        if (json.has("textDocumentSync")) {
+            ret.textDocumentSync = TRY_EVAL(json.try_get_variant<TextDocumentSyncOptions, TextDocumentSyncKind>("textDocumentSync"));
         }
-        if (json.has("semanticTokensProvider") {
-            ret.semanticTokensProvider = TRY_EVAL(json.try_get<SemanticTokensOptions>(semanticTokensProvider));
+        if (json.has("semanticTokensProvider")) {
+            ret.semanticTokensProvider = TRY_EVAL(json.try_get<SemanticTokensOptions>("semanticTokensProvider"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "positionEncoding", encode<std::optional<PositionEncodingKind>>(positionEncoding));
-        set(ret, "textDocumentSync", encode<std::optional<std::variant<TextDocumentSyncOptions, TextDocumentSyncKind>>>(textDocumentSync));
-        set(ret, "semanticTokensProvider", encode<std::optional<SemanticTokensOptions>>(semanticTokensProvider));
         JSONValue ret;
+        set(ret, "positionEncoding", positionEncoding);
+        set(ret, "textDocumentSync", textDocumentSync);
+        set(ret, "semanticTokensProvider", semanticTokensProvider);
+        return ret;
     };
 };
 

@@ -6,10 +6,13 @@
 
 #pragma once
 
+#include "LSP/LSP.h"
+
 #include <LibCore/Lexer.h>
 
 #include <App/Buffer.h>
 #include <App/Mode.h>
+#include <LSP/LSP.h>
 
 namespace Aragorn {
 using namespace LibCore;
@@ -22,9 +25,14 @@ struct BufferSource {
     {
     }
 
-    char operator[](size_t ix) const
+    wchar_t operator[](size_t ix) const
     {
         return (*buffer)[ix];
+    }
+
+    [[nodiscard]] std::wstring_view substr(size_t pos, size_t len = std::wstring_view::npos) const
+    {
+        UNREACHABLE();
     }
 
     [[nodiscard]] size_t length() const
@@ -36,7 +44,7 @@ struct BufferSource {
 template<typename Matcher>
 class ModeLexer {
 public:
-    using Lexer = Lexer<BufferSource, Matcher, true, true, true>;
+    using Lexer = Lexer<BufferSource, Matcher, wchar_t, true, true, true>;
     using Token = typename Lexer::Token;
 
     void initialize_source(std::shared_ptr<Buffer> const &buffer)
@@ -386,6 +394,10 @@ struct CMatcher {
 struct CLexer : ModeLexer<CMatcher<BufferSource>> {
     using Keywords = CKeyword;
     using Categories = CCategory;
+    std::shared_ptr<::LSP::LSP> lsp();
+
+private:
+    static std::shared_ptr<::LSP::LSP> the_lsp;
 };
 
 }

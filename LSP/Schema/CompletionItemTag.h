@@ -16,8 +16,7 @@ enum class CompletionItemTag {
     Deprecated = 1,
 };
 
-template<>
-inline std::optional<CompletionItemTag> from_int<CompletionItemTag>(int i)
+inline std::optional<CompletionItemTag> CompletionItemTag_from_int(int i)
 {
     if (i == 1)
         return CompletionItemTag::Deprecated;
@@ -33,13 +32,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(CompletionItemTag const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<CompletionItemTag, JSONError> decode(JSONValue const &json)
+inline Decoded<CompletionItemTag> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = CompletionItemTag_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'CompletionItemTag' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

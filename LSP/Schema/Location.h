@@ -14,23 +14,24 @@
 
 namespace LSP {
 
-struct Location : public LSPObject {
+struct Location {
     DocumentUri uri;
     Range       range;
 
-    static Result<Location, JSONError> decode(JSONValue const &json)
+    static Decoded<Location> decode(JSONValue const &json)
     {
         Location ret;
-        ret.uri = TRY_EVAL(json.try_get<DocumentUri>(uri));
-        ret.range = TRY_EVAL(json.try_get<Range>(range));
-        return ret;
+        ret.uri = TRY_EVAL(json.try_get<DocumentUri>("uri"));
+        ret.range = TRY_EVAL(json.try_get<Range>("range"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "uri", encode<DocumentUri>(uri));
-        set(ret, "range", encode<Range>(range));
         JSONValue ret;
+        set(ret, "uri", uri);
+        set(ret, "range", range);
+        return ret;
     };
 };
 

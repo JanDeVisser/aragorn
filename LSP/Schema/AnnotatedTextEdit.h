@@ -17,17 +17,18 @@ namespace LSP {
 struct AnnotatedTextEdit : public TextEdit {
     ChangeAnnotationIdentifier annotationId;
 
-    static Result<AnnotatedTextEdit, JSONError> decode(JSONValue const &json)
+    static Decoded<AnnotatedTextEdit> decode(JSONValue const &json)
     {
         AnnotatedTextEdit ret;
-        ret.annotationId = TRY_EVAL(json.try_get<ChangeAnnotationIdentifier>(annotationId));
-        return ret;
+        ret.annotationId = TRY_EVAL(json.try_get<ChangeAnnotationIdentifier>("annotationId"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "annotationId", encode<ChangeAnnotationIdentifier>(annotationId));
         JSONValue ret;
+        set(ret, "annotationId", annotationId);
+        return ret;
     };
 };
 

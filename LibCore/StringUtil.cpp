@@ -49,7 +49,16 @@ std::string capitalize(std::string_view const &input)
 {
     std::string ret { input };
     if (!ret.empty()) {
-	ret[0] = (char) toupper(ret[0]);
+        ret[0] = (char) toupper(ret[0]);
+    }
+    return ret;
+}
+
+std::wstring capitalize(std::wstring_view const &input)
+{
+    std::wstring ret { input };
+    if (!ret.empty()) {
+        ret[0] = (char) towupper(ret[0]);
     }
     return ret;
 }
@@ -58,8 +67,8 @@ std::size_t replace_all(std::string &inout, std::string_view what, std::string_v
 {
     std::size_t count {};
     for (std::string::size_type pos {};
-         inout.npos != (pos = inout.find(what.data(), pos, what.length()));
-         pos += with.length(), ++count) {
+        inout.npos != (pos = inout.find(what.data(), pos, what.length()));
+        pos += with.length(), ++count) {
         inout.replace(pos, what.length(), with.data(), with.length());
     }
     return count;

@@ -160,7 +160,7 @@ Result<JSONValue, JSONValue::ReadError> JSONValue::read_file(std::string_view co
     return json_maybe.value();
 }
 
-using JSONLexer = Lexer<std::string_view, EnumKeywords<std::string_view, SimpleKeywordCategory, JSONKeyword>>;
+using JSONLexer = Lexer<std::string_view, EnumKeywords<std::string_view, SimpleKeywordCategory, JSONKeyword>, char>;
 using JSONToken = JSONLexer::Token;
 
 Result<JSONValue, JSONError> decode_value(JSONLexer &lexer, std::string_view const &str)

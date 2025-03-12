@@ -18,8 +18,7 @@ enum class TextDocumentSyncKind {
     Incremental = 2,
 };
 
-template<>
-inline std::optional<TextDocumentSyncKind> from_int<TextDocumentSyncKind>(int i)
+inline std::optional<TextDocumentSyncKind> TextDocumentSyncKind_from_int(int i)
 {
     if (i == 0)
         return TextDocumentSyncKind::None;
@@ -39,13 +38,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(TextDocumentSyncKind const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<TextDocumentSyncKind, JSONError> decode(JSONValue const &json)
+inline Decoded<TextDocumentSyncKind> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = TextDocumentSyncKind_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'TextDocumentSyncKind' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

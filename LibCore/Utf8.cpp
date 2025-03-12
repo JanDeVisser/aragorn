@@ -91,7 +91,7 @@ struct UTF8 {
 
     Result<std::string> to_utf8(std::wstring_view const &s)
     {
-        auto        data = const_cast<wchar_t *>(&s[0]);
+        auto        data = const_cast<wchar_t *>(s.data());
         size_t      in_count = s.length() * sizeof(wchar_t);
         std::string ret;
         ret.resize(s.length() * 16, '\0');
@@ -103,7 +103,7 @@ struct UTF8 {
             static_cast<int>(done) < 0) {
             return LibCError();
         }
-        ret.resize(s.length() * 16 - out_count - 1);
+        ret.resize(s.length() * 16 - out_count);
         while (!ret.empty() && ret[ret.size() - 1] == 0) {
             ret.resize(ret.size() - 1); // HACK somehow iconv sometimes leaves
                                         // '0' chars at the end of the

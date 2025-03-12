@@ -25,8 +25,7 @@ enum class SemanticTokenModifiers {
     DefaultLibrary,
 };
 
-template<>
-inline std::string as_string(SemanticTokenModifiers obj)
+inline std::string SemanticTokenModifiers_as_string(SemanticTokenModifiers obj)
 {
     switch (obj) {
     case SemanticTokenModifiers::Declaration:
@@ -54,8 +53,7 @@ inline std::string as_string(SemanticTokenModifiers obj)
     }
 }
 
-template<>
-inline std::optional<SemanticTokenModifiers> from_string<SemanticTokenModifiers>(std::string_view const &s)
+inline std::optional<SemanticTokenModifiers> SemanticTokenModifiers_from_string(std::string_view const &s)
 {
     if (s == "declaration")
         return SemanticTokenModifiers::Declaration;
@@ -89,13 +87,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode(SemanticTokenModifiers const &obj)
 {
-    return encode_string_enum<SemanticTokenModifiers>(obj);
+    return JSONValue { SemanticTokenModifiers_as_string(obj) };
 }
 
 template<>
-inline Result<SemanticTokenModifiers, JSONError> decode(JSONValue const &json)
+inline Decoded<SemanticTokenModifiers> decode(JSONValue const &json)
 {
-    return decode_string_enum<SemanticTokenModifiers>(json);
+    return SemanticTokenModifiers_from_string(json.to_string());
 }
 
 } /* namespace LibCore */

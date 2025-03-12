@@ -12,23 +12,24 @@
 
 namespace LSP {
 
-struct Position : public LSPObject {
+struct Position {
     uint32_t line;
     uint32_t character;
 
-    static Result<Position, JSONError> decode(JSONValue const &json)
+    static Decoded<Position> decode(JSONValue const &json)
     {
         Position ret;
-        ret.line = TRY_EVAL(json.try_get<uint32_t>(line));
-        ret.character = TRY_EVAL(json.try_get<uint32_t>(character));
-        return ret;
+        ret.line = TRY_EVAL(json.try_get<uint32_t>("line"));
+        ret.character = TRY_EVAL(json.try_get<uint32_t>("character"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "line", encode<uint32_t>(line));
-        set(ret, "character", encode<uint32_t>(character));
         JSONValue ret;
+        set(ret, "line", line);
+        set(ret, "character", character);
+        return ret;
     };
 };
 

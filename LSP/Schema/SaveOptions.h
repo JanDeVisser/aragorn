@@ -12,22 +12,23 @@
 
 namespace LSP {
 
-struct SaveOptions : public LSPObject {
+struct SaveOptions {
     std::optional<bool> includeText;
 
-    static Result<SaveOptions, JSONError> decode(JSONValue const &json)
+    static Decoded<SaveOptions> decode(JSONValue const &json)
     {
         SaveOptions ret;
-        if (json.has("includeText") {
-            ret.includeText = TRY_EVAL(json.try_get<bool>(includeText));
+        if (json.has("includeText")) {
+            ret.includeText = TRY_EVAL(json.try_get<bool>("includeText"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "includeText", encode<std::optional<bool>>(includeText));
         JSONValue ret;
+        set(ret, "includeText", includeText);
+        return ret;
     };
 };
 

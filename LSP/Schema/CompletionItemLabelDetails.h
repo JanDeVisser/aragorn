@@ -12,27 +12,28 @@
 
 namespace LSP {
 
-struct CompletionItemLabelDetails : public LSPObject {
+struct CompletionItemLabelDetails {
     std::optional<std::string> detail;
     std::optional<std::string> description;
 
-    static Result<CompletionItemLabelDetails, JSONError> decode(JSONValue const &json)
+    static Decoded<CompletionItemLabelDetails> decode(JSONValue const &json)
     {
         CompletionItemLabelDetails ret;
-        if (json.has("detail") {
-            ret.detail = TRY_EVAL(json.try_get<std::string>(detail));
+        if (json.has("detail")) {
+            ret.detail = TRY_EVAL(json.try_get<std::string>("detail"));
         }
-        if (json.has("description") {
-            ret.description = TRY_EVAL(json.try_get<std::string>(description));
+        if (json.has("description")) {
+            ret.description = TRY_EVAL(json.try_get<std::string>("description"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "detail", encode<std::optional<std::string>>(detail));
-        set(ret, "description", encode<std::optional<std::string>>(description));
         JSONValue ret;
+        set(ret, "detail", detail);
+        set(ret, "description", description);
+        return ret;
     };
 };
 

@@ -19,19 +19,20 @@ struct CompletionParams : public TextDocumentPositionParams
     , public WorkDoneProgressParams {
     std::optional<CompletionContext> context;
 
-    static Result<CompletionParams, JSONError> decode(JSONValue const &json)
+    static Decoded<CompletionParams> decode(JSONValue const &json)
     {
         CompletionParams ret;
-        if (json.has("context") {
-            ret.context = TRY_EVAL(json.try_get<CompletionContext>(context));
+        if (json.has("context")) {
+            ret.context = TRY_EVAL(json.try_get<CompletionContext>("context"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "context", encode<std::optional<CompletionContext>>(context));
         JSONValue ret;
+        set(ret, "context", context);
+        return ret;
     };
 };
 

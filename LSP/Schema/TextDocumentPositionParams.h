@@ -14,23 +14,24 @@
 
 namespace LSP {
 
-struct TextDocumentPositionParams : public LSPObject {
+struct TextDocumentPositionParams {
     TextDocumentIdentifier textDocument;
     Position               position;
 
-    static Result<TextDocumentPositionParams, JSONError> decode(JSONValue const &json)
+    static Decoded<TextDocumentPositionParams> decode(JSONValue const &json)
     {
         TextDocumentPositionParams ret;
-        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>(textDocument));
-        ret.position = TRY_EVAL(json.try_get<Position>(position));
-        return ret;
+        ret.textDocument = TRY_EVAL(json.try_get<TextDocumentIdentifier>("textDocument"));
+        ret.position = TRY_EVAL(json.try_get<Position>("position"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "textDocument", encode<TextDocumentIdentifier>(textDocument));
-        set(ret, "position", encode<Position>(position));
         JSONValue ret;
+        set(ret, "textDocument", textDocument);
+        set(ret, "position", position);
+        return ret;
     };
 };
 

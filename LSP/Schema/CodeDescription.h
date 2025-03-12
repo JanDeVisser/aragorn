@@ -13,20 +13,21 @@
 
 namespace LSP {
 
-struct CodeDescription : public LSPObject {
+struct CodeDescription {
     URI href;
 
-    static Result<CodeDescription, JSONError> decode(JSONValue const &json)
+    static Decoded<CodeDescription> decode(JSONValue const &json)
     {
         CodeDescription ret;
-        ret.href = TRY_EVAL(json.try_get<URI>(href));
-        return ret;
+        ret.href = TRY_EVAL(json.try_get<URI>("href"));
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "href", encode<URI>(href));
         JSONValue ret;
+        set(ret, "href", href);
+        return ret;
     };
 };
 

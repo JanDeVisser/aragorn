@@ -38,8 +38,7 @@ enum class SemanticTokenTypes {
     Decorator,
 };
 
-template<>
-inline std::string as_string(SemanticTokenTypes obj)
+inline std::string SemanticTokenTypes_as_string(SemanticTokenTypes obj)
 {
     switch (obj) {
     case SemanticTokenTypes::Namespace:
@@ -93,8 +92,7 @@ inline std::string as_string(SemanticTokenTypes obj)
     }
 }
 
-template<>
-inline std::optional<SemanticTokenTypes> from_string<SemanticTokenTypes>(std::string_view const &s)
+inline std::optional<SemanticTokenTypes> SemanticTokenTypes_from_string(std::string_view const &s)
 {
     if (s == "namespace")
         return SemanticTokenTypes::Namespace;
@@ -154,13 +152,13 @@ using namespace LSP;
 template<>
 inline JSONValue encode(SemanticTokenTypes const &obj)
 {
-    return encode_string_enum<SemanticTokenTypes>(obj);
+    return JSONValue { SemanticTokenTypes_as_string(obj) };
 }
 
 template<>
-inline Result<SemanticTokenTypes, JSONError> decode(JSONValue const &json)
+inline Decoded<SemanticTokenTypes> decode(JSONValue const &json)
 {
-    return decode_string_enum<SemanticTokenTypes>(json);
+    return SemanticTokenTypes_from_string(json.to_string());
 }
 
 } /* namespace LibCore */

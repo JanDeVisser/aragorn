@@ -12,32 +12,33 @@
 
 namespace LSP {
 
-struct DocumentFilter : public LSPObject {
+struct DocumentFilter {
     std::optional<std::string> language;
     std::optional<std::string> scheme;
     std::optional<std::string> pattern;
 
-    static Result<DocumentFilter, JSONError> decode(JSONValue const &json)
+    static Decoded<DocumentFilter> decode(JSONValue const &json)
     {
         DocumentFilter ret;
-        if (json.has("language") {
-            ret.language = TRY_EVAL(json.try_get<std::string>(language));
+        if (json.has("language")) {
+            ret.language = TRY_EVAL(json.try_get<std::string>("language"));
         }
-        if (json.has("scheme") {
-            ret.scheme = TRY_EVAL(json.try_get<std::string>(scheme));
+        if (json.has("scheme")) {
+            ret.scheme = TRY_EVAL(json.try_get<std::string>("scheme"));
         }
-        if (json.has("pattern") {
-            ret.pattern = TRY_EVAL(json.try_get<std::string>(pattern));
+        if (json.has("pattern")) {
+            ret.pattern = TRY_EVAL(json.try_get<std::string>("pattern"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "language", encode<std::optional<std::string>>(language));
-        set(ret, "scheme", encode<std::optional<std::string>>(scheme));
-        set(ret, "pattern", encode<std::optional<std::string>>(pattern));
         JSONValue ret;
+        set(ret, "language", language);
+        set(ret, "scheme", scheme);
+        set(ret, "pattern", pattern);
+        return ret;
     };
 };
 

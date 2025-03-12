@@ -12,25 +12,26 @@
 
 namespace LSP {
 
-struct RegularExpressionsClientCapabilities : public LSPObject {
+struct RegularExpressionsClientCapabilities {
     std::string                engine;
     std::optional<std::string> version;
 
-    static Result<RegularExpressionsClientCapabilities, JSONError> decode(JSONValue const &json)
+    static Decoded<RegularExpressionsClientCapabilities> decode(JSONValue const &json)
     {
         RegularExpressionsClientCapabilities ret;
-        ret.engine = TRY_EVAL(json.try_get<std::string>(engine));
-        if (json.has("version") {
-            ret.version = TRY_EVAL(json.try_get<std::string>(version));
+        ret.engine = TRY_EVAL(json.try_get<std::string>("engine"));
+        if (json.has("version")) {
+            ret.version = TRY_EVAL(json.try_get<std::string>("version"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "engine", encode<std::string>(engine));
-        set(ret, "version", encode<std::optional<std::string>>(version));
         JSONValue ret;
+        set(ret, "engine", engine);
+        set(ret, "version", version);
+        return ret;
     };
 };
 

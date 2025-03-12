@@ -48,7 +48,7 @@ Result<pProject, AragornError> Project::open(pAragorn const &aragorn, std::strin
         }
         prj.merge(json_maybe.value());
     }
-    if (auto sources = values<std::string>(prj["sources"]); sources.has_value()) {
+    if (auto sources = prj.try_get_array<std::string>("sources"); sources.has_value()) {
         auto srcs = sources.value();
         for (auto const &dir : srcs) {
             ret->source_dirs.emplace_back(dir);
@@ -84,9 +84,10 @@ Result<pProject, AragornError> Project::open(pAragorn const &aragorn, std::strin
         if (json_maybe.is_error()) {
             return AragornError { json_maybe.error() };
         }
-        auto const &state = json_maybe.value();
-        if (auto files = values<std::string>(state["files"]); files.has_value()) {
-            for (auto const &f : files.value()) {
+        auto const              &state = json_maybe.value();
+        std::vector<std::string> files;
+        if (!state["files"].convert(files).is_error()) {
+            for (auto const &f : files) {
                 auto const result = aragorn->open_buffer(f);
                 if (result.is_error()) {
                     return AragornError { result.error() };
@@ -125,4 +126,11 @@ void Project::close(pAragorn const &aragorn) const
     }
 }
 
+}
+
+extern "C" {
+
+void sigchld(int)
+{
+}
 }

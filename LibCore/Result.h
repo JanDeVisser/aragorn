@@ -62,22 +62,22 @@ private:
     std::optional<ErrorType>  m_error {};
 };
 
-#define TRY_EVAL(expr)              \
-    ({                              \
-        auto _result = (expr);      \
-        if (!_result.has_value()) { \
-            return _result.error(); \
-        }                           \
-        _result.value();            \
+#define TRY_EVAL(...)                 \
+    ({                                \
+        auto _result = (__VA_ARGS__); \
+        if (!_result.has_value()) {   \
+            return _result.error();   \
+        }                             \
+        _result.value();              \
     })
 
-#define MUST_EVAL(expr)                                                      \
-    ({                                                                       \
-        auto _result = (expr);                                               \
-        if (!_result.has_value()) {                                          \
-            fatal("MUST_EVAL {:}: {:}", #expr, _result.error().to_string()); \
-        }                                                                    \
-        _result.value();                                                     \
+#define MUST_EVAL(...)                                                              \
+    ({                                                                              \
+        auto _result = (__VA_ARGS__);                                               \
+        if (!_result.has_value()) {                                                 \
+            fatal("MUST_EVAL {:}: {:}", #__VA_ARGS__, _result.error().to_string()); \
+        }                                                                           \
+        _result.value();                                                            \
     })
 
 template<typename ErrorType = LibCError>
@@ -111,20 +111,25 @@ protected:
 
 using CError = Error<LibCError>;
 
-#define TRY(expr)                   \
-    do {                            \
-        auto _result = (expr);      \
-        if (_result.is_error()) {   \
-            return _result.error(); \
-        }                           \
+#define TRY(...)                      \
+    do {                              \
+        auto _result = (__VA_ARGS__); \
+        if (_result.is_error()) {     \
+            return _result.error();   \
+        }                             \
     } while (0)
 
-#define MUST(expr)                                                      \
-    do {                                                                \
-        auto _result = (expr);                                          \
-        if (_result.is_error()) {                                       \
-            fatal("MUST {:}: {:}", #expr, _result.error().to_string()); \
-        }                                                               \
+#define MUST(...)                                                              \
+    do {                                                                       \
+        auto _result = (__VA_ARGS__);                                          \
+        if (_result.is_error()) {                                              \
+            fatal("MUST {:}: {:}", #__VA_ARGS__, _result.error().to_string()); \
+        }                                                                      \
+    } while (0)
+
+#define IGNORE(...)                   \
+    do {                              \
+        auto _result = (__VA_ARGS__); \
     } while (0)
 
 } // namespace LibCore

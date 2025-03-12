@@ -12,38 +12,39 @@
 
 namespace LSP {
 
-struct FormattingOptions : public LSPObject {
+struct FormattingOptions {
     uint32_t            tabSize;
     bool                insertSpaces;
     std::optional<bool> trimTrailingWhitespace;
     std::optional<bool> insertFinalNewline;
     std::optional<bool> trimFinalNewlines;
 
-    static Result<FormattingOptions, JSONError> decode(JSONValue const &json)
+    static Decoded<FormattingOptions> decode(JSONValue const &json)
     {
         FormattingOptions ret;
-        ret.tabSize = TRY_EVAL(json.try_get<uint32_t>(tabSize));
-        ret.insertSpaces = TRY_EVAL(json.try_get<bool>(insertSpaces));
-        if (json.has("trimTrailingWhitespace") {
-            ret.trimTrailingWhitespace = TRY_EVAL(json.try_get<bool>(trimTrailingWhitespace));
+        ret.tabSize = TRY_EVAL(json.try_get<uint32_t>("tabSize"));
+        ret.insertSpaces = TRY_EVAL(json.try_get<bool>("insertSpaces"));
+        if (json.has("trimTrailingWhitespace")) {
+            ret.trimTrailingWhitespace = TRY_EVAL(json.try_get<bool>("trimTrailingWhitespace"));
         }
-        if (json.has("insertFinalNewline") {
-            ret.insertFinalNewline = TRY_EVAL(json.try_get<bool>(insertFinalNewline));
+        if (json.has("insertFinalNewline")) {
+            ret.insertFinalNewline = TRY_EVAL(json.try_get<bool>("insertFinalNewline"));
         }
-        if (json.has("trimFinalNewlines") {
-            ret.trimFinalNewlines = TRY_EVAL(json.try_get<bool>(trimFinalNewlines));
+        if (json.has("trimFinalNewlines")) {
+            ret.trimFinalNewlines = TRY_EVAL(json.try_get<bool>("trimFinalNewlines"));
         }
-         return ret;
+        return std::move(ret);
     }
 
-    JSONValue encode()
+    JSONValue encode() const
     {
-        set(ret, "tabSize", encode<uint32_t>(tabSize));
-        set(ret, "insertSpaces", encode<bool>(insertSpaces));
-        set(ret, "trimTrailingWhitespace", encode<std::optional<bool>>(trimTrailingWhitespace));
-        set(ret, "insertFinalNewline", encode<std::optional<bool>>(insertFinalNewline));
-        set(ret, "trimFinalNewlines", encode<std::optional<bool>>(trimFinalNewlines));
         JSONValue ret;
+        set(ret, "tabSize", tabSize);
+        set(ret, "insertSpaces", insertSpaces);
+        set(ret, "trimTrailingWhitespace", trimTrailingWhitespace);
+        set(ret, "insertFinalNewline", insertFinalNewline);
+        set(ret, "trimFinalNewlines", trimFinalNewlines);
+        return ret;
     };
 };
 

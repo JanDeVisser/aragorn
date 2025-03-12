@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2024, Jan de Visser <jan@finiandarcy.com>
  *
@@ -49,8 +50,8 @@ struct App : public Layout {
 
     App();
 
-    virtual void        on_start() {};
-    virtual void        on_terminate() {};
+    virtual void        on_start() { };
+    virtual void        on_terminate() { };
     virtual char const *window_title() const
     {
         return title_string.c_str();

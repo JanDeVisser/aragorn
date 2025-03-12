@@ -17,8 +17,7 @@ enum class InsertTextMode {
     AdjustIndentation = 2,
 };
 
-template<>
-inline std::optional<InsertTextMode> from_int<InsertTextMode>(int i)
+inline std::optional<InsertTextMode> InsertTextMode_from_int(int i)
 {
     if (i == 1)
         return InsertTextMode::AsIs;
@@ -36,13 +35,22 @@ using namespace LSP;
 template<>
 inline JSONValue encode(InsertTextMode const &obj)
 {
-    return encode_int_enum(obj);
+    return JSONValue { static_cast<int>(obj) };
 }
 
 template<>
-inline Result<InsertTextMode, JSONError> decode(JSONValue const &json)
+inline Decoded<InsertTextMode> decode(JSONValue const &json)
 {
-    return decode_int_enum(json);
+    int int_val;
+    TRY(json.convert(int_val));
+    if (auto v = InsertTextMode_from_int(int_val); !v) {
+        return JSONError {
+            JSONError::Code::UnexpectedValue,
+            "Cannot convert JSON value of type 'InsertTextMode' to integer",
+        };
+    } else {
+        return *v;
+    }
 }
 
 } /* namespace LibCore */

@@ -77,14 +77,14 @@ Result<Colour, JSONError> Colour::decode(JSONValue const &json)
                 std::format("Cannot convert JSON value {} to Colour component", comp.to_string()),
             };
         }
-        auto res = value<uint8_t>(comp);
-        if (!res.has_value()) {
+        uint8_t res;
+        if (comp.convert(res).is_error()) {
             return JSONError {
                 JSONError::Code::TypeMismatch,
                 std::format("Integer color component value '{}' out of range", comp.to_string()),
             };
         }
-        return res.value();
+        return res;
     };
 
     auto decode_object_item = [&decode_component, &json](std::string_view const &short_tag, std::string_view const &long_tag) -> Result<uint8_t, JSONError> {
@@ -108,14 +108,14 @@ Result<Colour, JSONError> Colour::decode(JSONValue const &json)
         return Colour { res.value() };
     } break;
     case JSONType::Integer: {
-        auto res = value<uint32_t>(json);
-        if (!res.has_value()) {
+        uint32_t res;
+        if (json.convert<uint32_t>(res).is_error()) {
             return JSONError {
                 JSONError::Code::TypeMismatch,
                 std::format("Invalid integer color value '{}'", json.to_string()),
             };
         }
-        return Colour { res.value() };
+        return Colour { res };
     }
     case JSONType::Array: {
         if (json.size() != 4) {
