@@ -27,7 +27,7 @@ struct Range {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "start", start);
         set(ret, "end", end);
         return ret;

@@ -383,8 +383,17 @@ int main(int argc, char const **argv)
 
     if (has_option("output-cpp")) {
         std::cout << "Generating C++ code" << std::endl;
+        std::set<std::string_view> outputs;
+        auto const                &names = get_option_values("output");
+        std::for_each(
+            names.begin(),
+            names.end(),
+            [&outputs](auto const &arg) { outputs.emplace(arg); });
         for (auto const &type_pair : module) {
             auto &type = type_pair.second;
+            if (!outputs.empty() && !outputs.contains(MUST_EVAL(to_utf8(type.name)))) {
+                continue;
+            }
             std::wcout << type.name << "..." << std::endl;
             CPPOutputter outputter { type };
             outputter.output();

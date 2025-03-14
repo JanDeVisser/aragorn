@@ -13,6 +13,7 @@
 #include <config.h>
 
 #include <App/Aragorn.h>
+#include <App/CMode.h>
 #include <App/Editor.h>
 #include <App/LexerMode.h>
 #include <App/MiniBuffer.h>
@@ -262,11 +263,14 @@ void Aragorn::initialize()
             arguments.pop_front();
         }
     }
+
+    // FIXME split up Project::open into static Project::create and instance
+    // Project::open.
     auto project_maybe = Project::open(self<Aragorn>(), project_dir);
     if (project_maybe.is_error()) {
         fatal("Could not open project directory '{}': {}", project_dir, project_maybe.error().to_string());
     }
-    project = project_maybe.value();
+    assert(project == project_maybe.value());
     while (!arguments.empty()) {
         auto &fname = arguments.front();
         arguments.pop_front();

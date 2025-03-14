@@ -9,27 +9,23 @@
 #pragma once
 
 #include <LSP/Schema/LSPBase.h>
-#include <LSP/Schema/Range.h>
 
 namespace LSP {
 
-struct TextEdit {
-    Range       range;
-    std::string newText;
+struct TextDocumentContentChangeText {
+    std::string text;
 
-    static Decoded<TextEdit> decode(JSONValue const &json)
+    static Decoded<TextDocumentContentChangeText> decode(JSONValue const &json)
     {
-        TextEdit ret;
-        ret.range = TRY_EVAL(json.try_get<Range>("range"));
-        ret.newText = TRY_EVAL(json.try_get<std::string>("newText"));
+        TextDocumentContentChangeText ret;
+        ret.text = TRY_EVAL(json.try_get<std::string>("text"));
         return std::move(ret);
     }
 
     JSONValue encode() const
     {
         JSONValue ret { JSONType::Object };
-        set(ret, "range", range);
-        set(ret, "newText", newText);
+        set(ret, "text", text);
         return ret;
     };
 };

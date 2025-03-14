@@ -25,7 +25,7 @@ struct SemanticTokensOptions {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             return ret;
         };
     };
@@ -44,7 +44,7 @@ struct SemanticTokensOptions {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             set(ret, "delta", delta);
             return ret;
         };
@@ -66,7 +66,7 @@ struct SemanticTokensOptions {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "legend", legend);
         set(ret, "range", range);
         set(ret, "full", full);

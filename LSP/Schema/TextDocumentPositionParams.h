@@ -28,7 +28,7 @@ struct TextDocumentPositionParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "textDocument", textDocument);
         set(ret, "position", position);
         return ret;

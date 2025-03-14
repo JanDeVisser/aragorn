@@ -28,7 +28,7 @@ struct SemanticTokens {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "resultId", resultId);
         set(ret, "data", data);
         return ret;

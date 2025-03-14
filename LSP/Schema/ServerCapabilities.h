@@ -38,7 +38,7 @@ struct ServerCapabilities {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "positionEncoding", positionEncoding);
         set(ret, "textDocumentSync", textDocumentSync);
         set(ret, "semanticTokensProvider", semanticTokensProvider);

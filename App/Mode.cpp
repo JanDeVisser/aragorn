@@ -14,14 +14,4 @@
 
 namespace Aragorn {
 
-std::shared_ptr<::LSP::LSP> CLexer::the_lsp { nullptr };
-
-std::shared_ptr<::LSP::LSP> CLexer::lsp()
-{
-    if (the_lsp == nullptr) {
-        the_lsp = Widget::make<::LSP::LSP>();
-    }
-    return the_lsp;
-}
-
 }

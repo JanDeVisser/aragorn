@@ -44,7 +44,7 @@ struct TextDocumentSyncOptions {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "openClose", openClose);
         set(ret, "change", change);
         set(ret, "willSave", willSave);

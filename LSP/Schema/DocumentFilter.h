@@ -34,7 +34,7 @@ struct DocumentFilter {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "language", language);
         set(ret, "scheme", scheme);
         set(ret, "pattern", pattern);

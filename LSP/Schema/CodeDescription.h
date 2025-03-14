@@ -25,7 +25,7 @@ struct CodeDescription {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "href", href);
         return ret;
     };

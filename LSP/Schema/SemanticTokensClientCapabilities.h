@@ -26,7 +26,7 @@ struct SemanticTokensClientCapabilities {
 
             JSONValue encode() const
             {
-                JSONValue ret;
+                JSONValue ret { JSONType::Object };
                 return ret;
             };
         };
@@ -45,7 +45,7 @@ struct SemanticTokensClientCapabilities {
 
             JSONValue encode() const
             {
-                JSONValue ret;
+                JSONValue ret { JSONType::Object };
                 set(ret, "delta", delta);
                 return ret;
             };
@@ -66,7 +66,7 @@ struct SemanticTokensClientCapabilities {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             set(ret, "range", range);
             set(ret, "full", full);
             return ret;
@@ -108,7 +108,7 @@ struct SemanticTokensClientCapabilities {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "dynamicRegistration", dynamicRegistration);
         set(ret, "requests", requests);
         set(ret, "tokenTypes", tokenTypes);

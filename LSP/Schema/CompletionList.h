@@ -34,7 +34,7 @@ struct CompletionList {
 
             JSONValue encode() const
             {
-                JSONValue ret;
+                JSONValue ret { JSONType::Object };
                 set(ret, "insert", insert);
                 set(ret, "replace", replace);
                 return ret;
@@ -68,7 +68,7 @@ struct CompletionList {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             set(ret, "commitCharacters", commitCharacters);
             set(ret, "editRange", editRange);
             set(ret, "insertTextFormat", insertTextFormat);
@@ -93,7 +93,7 @@ struct CompletionList {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "isIncomplete", isIncomplete);
         set(ret, "itemDefaults", itemDefaults);
         set(ret, "items", items);

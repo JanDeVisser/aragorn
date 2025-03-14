@@ -28,7 +28,7 @@ struct DidChangeTextDocumentParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "textDocument", textDocument);
         set(ret, "contentChanges", contentChanges);
         return ret;

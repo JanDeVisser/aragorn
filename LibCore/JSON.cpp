@@ -70,6 +70,7 @@ using namespace std::literals;
         replace_all(s, "\r", R"(\r)");
         replace_all(s, "\n", R"(\n)");
         replace_all(s, "\t", R"(\t)");
+        replace_all(s, "\"", R"(\")");
         return "\"" + s + "\"";
     }
     case JSONType::Array: {

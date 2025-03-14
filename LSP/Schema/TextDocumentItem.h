@@ -31,7 +31,7 @@ struct TextDocumentItem {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "uri", uri);
         set(ret, "languageId", languageId);
         set(ret, "version", version);

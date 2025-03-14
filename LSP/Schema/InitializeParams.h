@@ -34,7 +34,7 @@ struct InitializeParams {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             set(ret, "name", name);
             set(ret, "version", version);
             return ret;
@@ -78,7 +78,7 @@ struct InitializeParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "processId", processId);
         set(ret, "clientInfo", clientInfo);
         set(ret, "locale", locale);

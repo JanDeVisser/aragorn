@@ -32,7 +32,7 @@ struct TextDocumentClientCapabilities {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "synchronization", synchronization);
         set(ret, "semanticTokens", semanticTokens);
         return ret;

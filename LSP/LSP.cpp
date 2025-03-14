@@ -20,7 +20,7 @@ int Request::next_id { 0 };
 
 JSONValue Notification::encode() const
 {
-    JSONValue ret;
+    JSONValue ret { JSONValue::object() };
     ret.set("jsonrpc", JSONValue { "2.0" });
     ret.set("method", JSONValue { method });
     if (params) {
@@ -50,13 +50,49 @@ Decoded<Response> Response::decode(JSONValue const &json)
 
 CError LSP::message(pWidget const &sender, std::string_view method, std::optional<JSONValue> params)
 {
+    if (!m_ready) {
+        std::unique_lock lk(mutex);
+        ScopeGuard       sg { [&lk] { lk.unlock(); } };
+        init_condition.wait(lk, [this]() { return m_ready; });
+    }
+    return private_message(sender, method, params);
+}
+
+CError LSP::private_message(pWidget const &sender, std::string_view method, std::optional<JSONValue> params)
+{
     Request req;
     req.sender = sender;
     req.method = method;
     req.params = params;
+    std::println("Sending LSP message: {}... ", method);
     request_queue.push_back(req);
-    auto json = req.encode().serialize();
-    auto content_length = std::format("Content-Length: %zu\r\n\r\n", json.length() + 2);
+    auto encoded { req.encode() };
+    auto json { encoded.serialize() };
+    auto content_length = std::format("Content-Length: {}\r\n\r\n", json.length() + 2);
+    TRY(lsp->write_to(content_length));
+    TRY(lsp->write_to(json));
+    TRY(lsp->write_to("\r\n"));
+    return {};
+}
+
+CError LSP::notification(std::string_view method, std::optional<JSONValue> params)
+{
+    if (!m_ready) {
+        std::unique_lock lk(mutex);
+        ScopeGuard       sg { [&lk] { lk.unlock(); } };
+        init_condition.wait(lk, [this]() { return m_ready; });
+    }
+    return private_notification(method, params);
+}
+
+CError LSP::private_notification(std::string_view method, std::optional<JSONValue> params)
+{
+    Notification notification;
+    std::println("Sending LSP notification: {}... ", method);
+    notification.method = method;
+    notification.params = params;
+    auto json = notification.encode().serialize();
+    auto content_length = std::format("Content-Length: {}\r\n\r\n", json.length() + 2);
     TRY(lsp->write_to(content_length));
     TRY(lsp->write_to(json));
     TRY(lsp->write_to("\r\n"));
@@ -70,21 +106,25 @@ void handle_initialize_response(pWidget const &lsp, JSONValue const &response_js
 
 void LSP::on_initialize_response(JSONValue const &response_json)
 {
-    auto lk = std::unique_lock(mutex);
-    init_condition.wait(lk);
-    auto response = Response::decode(response_json);
-    assert(!response.is_error());
-    auto result = make_response_result<InitializeResult>(response.value());
-    if (result.value().serverInfo) {
-        info(LSP, "LSP server name: {}", result.value().serverInfo->name);
-        if (result.value().serverInfo->version) {
-            info(LSP, "LSP server version: {}", *(result.value().serverInfo->version));
+    assert(!m_ready);
+    {
+        std::unique_lock lk(mutex);
+        ScopeGuard       sg { [&lk] { lk.unlock(); } };
+        auto             response = Response::decode(response_json);
+        assert(!response.is_error());
+        auto  result = make_response_result<InitializeResult>(response.value());
+        auto &res = result.value();
+        if (res.serverInfo) {
+            std::println("LSP server name: {}", res.serverInfo->name);
+            if (res.serverInfo->version) {
+                std::println("LSP server version: {}", *(res.serverInfo->version));
+            }
         }
+        server_capabilities = res.capabilities;
+        initialize_theme_internal();
+        MUST(private_notification("initialized"));
+        m_ready = true;
     }
-    server_capabilities = result.value().capabilities;
-    initialize_theme_internal();
-    MUST(send_notification(*this, "initialized"));
-    m_ready = true;
     init_condition.notify_all();
 }
 
@@ -96,80 +136,64 @@ void lsp_read(ReadPipe<LSP *> &pipe)
 
 void LSP::read(ReadPipe<LSP *> &pipe)
 {
-    do {
-        read_buffer += pipe.current();
-        scanner.string = read_buffer;
-        do {
-            scanner.reset();
-            if (!scanner.expect("Content-Length:")) {
-                return;
-            }
-            scanner.skip_whitespace();
-            size_t resp_content_length = scanner.read_number();
-            if (!resp_content_length) {
-                scanner.rewind();
-                return;
-            }
-            if (!scanner.expect("\r\n\r\n")) {
-                scanner.rewind();
-                return;
-            }
-            auto response_json = scanner.read(resp_content_length);
-            if (response_json.length() < resp_content_length) {
-                scanner.rewind();
-                return;
-            }
-            auto ret_maybe = JSONValue::deserialize(response_json);
-            if (ret_maybe.is_error()) {
-                info(LSP, "ERROR Parsing incoming JSON: {}", ret_maybe.error().description);
-                ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", ret_maybe.error().description));
-                continue;
-            }
-            JSONValue const &ret = ret_maybe.value();
-            if (ret.has("id")) {
-                auto response_maybe = Response::decode(ret);
-                if (response_maybe.is_error()) {
-                    ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", response_maybe.error().description));
-                    continue;
+    read_buffer += pipe.current();
+    scanner.string = read_buffer;
+    scanner.mark = scanner.point = TextPosition {};
+    if (!scanner.expect("Content-Length:")) {
+        return;
+    }
+    scanner.skip_whitespace();
+    size_t resp_content_length = scanner.read_number();
+    if (!resp_content_length) {
+        return;
+    }
+    if (!scanner.expect("\r\n\r\n")) {
+        return;
+    }
+    auto response_json = scanner.read(resp_content_length);
+    if (response_json.length() < resp_content_length) {
+        return;
+    }
+    auto ret_maybe = JSONValue::deserialize(response_json);
+    read_buffer.clear();
+    if (ret_maybe.is_error()) {
+        std::println("ERROR Parsing incoming JSON: {}", ret_maybe.error().description);
+        ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", ret_maybe.error().description));
+        return;
+    }
+    JSONValue const &ret = ret_maybe.value();
+    if (ret.has("id")) {
+        auto response_maybe = Response::decode(ret);
+        if (response_maybe.is_error()) {
+            ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", response_maybe.error().description));
+            return;
+        }
+        std::print("Received response id {}", response_maybe.value().id);
+        auto const &response = response_maybe.value();
+        for (auto ix = 0; ix < request_queue.size(); ++ix) {
+            Request const &req = request_queue[ix];
+            std::println(" for request '{}'", req.method);
+            if (req.id == response.id) {
+                if (req.method == "initialize") {
+                    handle_initialize_response(req.sender, ret);
+                } else {
+                    req.sender->submit(std::format("lsp-{}", req.method), ret);
                 }
-                auto const &response = response_maybe.value();
-                for (Request const &req : request_queue) {
-                    if (req.id == response.id) {
-                        if (req.method == "initialize") {
-                            handle_initialize_response(req.sender, ret);
-                            continue;
-                        }
-                        req.sender->submit(std::format("lsp-{}", req.method), ret);
-                    }
-                }
-                continue;
+                request_queue.erase(request_queue.begin() + ix);
+                return;
             }
-            assert(ret.has("method"));
-            auto notification_maybe = Notification::decode(ret);
-            if (notification_maybe.is_error()) {
-                ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", notification_maybe.error().description));
-                continue;
-            }
-            submit(std::format("lsp-{}", notification_maybe.value().method), ret);
-        } while (scanner.point.index < scanner.string.length());
-        scanner.point = {};
-        read_buffer.clear();
-        scanner.string = read_buffer;
-        scanner.reset();
-    } while (pipe.current().length() > 0);
-}
-
-CError LSP::notification(std::string_view method, std::optional<JSONValue> params)
-{
-    Notification notification;
-    notification.method = method;
-    notification.params = params;
-    auto json = notification.encode().serialize();
-    auto content_length = std::format("Content-Length: %zu\r\n\r\n", json.length() + 2);
-    TRY(lsp->write_to(content_length));
-    TRY(lsp->write_to(json));
-    TRY(lsp->write_to("\r\n"));
-    return {};
+        }
+        std::println(" which was not pending");
+        return;
+    }
+    assert(ret.has("method"));
+    std::println("Received notification '{}'", ret["method"].to_string());
+    auto notification_maybe = Notification::decode(ret);
+    if (notification_maybe.is_error()) {
+        ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", notification_maybe.error().description));
+        return;
+    }
+    submit(std::format("lsp-{}", notification_maybe.value().method), ret);
 }
 
 void LSP::initialize_theme_internal()
@@ -196,17 +220,7 @@ void LSP::initialize()
     if (m_ready) {
         return;
     }
-
-    std::unique_lock lk(mutex);
-    init_condition.wait(lk);
-    if (m_ready) {
-        lk.unlock();
-        init_condition.notify_one();
-        return;
-    }
     if (lsp) {
-        std::unique_lock lk2(mutex);
-        init_condition.wait(lk2);
         assert(m_ready);
         return;
     }
@@ -214,12 +228,13 @@ void LSP::initialize()
     lsp.emplace("clangd", "--use-dirty-headers", "--background-index");
     lsp->stderr_file = "/tmp/clangd.log";
     lsp->on_stdout_read(lsp_read);
+    std::println("Starting LSP");
     MUST(lsp->background(this));
 
     InitializeParams params;
     params.processId.emplace<int>(getpid());
     params.clientInfo = InitializeParams::ClientInfo { ARAGORN_NAME, ARAGORN_VERSION };
-    params.rootUri.emplace<DocumentUri>(std::format("file://%s", ::Aragorn::Aragorn::the()->project->project_dir));
+    params.rootUri.emplace<DocumentUri>(std::format("file://{}", ::Aragorn::Aragorn::the()->project->project_dir));
 
     TextDocumentSyncClientCapabilities syncCapabilities;
     syncCapabilities.didSave = true;
@@ -239,8 +254,7 @@ void LSP::initialize()
     params.capabilities.textDocument->synchronization = syncCapabilities;
     params.capabilities.textDocument->semanticTokens = semanticTokensClientCapabilities;
 
-    MUST(send_message(*this, ::Aragorn::Aragorn::the(), "initialize", params));
-    init_condition.wait(lk);
+    MUST(private_message(self(), "initialize", params.encode()));
 }
 
 }

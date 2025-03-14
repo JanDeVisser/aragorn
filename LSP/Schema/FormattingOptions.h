@@ -38,7 +38,7 @@ struct FormattingOptions {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "tabSize", tabSize);
         set(ret, "insertSpaces", insertSpaces);
         set(ret, "trimTrailingWhitespace", trimTrailingWhitespace);

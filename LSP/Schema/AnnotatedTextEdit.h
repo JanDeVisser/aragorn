@@ -26,7 +26,7 @@ struct AnnotatedTextEdit : public TextEdit {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "annotationId", annotationId);
         return ret;
     };

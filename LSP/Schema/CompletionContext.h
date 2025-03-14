@@ -29,7 +29,7 @@ struct CompletionContext {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "triggerKind", triggerKind);
         set(ret, "triggerCharacter", triggerCharacter);
         return ret;

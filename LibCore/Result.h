@@ -98,15 +98,15 @@ public:
     Error(Error const &other) = default;
     ~Error() = default;
 
-    Error   &operator=(Error &&other) noexcept = default;
-    Error   &operator=(Error const &other) = default;
-    explicit operator bool() const { return !is_error(); }
+    Error &operator=(Error &&other) noexcept = default;
+    Error &operator=(Error const &other) = default;
+    operator bool() const { return is_error(); }
 
     ErrorType         &error() { return m_error.value(); }
     [[nodiscard]] bool is_error() const { return m_error.has_value(); }
 
 protected:
-    std::optional<ErrorType> m_error;
+    std::optional<ErrorType> m_error {};
 };
 
 using CError = Error<LibCError>;

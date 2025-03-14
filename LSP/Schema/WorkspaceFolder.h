@@ -27,7 +27,7 @@ struct WorkspaceFolder {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "uri", uri);
         set(ret, "name", name);
         return ret;

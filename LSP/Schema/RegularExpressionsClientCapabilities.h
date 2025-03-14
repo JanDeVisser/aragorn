@@ -28,7 +28,7 @@ struct RegularExpressionsClientCapabilities {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "engine", engine);
         set(ret, "version", version);
         return ret;

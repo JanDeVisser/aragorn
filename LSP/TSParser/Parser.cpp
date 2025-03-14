@@ -387,6 +387,9 @@ void Parser::parse_typedef()
         default:
             fatal("Duplicate type definition '{}'", m_lexer.text_utf8(name));
         }
+    } else if (t->kind == TypeKind::Variant) {
+        auto &type_def = TypeDef::make_variant(m_lexer.text(name), t);
+        type_def.get_dependencies(t);
     } else if (!is_basic_type) {
         auto &type_def = TypeDef::make_alias(m_lexer.text(name), t);
         type_def.get_dependencies(t);

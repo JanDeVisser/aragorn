@@ -38,7 +38,7 @@ struct TextDocumentSyncClientCapabilities {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "dynamicRegistration", dynamicRegistration);
         set(ret, "willSave", willSave);
         set(ret, "willSaveWaitUntil", willSaveWaitUntil);

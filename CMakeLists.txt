@@ -149,6 +149,7 @@ add_executable(
         App/MiniBuffer.h
         App/Modal.h
         App/Mode.cpp
+        App/CMode.cpp
         App/StatusBar.cpp
         App/Theme.cpp
         App/Widget.cpp

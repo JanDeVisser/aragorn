@@ -925,12 +925,34 @@ JSONValue encode(std::shared_ptr<T> const &value)
     return encode(*value);
 }
 
+// template<size_t N, typename... Ts>
+// JSONValue encode(std::variant<Ts...> const &value)
+// {
+//     if (N == value.index()) {
+//         return encode(std::get<N, Ts...>(value));
+//     }
+//     if constexpr (N > 0) {
+//         return encode<N - 1, Ts...>(value);
+//     }
+//     return {};
+// }
+
+template<typename Element>
+JSONValue encode(std::vector<Element> const &value);
+
+template<typename... Ts>
+JSONValue encode(std::variant<Ts...> const &value)
+{
+    return std::visit([](auto &&arg) { return encode(arg); }, value);
+    // return encode<sizeof...(Ts) - 1, Ts...>(value);
+}
+
 template<typename Element>
 JSONValue encode(std::vector<Element> const &value)
 {
     JSONValue ret = JSONValue::array();
     for (auto const &elem : value) {
-        ret.append(encode<Element>(elem));
+        ret.append(encode(elem));
     }
     return ret;
 }
@@ -951,24 +973,6 @@ inline JSONValue encode(std::optional<std::string> const &value)
     if (value)
         return encode(*value);
     return {};
-}
-
-template<size_t N, typename... Ts>
-JSONValue encode(std::variant<Ts...> const &value)
-{
-    if (N == value.index()) {
-        return encode(std::get<N, Ts...>(value));
-    }
-    if constexpr (N > 0) {
-        return encode<N - 1, Ts...>(value);
-    }
-    return {};
-}
-
-template<typename... Ts>
-JSONValue encode(std::variant<Ts...> const &value)
-{
-    return encode<sizeof...(Ts) - 1, Ts...>(value);
 }
 
 template<typename T>

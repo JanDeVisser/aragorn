@@ -20,6 +20,8 @@ namespace LibCore {
 template<class T = void *>
 class Process {
 public:
+    using OnRead = typename ReadPipe<T>::OnRead;
+
     Process(std::string_view const &cmd) noexcept
         : m_command(cmd)
     {
@@ -39,13 +41,13 @@ public:
 
     pid_t pid() const { return m_pid; }
 
-    Process &on_stdout_read(typename ReadPipe<T>::OnPipeRead on_read)
+    Process &on_stdout_read(OnRead const &on_read)
     {
         m_on_stdout_read = on_read;
         return *this;
     }
 
-    Process &on_stderr_read(typename ReadPipe<T>::OnPipeRead on_read)
+    Process &on_stderr_read(OnRead const &on_read)
     {
         m_on_stderr_read = on_read;
         return *this;
@@ -53,6 +55,7 @@ public:
 
     CError start(T const &ctx)
     {
+        std::println("[CMD] {} {}", m_command, join(m_arguments, " "));
         signal(SIGCHLD, sigchld);
         size_t sz = m_arguments.size();
         size_t bufsz = m_command.length() + 1;
@@ -69,20 +72,17 @@ public:
             bufptr = bufptr + m_arguments[ix].length() + 1;
         }
         argv[sz + 1] = NULL;
-        trace(PROCESS, "[CMD] {} {}", m_command, join(m_arguments, " "));
 
         // signal(SIGCHLD, SIG_IGN);
         if (auto err = m_in.initialize(); err) {
             return err;
         }
-        if (auto err = m_out.initialize(m_on_stdout_read); err) {
+        if (auto err = m_out.initialize(ctx, m_on_stdout_read); err) {
             return err;
         }
-        m_out.context(ctx);
-        if (auto err = m_err.initialize(m_on_stderr_read); err) {
+        if (auto err = m_err.initialize(ctx, m_on_stderr_read); err) {
             return err;
         }
-        m_err.context(ctx);
 
         m_pid = fork();
         if (m_pid == -1) {
@@ -167,14 +167,14 @@ private:
         set_arguments(cmd_args, std::forward<Args>(args)...);
     }
 
-    pid_t                            m_pid { -1 };
-    std::string                      m_command;
-    std::vector<std::string>         m_arguments;
-    WritePipe                        m_in {};
-    ReadPipe<T>                      m_out {};
-    ReadPipe<T>                      m_err {};
-    typename ReadPipe<T>::OnPipeRead m_on_stdout_read;
-    typename ReadPipe<T>::OnPipeRead m_on_stderr_read;
+    pid_t                    m_pid { -1 };
+    std::string              m_command;
+    std::vector<std::string> m_arguments;
+    WritePipe                m_in {};
+    ReadPipe<T>              m_out {};
+    ReadPipe<T>              m_err {};
+    std::optional<OnRead>    m_on_stdout_read {};
+    std::optional<OnRead>    m_on_stderr_read {};
 };
 
 }

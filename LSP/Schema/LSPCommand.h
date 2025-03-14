@@ -30,7 +30,7 @@ struct LSPCommand {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "title", title);
         set(ret, "command", command);
         set(ret, "arguments", arguments);

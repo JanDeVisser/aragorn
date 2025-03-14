@@ -14,6 +14,7 @@ namespace Aragorn {
 
 enum class BufferEventType {
     None = 0,
+    Open,
     CursorMove,
     Insert,
     Delete,
@@ -127,6 +128,22 @@ struct BufferEvent {
             std::move(overwritten),
             std::move(replacement)
         };
+        return ret;
+    }
+
+    static BufferEvent make_open()
+    {
+        BufferEvent ret;
+        ret.type = BufferEventType::Open;
+        ret.change = std::optional<std::string> {};
+        return ret;
+    }
+
+    static BufferEvent make_close()
+    {
+        BufferEvent ret;
+        ret.type = BufferEventType::Close;
+        ret.change = std::optional<std::string> {};
         return ret;
     }
 

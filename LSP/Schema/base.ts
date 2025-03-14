@@ -281,13 +281,24 @@ interface DidCloseTextDocumentParams {
 	textDocument: TextDocumentIdentifier;
 }
 
-export type TextDocumentContentChangeEvent = {
+interface TextDocumentContentChangeRange {
 	range: Range;
 	rangeLength?: uinteger;
 	text: string;
-} | {
+}
+
+interface TextDocumentContentChangeText {
 	text: string;
-};
+}
+
+export type TextDocumentContentChangeEvent = TextDocumentContentChangeRange | TextDocumentContentChangeText;
+// export type TextDocumentContentChangeEvent = {
+// 	range: Range;
+// 	rangeLength?: uinteger;
+// 	text: string;
+// } | {
+// 	text: string;
+// };
 
 interface DidChangeTextDocumentParams {
 	textDocument: VersionedTextDocumentIdentifier;

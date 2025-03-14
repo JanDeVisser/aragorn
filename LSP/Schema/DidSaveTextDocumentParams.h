@@ -29,7 +29,7 @@ struct DidSaveTextDocumentParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "textDocument", textDocument);
         set(ret, "text", text);
         return ret;

@@ -26,7 +26,7 @@ struct Position {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "line", line);
         set(ret, "character", character);
         return ret;

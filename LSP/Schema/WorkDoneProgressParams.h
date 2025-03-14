@@ -22,7 +22,7 @@ struct WorkDoneProgressParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         return ret;
     };
 };

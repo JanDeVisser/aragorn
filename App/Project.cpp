@@ -17,6 +17,8 @@ namespace Aragorn {
 
 namespace fs = std::filesystem;
 
+// Result<pProject, AragornError> Project::create()
+
 Result<pProject, AragornError> Project::open(pAragorn const &aragorn, std::string_view const &dir)
 {
     fs::path d { fs::canonical(dir) };
@@ -28,7 +30,7 @@ Result<pProject, AragornError> Project::open(pAragorn const &aragorn, std::strin
     }
 
     pProject ret = Widget::make<Project>(aragorn);
-
+    aragorn->project = ret;
     ret->project_dir = d.string();
     auto dot_aragorn = d / ".aragorn";
     if (!fs::exists(dot_aragorn) && mkdir(dot_aragorn.c_str(), 0700) < 0) {

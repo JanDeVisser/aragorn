@@ -30,11 +30,13 @@ Buffer::Buffer(pWidget const &parent)
 
 // utility wrapper to adapt locale-bound facets for wstring/wbuffer convert
 template<class Facet>
-struct deletable_facet : Facet
-{
+struct deletable_facet : Facet {
     template<class... Args>
-    deletable_facet(Args&&... args) : Facet(std::forward<Args>(args)...) {}
-    ~deletable_facet() {}
+    deletable_facet(Args &&...args)
+        : Facet(std::forward<Args>(args)...)
+    {
+    }
+    ~deletable_facet() { }
 };
 
 Result<pBuffer> Buffer::open(std::string_view const &name)
@@ -52,6 +54,7 @@ Result<pBuffer> Buffer::open(std::string_view const &name)
     buffer->m_text.resize(cap, 0);
     auto i = buffer->it(buffer->end_gap);
     std::ranges::copy(contents, i);
+    buffer->apply(BufferEvent::make_open());
     buffer->lex();
     return buffer;
 }
@@ -447,7 +450,7 @@ void Buffer::replace(size_t pos, size_t num, rune_string replacement)
         return;
     }
     rune_string overwritten = substr(pos, num);
-    EventRange       range;
+    EventRange  range;
     range.start = index_to_position(static_cast<int>(pos));
     range.end = index_to_position(static_cast<int>(pos + num));
     edit(BufferEvent::make_replacement(range, pos, overwritten, replacement));

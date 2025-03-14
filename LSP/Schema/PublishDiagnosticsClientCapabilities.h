@@ -27,7 +27,7 @@ struct PublishDiagnosticsClientCapabilities {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             set(ret, "valueSet", valueSet);
             return ret;
         };
@@ -60,7 +60,7 @@ struct PublishDiagnosticsClientCapabilities {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "relatedInformation", relatedInformation);
         set(ret, "tagSupport", tagSupport);
         set(ret, "versionSupport", versionSupport);

@@ -26,7 +26,7 @@ struct SaveOptions {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "includeText", includeText);
         return ret;
     };

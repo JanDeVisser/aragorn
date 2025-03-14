@@ -257,7 +257,7 @@ void inline_struct(std::wostream &os, std::wstring_view const &name, Interface c
     os << L"    }\n\n";
 
     os << L"JSONValue encode() const {\n";
-    os << L"JSONValue ret;\n";
+    os << L"JSONValue ret { JSONType::Object };\n";
     for (auto const &prop : iface.properties) {
         auto n = MUST_EVAL(to_utf8(prop.name));
         os << L"set(ret, \"" << prop.name << L"\", ";
@@ -332,7 +332,7 @@ void emit_variant_header(std::wostream &os, TypeDef const &type)
     }
 
     os << LR"(
-namespace LSP {{
+namespace LSP {
 
 )";
 

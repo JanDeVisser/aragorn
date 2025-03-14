@@ -26,7 +26,7 @@ struct SemanticTokensLegend {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "tokenTypes", tokenTypes);
         set(ret, "tokenModifiers", tokenModifiers);
         return ret;

@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <condition_variable>
-
 #include <App/Aragorn.h>
 #include <App/Widget.h>
 #include <LSP/Schema/CompletionItem.h>
@@ -57,7 +55,7 @@ struct Request {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONValue::object() };
         ret.set("jsonrpc", JSONValue { "2.0" });
         ret.set("id", JSONValue { id });
         ret.set("method", JSONValue { method });
@@ -141,7 +139,9 @@ struct LSP : Widget {
     void   on_initialize_response(JSONValue const &response_json);
 
 private:
-    void initialize_theme_internal();
+    void   initialize_theme_internal();
+    CError private_message(pWidget const &sender, std::string_view method, std::optional<JSONValue> params = {});
+    CError private_notification(std::string_view method, std::optional<JSONValue> params = {});
 
     bool m_ready { false };
 };

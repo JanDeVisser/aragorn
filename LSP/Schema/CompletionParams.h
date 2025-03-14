@@ -30,7 +30,7 @@ struct CompletionParams : public TextDocumentPositionParams
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "context", context);
         return ret;
     };

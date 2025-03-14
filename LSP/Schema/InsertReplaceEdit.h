@@ -29,7 +29,7 @@ struct InsertReplaceEdit {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "newText", newText);
         set(ret, "insert", insert);
         set(ret, "replace", replace);

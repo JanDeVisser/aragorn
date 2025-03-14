@@ -27,7 +27,7 @@ struct DiagnosticRelatedInformation {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "location", location);
         set(ret, "message", message);
         return ret;

@@ -25,7 +25,7 @@ struct DidCloseTextDocumentParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "textDocument", textDocument);
         return ret;
     };

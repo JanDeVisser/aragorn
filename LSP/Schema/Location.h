@@ -28,7 +28,7 @@ struct Location {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "uri", uri);
         set(ret, "range", range);
         return ret;

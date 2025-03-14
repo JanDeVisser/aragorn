@@ -59,7 +59,7 @@ struct Diagnostic {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "range", range);
         set(ret, "severity", severity);
         set(ret, "code", code);

@@ -105,7 +105,7 @@ struct CompletionItem {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "label", label);
         set(ret, "labelDetails", labelDetails);
         set(ret, "kind", kind);

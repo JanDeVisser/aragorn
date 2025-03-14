@@ -25,7 +25,7 @@ struct OptionalVersionedTextDocumentIdentifier : public TextDocumentIdentifier {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "version", version);
         return ret;
     };

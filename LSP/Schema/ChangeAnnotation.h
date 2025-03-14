@@ -32,7 +32,7 @@ struct ChangeAnnotation {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "label", label);
         set(ret, "needsConfirmation", needsConfirmation);
         set(ret, "description", description);

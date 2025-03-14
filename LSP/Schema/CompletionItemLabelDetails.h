@@ -30,7 +30,7 @@ struct CompletionItemLabelDetails {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "detail", detail);
         set(ret, "description", description);
         return ret;

@@ -34,7 +34,7 @@ struct LocationLink {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "originSelectionRange", originSelectionRange);
         set(ret, "targetUri", targetUri);
         set(ret, "targetRange", targetRange);

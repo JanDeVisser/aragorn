@@ -57,7 +57,7 @@ struct StringScanner {
         partial_rewind(1);
     }
 
-    StringView read(size_t num)
+    StringView read(size_t num = 1)
     {
         if (static_cast<int64_t>(num) < 0) {
             num = 0;
@@ -65,8 +65,9 @@ struct StringScanner {
         if ((point.index + num) > string.length()) {
             num = string.length() - point.index;
         }
+        auto ret { string.substr(point.index, num) };
         skip(num);
-        return string.substr(point.index, num);
+        return ret;
     }
 
     StringView read_from_mark()
@@ -80,7 +81,7 @@ struct StringScanner {
 
     CharType readchar()
     {
-        skip_one();
+        skip();
         return (point.index <= string.length() - 1) ? string[point.index] : '\0';
     }
 
@@ -105,7 +106,7 @@ struct StringScanner {
         return string.substr(point.index);
     }
 
-    void skip(size_t num)
+    void skip(size_t num = 1)
     {
         if (point.index + num > string.length()) {
             num = string.length() - point.index;
@@ -120,26 +121,21 @@ struct StringScanner {
         }
     }
 
-    void skip_one()
-    {
-        skip(1);
-    }
-
     void skip_whitespace()
     {
         while (isspace(peek())) {
-            skip(1);
+            skip();
         }
     }
 
     void skip_until(CharType ch)
     {
         while (peek() && peek() != ch) {
-            skip_one();
+            skip();
         }
     }
 
-    bool expect(CharType ch, size_t offset)
+    bool expect(CharType ch, size_t offset = 0)
     {
         if (peek(offset) != ch) {
             return false;

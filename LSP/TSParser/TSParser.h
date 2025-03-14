@@ -337,6 +337,13 @@ public:
         return td;
     }
 
+    static TypeDef &make_variant(std::wstring_view const &name, pType type)
+    {
+        auto &td = make(TypeDefKind::Variant, name);
+        td.definition.emplace<Variant>(type->variant());
+        return td;
+    }
+
     static TypeDef &make_enumeration(std::wstring_view const &name)
     {
         auto &td = make(TypeDefKind::Enumeration, name);

@@ -17,6 +17,7 @@
 
 #include <LibCore/Logging.h>
 #include <LibCore/Result.h>
+#include <LibCore/ScopeGuard.h>
 
 namespace LibCore {
 
@@ -26,10 +27,9 @@ constexpr static int PipeEndWrite = 1;
 template<typename T = void *>
 class ReadPipe {
 public:
-    using OnPipeRead = std::function<void(ReadPipe &)>;
-
+    using OnRead = std::function<void(ReadPipe &)>;
     ReadPipe() = default;
-    ReadPipe(OnPipeRead on_read)
+    ReadPipe(OnRead on_read)
         : m_on_read(std::move(on_read))
     {
     }
@@ -49,8 +49,9 @@ public:
         return {};
     }
 
-    Error<> initialize(OnPipeRead on_read)
+    Error<> initialize(T ctx, std::optional<OnRead> on_read)
     {
+        m_context = std::move(ctx);
         m_on_read = std::move(on_read);
         return initialize();
     }
@@ -103,26 +104,29 @@ public:
 
     std::string current()
     {
-        std::unique_lock lk(m_mutex);
-        m_condition.wait(lk, [this]() {
-            return !m_current.empty() || m_fd < 0;
-        });
-        if (m_fd < 0) {
-            return {};
+        std::string ret;
+        {
+            std::unique_lock lk(m_mutex);
+            ScopeGuard       sg { [&lk]() {
+                lk.unlock();
+            } };
+            if (m_fd >= 0 && m_current.empty()) {
+                m_condition.wait(lk, [this]() {
+                    return !m_current.empty() || m_fd < 0;
+                });
+            }
+            if (m_fd < 0) {
+                return {};
+            }
+            ret = std::move(m_current);
+            m_current = "";
         }
-        std::string ret = std::move(m_current);
-        m_current = "";
         return ret;
     }
 
     T &context()
     {
         return m_context;
-    }
-
-    void context(T const &ctx)
-    {
-        m_context = ctx;
     }
 
 private:
@@ -153,39 +157,45 @@ private:
 
     Error<> drain()
     {
-        char             buffer[DRAIN_SIZE];
-        std::unique_lock lk(m_mutex);
-        while (true) {
-            ssize_t count = ::read(m_fd, buffer, sizeof(buffer) - 1);
-            if (count >= 0) {
-                buffer[count] = 0;
-                if (count > 0) {
-                    m_current.append(buffer, count);
-                    if (count == sizeof(buffer) - 1) {
-                        continue;
+        {
+            std::unique_lock lk(m_mutex);
+            ScopeGuard       guard { [&lk]() {
+                lk.unlock();
+            } };
+            char buffer[DRAIN_SIZE];
+            while (true) {
+                ssize_t count = ::read(m_fd, buffer, sizeof(buffer) - 1);
+                if (count >= 0) {
+                    buffer[count] = 0;
+                    if (count > 0) {
+                        m_current.append(buffer, count);
+                        if (count == sizeof(buffer) - 1) {
+                            continue;
+                        }
                     }
+                    break;
                 }
-                break;
+                if (errno == EINTR) {
+                    continue;
+                }
+                return LibCError();
             }
-            if (errno == EINTR) {
-                continue;
-            }
-            return LibCError();
+            m_condition.notify_all();
         }
         if (m_on_read) {
-            m_on_read(*this);
+            (*m_on_read)(*this);
         }
         return {};
     }
 
-    int                     m_pipe[2] = { 0 };
-    int                     m_fd = { -1 };
-    std::string             m_current = {};
-    std::mutex              m_mutex = {};
-    std::condition_variable m_condition = {};
-    OnPipeRead              m_on_read = { nullptr };
-    T                       m_context = {};
-    bool                    m_debug = { false };
+    int                     m_pipe[2] { 0, 0 };
+    int                     m_fd { -1 };
+    std::string             m_current {};
+    std::mutex              m_mutex {};
+    std::condition_variable m_condition {};
+    std::optional<OnRead>   m_on_read {};
+    T                       m_context {};
+    bool                    m_debug { false };
 };
 
 class WritePipe {

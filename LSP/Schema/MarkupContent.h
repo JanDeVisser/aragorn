@@ -27,7 +27,7 @@ struct MarkupContent {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "kind", kind);
         set(ret, "value", value);
         return ret;

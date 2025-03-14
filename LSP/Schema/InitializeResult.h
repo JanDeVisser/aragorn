@@ -31,7 +31,7 @@ struct InitializeResult {
 
         JSONValue encode() const
         {
-            JSONValue ret;
+            JSONValue ret { JSONType::Object };
             set(ret, "name", name);
             set(ret, "version", version);
             return ret;
@@ -51,7 +51,7 @@ struct InitializeResult {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "capabilities", capabilities);
         set(ret, "serverInfo", serverInfo);
         return ret;

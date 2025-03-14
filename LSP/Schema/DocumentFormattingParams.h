@@ -29,7 +29,7 @@ struct DocumentFormattingParams : public WorkDoneProgressParams {
 
     JSONValue encode() const
     {
-        JSONValue ret;
+        JSONValue ret { JSONType::Object };
         set(ret, "textDocument", textDocument);
         set(ret, "options", options);
         return ret;
