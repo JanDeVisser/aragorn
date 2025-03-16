@@ -37,6 +37,7 @@ public:
     [[nodiscard]] size_t    line() const { return m_line; }
     [[nodiscard]] size_t    column() const { return m_column; }
     [[nodiscard]] TokenKind kind() const { return m_kind; }
+    void                    get_scope(SemanticTokenTypes semantic_type) { m_scope = Theme::the().get_scope(semantic_type); }
 
 private:
     size_t    m_index;

@@ -13,31 +13,27 @@
 
 #include <App/Aragorn.h>
 #include <App/Buffer.h>
+#include <LSP/LSP.h>
+#include <LSP/Schema/SemanticTokens.h>
 
 namespace Aragorn {
 
 using namespace LibCore;
 using namespace std::literals::string_literals;
 
+void semantic_tokens_response(pWidget const &widget, JSONValue const &resp);
+
 Buffer::Buffer(pWidget const &parent)
     : Widget(parent)
 {
-    //    widget_register(
-    //        buffer,
-    //        "lsp-textDocument/semanticTokens/full",
-    //        (WidgetCommandHandler) buffer_semantic_tokens_response);
 }
 
-// utility wrapper to adapt locale-bound facets for wstring/wbuffer convert
-template<class Facet>
-struct deletable_facet : Facet {
-    template<class... Args>
-    deletable_facet(Args &&...args)
-        : Facet(std::forward<Args>(args)...)
-    {
-    }
-    ~deletable_facet() { }
-};
+void Buffer::initialize()
+{
+    add_command<Buffer>(
+        "lsp-textDocument/semanticTokens/full",
+        semantic_tokens_response);
+}
 
 Result<pBuffer> Buffer::open(std::string_view const &name)
 {
@@ -530,169 +526,53 @@ std::string const &Buffer::uri()
     return m_uri;
 }
 
-#if 0
-bool lsp_init(Buffer *buffer)
+void semantic_tokens_response(pWidget const &widget, JSONValue const &resp)
 {
-    if (!mode || !mode->lsp.handlers.start) {
-        return false;
-    }
-    lsp_initialize(&mode->lsp);
-    return true;
-}
-
-void lsp_semantic_tokens(Buffer *buffer)
-{
-    if (!lsp_init(buffer)) {
+    auto buffer = std::dynamic_pointer_cast<Buffer>(widget);
+    auto response = Response::decode(resp);
+    if (!response.has_value()) {
+        std::println("Error decoding LSP response: {}", response.error().description);
         return;
     }
-
-    if (sv_empty(name)) {
+    if (!response.value().result.has_value()) {
+        std::println("No response to textDocument/semanticTokens/full");
         return;
     }
-    SemanticTokensParams semantic_tokens_params = { 0 };
-    semantic_tokens_params.textDocument = (TextDocumentIdentifier) {
-        .uri = buffer_uri(buffer),
-    };
-    OptionalJSONValue semantic_tokens_params_json = SemanticTokensParams_encode(semantic_tokens_params);
-    MUST(Int, lsp_message(&mode->lsp, buffer, "textDocument/semanticTokens/full", semantic_tokens_params_json));
-}
-
-void buffer_semantic_tokens_response(Buffer *buffer, JSONValue resp)
-{
-    Response response = response_decode(&resp);
-    if (!response_success(&response)) {
+    auto result_maybe = SemanticTokens::decode(response.value().result.value());
+    if (!result_maybe.has_value()) {
+        std::println("Couldn't decode response to textDocument/semanticTokens/full: {}", result_maybe.error().description);
         return;
     }
-    if (!response.result.has_value) {
-        trace(LSP, "No response to textDocument/semanticTokens/full");
-        return;
-    }
-    OptionalSemanticTokens result_maybe = SemanticTokens_decode(response.result);
-    if (!result_maybe.has_value) {
-        trace(LSP, "Couldn't decode response to textDocument/semanticTokens/full");
-        return;
-    }
-    SemanticTokens result = result_maybe.value;
-    size_t         lineno = 0;
-    Index         *line = lines.elements + lineno;
-    size_t         offset = 0;
-    UInt32s        data = result.data;
-    size_t         token_ix = 0;
-    for (size_t ix = 0; ix < result.data.size; ix += 5) {
-        //        trace(LSP, "Semantic token[%zu] = (Δline %d, Δcol %d, length %d type %d %d)", ix, data.elements[ix], data.elements[ix + 1], data.elements[ix + 2], data.elements[ix + 3], data.elements[ix + 4]);
-        if (data.elements[ix] > 0) {
-            lineno += data.elements[ix];
-            if (lineno >= lines.size) {
-                // trace(LSP, "Semantic token[%zu] lineno %zu > lines %zu", ix, lineno, lines.size);
+    auto        result = result_maybe.value();
+    size_t      lineno { 0 };
+    size_t      offset { 0 };
+    auto const &data = result.data;
+    size_t      token_ix { 0 };
+    for (size_t ix = 0; ix < data.size(); ix += 5) {
+        if (data[ix] > 0) {
+            lineno += data[ix];
+            if (lineno >= buffer->lines.size()) {
                 break;
             }
-            line = lines.elements + lineno;
             offset = 0;
             token_ix = 0;
         }
-        offset += data.elements[ix + 1];
-        size_t     length = data.elements[ix + 2];
-        StringView text = { line->line.ptr + offset, length };
-        //        trace(LSP, "Semantic token[%zu]: line: %zu col: %zu length: %zu %.*s", ix, lineno, offset, length, SV_ARG(text));
-        OptionalColours colours = theme_semantic_colours(&aragorn.theme, data.elements[ix + 3]);
-        if (!colours.has_value) {
-            //            trace(LSP, "SemanticTokenType index %d not mapped", data.elements[ix + 3]);
-            continue;
-        }
-        if (log_category_on(LSP)) {
-            StringView s = colour_to_rgb(colours.value.fg);
-            //            trace(LSP, "Semantic token[%zu] = color '%.*s'", ix, SV_ARG(s));
-            sv_free(s);
-        }
-        for (; token_ix < line->num_tokens; ++token_ix) {
-            assert(line->first_token + token_ix < tokens.size);
-            DisplayToken *t = tokens.elements + line->first_token + token_ix;
-            if (t->index == line->index_of + offset && t->length == length) {
-                t->color = colour_to_color(colours.value.fg);
+        offset += data[ix + 1];
+        // std::println("Semantic token[{}] = (Δline {}, Δcol {}, length {} type {} {}) line {} col {}", ix, data[ix], data[ix + 1], data[ix + 2], data[ix + 3], data[ix + 4], lineno, offset);
+        size_t length { data[ix + 2] };
+        for (; token_ix < buffer->lines[lineno].tokens.size(); ++token_ix) {
+            auto &t = buffer->lines[lineno].tokens[token_ix];
+            // std::println("t.column: {} t.length: {}", t.column(), t.length());
+            if (t.column() == offset && t.length() == length) {
+                t.get_scope(static_cast<SemanticTokenTypes>(data[ix + 3]));
                 break;
             }
         }
-        if (token_ix == line->num_tokens) {
-            info("SemanticTokens OUT OF SYNC");
+        if (token_ix >= buffer->lines[lineno].tokens.size()) {
+            std::println("SemanticTokens OUT OF SYNC");
             break;
         }
     }
 }
-
-void lsp_on_open(Buffer *buffer)
-{
-    if (!lsp_init(buffer)) {
-        return;
-    }
-    if (sv_empty(name)) {
-        return;
-    }
-    DidOpenTextDocumentParams did_open = { 0 };
-    did_open.textDocument = (TextDocumentItem) {
-        .uri = buffer_uri(buffer),
-        .languageId = sv_from("c"),
-        .version = 0,
-        .text = text.view
-    };
-    OptionalJSONValue did_open_json = DidOpenTextDocumentParams_encode(did_open);
-    lsp_notification(&mode->lsp, "textDocument/didOpen", did_open_json);
-}
-
-void lsp_did_save(Buffer *buffer)
-{
-    if (!lsp_init(buffer)) {
-        return;
-    }
-    if (sv_empty(name)) {
-        return;
-    }
-    DidSaveTextDocumentParams did_save = { 0 };
-    did_save.textDocument = (TextDocumentIdentifier) {
-        .uri = buffer_uri(buffer),
-    };
-    did_save.text = OptionalStringView_create(text.view);
-    OptionalJSONValue did_save_json = DidSaveTextDocumentParams_encode(did_save);
-    lsp_notification(&mode->lsp, "textDocument/didSave", did_save_json);
-}
-
-void lsp_did_close(Buffer *buffer)
-{
-    if (!lsp_init(buffer)) {
-        return;
-    }
-    if (sv_empty(name)) {
-        return;
-    }
-    DidCloseTextDocumentParams did_close = { 0 };
-    did_close.textDocument = (TextDocumentIdentifier) {
-        .uri = buffer_uri(buffer),
-    };
-    OptionalJSONValue did_close_json = DidCloseTextDocumentParams_encode(did_close);
-    lsp_notification(&mode->lsp, "textDocument/didClose", did_close_json);
-}
-
-void lsp_did_change(Buffer *buffer, IntVector2 start, IntVector2 end, StringView text)
-{
-    if (!lsp_init(buffer)) {
-        return;
-    }
-    if (sv_empty(name)) {
-        return;
-    }
-    DidChangeTextDocumentParams did_change = { 0 };
-    did_change.textDocument.uri = buffer_uri(buffer);
-    did_change.textDocument.version = version;
-    TextDocumentContentChangeEvent contentChange = { 0 };
-    contentChange._0.range.start.line = start.line;
-    contentChange._0.range.start.character = start.column;
-    contentChange._0.range.end.line = end.line;
-    contentChange._0.range.end.character = end.column;
-    contentChange._0.text = text;
-    da_append_TextDocumentContentChangeEvent(&did_change.contentChanges, contentChange);
-    OptionalJSONValue did_change_json = DidChangeTextDocumentParams_encode(did_change);
-    lsp_notification(&mode->lsp, "textDocument/didChange", did_change_json);
-}
-
-#endif
 
 }

@@ -29,8 +29,8 @@ public:
         auto style = m_colours[scope_id];
         return style.colours;
     }
-    Scope  get_scope(SemanticTokenTypes semanticTokenTypes);
-    Scope  get_scope(std::string_view const &name);
+    Scope                get_scope(SemanticTokenTypes semanticTokenTypes);
+    Scope                get_scope(std::string_view const &name);
     [[nodiscard]] Colour fg() const { return m_default_colours.fg(); }
     [[nodiscard]] Colour bg() const { return m_default_colours.bg(); }
     [[nodiscard]] Colour selection_fg() const
@@ -51,6 +51,7 @@ public:
     {
         return { selection_bg(), selection_fg() };
     }
+    void map_semantic_type(int semantic_index, SemanticTokenTypes type);
 
     static Result<Theme, JSONError> load(std::string_view const &name);
     static Result<Theme, JSONError> decode(JSONValue const &json);
@@ -70,7 +71,20 @@ private:
         Colours     colours;
     };
 
+    struct SemanticTokenColour {
+        SemanticTokenTypes token_type;
+        Colours            colours;
+    };
+
+    struct SemanticMapping {
+        int semantic_index;
+        int semantic_theme_index;
+        int token_theme_index;
+    };
+
     std::vector<ScopeStyle>              m_colours;
+    std::vector<SemanticTokenColour>     m_semantic_colours;
+    std::vector<SemanticMapping>         m_semantic_mappings;
     std::map<std::string_view, size_t>   m_scope_ids;
     std::map<TokenKind, size_t>          m_token_kind_to_scope_id;
     std::map<SemanticTokenTypes, size_t> m_semantic_token_type_to_scope_id;

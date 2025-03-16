@@ -90,6 +90,24 @@ S(_Thread_local)
     S(template)         \
     S(typename)
 
+#define C_OPERATORS(S) \
+    S(==, equals)      \
+    S(>=, largereq)    \
+    S(<=, lesseq)      \
+    S(!=, notequal)    \
+    S(&&, logicaland)  \
+    S(||, logicalor)   \
+    S(--, decrement)   \
+    S(++, increment)   \
+    S(+=, add_assign)  \
+    S(-=, sub_assign)  \
+    S(|=, or_assign)   \
+    S(&=, and_assign)  \
+    S(^=, xor_assign)  \
+    S(%=, mod_assign)  \
+    S(*=, mul_assign)  \
+    S(/=, div_assign)
+
 enum class CKeyword {
 #undef S
 #define S(kw) C_##kw,
@@ -98,14 +116,18 @@ enum class CKeyword {
 #define S(kw) CPP_##kw,
         CPP_KEYWORDS(S)
 #undef S
+#define S(OP, STR) OP_##STR,
+            C_OPERATORS(S)
+#undef S
 #define S(D, STR) Dir_##D,
-            C_DIRECTIVES(S)
+                C_DIRECTIVES(S)
 #undef S
 };
 
 enum class CCategory {
     CKeyword,
     CPPKeyword,
+    Operator,
     Directive,
     DirectiveArg,
 };
@@ -238,9 +260,21 @@ struct CMatcher {
                 }
                 return {};
             }
-        } break;
-        default:
+            scanned.clear();
+            decltype(index) ix = index;
+            while (index < buffer.length()) {
+                scanned += buffer[ix];
+                if (auto m = match_keyword<CCategory, CKeyword>(scanned); !m) {
+                    return {};
+                } else if (std::get<MatchType>(*m) == MatchType::FullMatch) {
+                    return std::tuple { std::get<CCategory>(*m), std::get<CKeyword>(*m), ix - index + 1 };
+                }
+                ++ix;
+            }
             return {};
+        }
+        default:
+            break;
         }
         return {};
     }
@@ -255,6 +289,8 @@ struct CMatcher {
             case CCategory::CKeyword:
             case CCategory::CPPKeyword:
                 return "keyword";
+            case CCategory::Operator:
+                return "keyword.operator";
             case CCategory::Directive:
                 return "meta.preprocessor";
             case CCategory::DirectiveArg:
@@ -268,7 +304,7 @@ struct CMatcher {
         case TokenKind::Number:
             return "constant.numeric";
         case TokenKind::Symbol:
-            return "punctuation";
+            return "keyword.operator";
         case TokenKind::QuotedString:
             return "string";
         default:
@@ -355,6 +391,16 @@ inline std::optional<std::tuple<CCategory, CKeyword, MatchType>> match_keyword(s
         };                                                               \
     }
     CPP_KEYWORDS(S)
+#undef S
+#define S(OP, STR)                                                       \
+    if (std::string_view(#OP).starts_with(str)) {                        \
+        return std::tuple {                                              \
+            CCategory::Operator,                                         \
+            CKeyword::OP_##STR,                                          \
+            (str == #OP) ? MatchType::FullMatch : MatchType::PrefixMatch \
+        };                                                               \
+    }
+    C_OPERATORS(S)
 #undef S
 #define S(D, STR)                                                        \
     if (std::string_view(STR).starts_with(str)) {                        \

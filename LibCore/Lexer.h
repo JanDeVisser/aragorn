@@ -380,7 +380,7 @@ private:
                 return Token::identifier();
             }
 
-            if (auto kw = matcher.match(m_buffer, m_index)) {
+            if (auto kw = matcher.match(m_buffer, m_index); kw) {
                 m_index += std::get<size_t>(*kw);
                 return Token::keyword(std::get<typename Matcher::Categories>(*kw), std::get<typename Matcher::Keywords>(*kw));
             }

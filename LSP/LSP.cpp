@@ -198,12 +198,14 @@ void LSP::read(ReadPipe<LSP *> &pipe)
 
 void LSP::initialize_theme_internal()
 {
+    auto i = 0;
     for (auto &tokenType : server_capabilities.semanticTokensProvider->legend.tokenTypes) {
         auto semantic_token_type_maybe = SemanticTokenTypes_from_string(tokenType);
         if (!semantic_token_type_maybe) {
             continue;
         };
-        // Theme::the().map_semantic_type(&eddy.theme, i, type);
+        Theme::the().map_semantic_type(i, semantic_token_type_maybe.value());
+        ++i;
     }
 }
 

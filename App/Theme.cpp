@@ -16,6 +16,7 @@
 namespace Aragorn {
 
 using namespace LibCore;
+using namespace std::literals::string_literals;
 
 Theme &Theme::the()
 {
@@ -240,6 +241,47 @@ Scope Theme::get_scope(std::string_view const &name)
     trace(THEME, "get_scope({}) matches '{}' ({}): {}", name, m_colours[ss_match].scope, ss_match, m_colours[ss_match].colours.to_string());
     m_scope_ids[name] = ss_match;
     return ss_match;
+}
+
+struct SemanticTypeToScopeMapping {
+    SemanticTokenTypes semantic_type;
+    std::string_view   scope;
+};
+
+SemanticTypeToScopeMapping semantic_scope_mapping[] = {
+    { SemanticTokenTypes::Type, "entity.name.type" },
+    { SemanticTokenTypes::Class, "entity.name.type.class" },
+    { SemanticTokenTypes::Enum, "entity.name.type.enum" },
+    { SemanticTokenTypes::Parameter, "variable.parameter" },
+    { SemanticTokenTypes::Variable, "variable.other.readwrite" },
+    { SemanticTokenTypes::Property, "variable.other.property" },
+    { SemanticTokenTypes::EnumMember, "variable.other.enummember" },
+    { SemanticTokenTypes::Function, "entity.name.function" },
+    { SemanticTokenTypes::Macro, "entity.name.function.preprocessor" },
+    { SemanticTokenTypes::Keyword, "keyword" },
+    { SemanticTokenTypes::Comment, "comment" },
+    { SemanticTokenTypes::String, "string" },
+    { SemanticTokenTypes::Number, "constant.numeric" },
+    { SemanticTokenTypes::Operator, "keyword.operator" },
+};
+
+void Theme::map_semantic_type(int semantic_index, SemanticTokenTypes type)
+{
+    for (auto ix = 0; ix < m_semantic_colours.size(); ++ix) {
+        auto &semantic_colour = m_semantic_colours[ix];
+        if (semantic_colour.token_type == type) {
+            m_semantic_mappings.emplace_back(semantic_index, ix, -1);
+            return;
+        }
+    }
+    for (size_t ix = 0; ix < sizeof(semantic_scope_mapping) / sizeof(SemanticTypeToScopeMapping); ++ix) {
+        if (semantic_scope_mapping[ix].semantic_type == type) {
+            auto theme_ix = get_scope(semantic_scope_mapping[ix].scope);
+            m_semantic_mappings.emplace_back(semantic_index, -1, theme_ix);
+            return;
+        }
+    }
+    std::println("SemanticTokenType {} = '{}' not mapped", semantic_index, SemanticTokenTypes_as_string(type));
 }
 
 }

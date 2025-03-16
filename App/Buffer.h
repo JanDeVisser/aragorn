@@ -70,6 +70,7 @@ struct Buffer : public Widget {
     explicit Buffer(pWidget const &parent);
     static Result<pBuffer, LibCError> open(std::string_view const &name);
     static pBuffer                    new_buffer();
+    void                              initialize() override;
     void                              close();
     bool                              lex();
     void                              apply(BufferEvent const &event);
