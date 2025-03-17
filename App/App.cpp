@@ -37,7 +37,7 @@ void App::draw()
     }
 }
 
-int codepoints[65504] {};
+int codepoints[992] {};
 
 void App::set_font(std::string_view const &path, int sz)
 {
@@ -45,11 +45,11 @@ void App::set_font(std::string_view const &path, int sz)
     std::string p { path };
     info(App, "Loading font '{:}', size {:}", p, sz);
     if (codepoints[0] != 32) {
-        for (auto ix = 0; ix < 65504; ++ix) {
+        for (auto ix = 0; ix < 992; ++ix) {
             codepoints[ix] = ix + 32;
         }
     }
-    auto f = LoadFontEx(p.c_str(), sz, codepoints, 65504);
+    auto f = LoadFontEx(p.c_str(), sz, codepoints, 992);
     if (f.baseSize == 0) {
         return;
     }
@@ -71,8 +71,7 @@ void App::on_resize()
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
         static_cast<float>(font_size), 2);
     cell.x = measurements.x / 52.0f;
-    auto const rows = static_cast<int>(((viewport.height - 10) / measurements.y));
-    cell.y = static_cast<float>((viewport.height - 10) / static_cast<float>(rows));
+    cell.y = measurements.y;
     viewport.x = 0;
     viewport.y = 0;
     viewport.width = static_cast<float>(GetScreenWidth());

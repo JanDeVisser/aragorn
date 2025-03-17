@@ -476,7 +476,7 @@ pBuffer const &BufferView::buffer() const
 size_t BufferView::lines() const
 {
     pEditor editor = std::dynamic_pointer_cast<Editor>(parent);
-    return static_cast<size_t>(editor->lines);
+    return editor->lines;
 }
 
 size_t BufferView::columns() const
