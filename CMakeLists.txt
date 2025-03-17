@@ -13,14 +13,17 @@ set(CMAKE_CXX_STANDARD 23)
 if (APPLE)
     set(IS_APPLE TRUE)
     set(OS macos)
+    set(ICONV -liconv)
 elseif (WIN32)
     set(IS_WINDOWS TRUE)
     set(OS windows)
 else ()
     set(IS_LINUX TRUE)
     set(OS linux)
+    set(ICONV)
 endif ()
 
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -lc++abi")
 set(CMAKE_INSTALL_PREFIX ${PROJECT_BINARY_DIR} CACHE PATH "..." FORCE)
 
 set(aragorn_NAME Aragorn)
@@ -110,7 +113,7 @@ add_library(
 
 target_link_libraries(
         LibCore
-        iconv
+        ${ICONV}
         dl
 )
 

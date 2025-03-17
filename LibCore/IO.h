@@ -43,35 +43,34 @@ private:
 Result<struct sockaddr_in> tcpip_address_resolve(std::string_view const &ip_address);
 CError                     fd_make_nonblocking(int fd);
 
-
-template <typename T=char>
-Result<std::basic_string<T>> read_file_by_name(std::string_view const& file_name)
+template<typename T = char>
+Result<std::basic_string<T>> read_file_by_name(std::string_view const &file_name)
 {
-    std::ifstream is(file_name);
+    std::ifstream is(std::string { file_name });
     if (!is) {
         return LibCError();
     }
     std::string ret;
-    for (char ch; is.get(ch); ) {
+    for (char ch; is.get(ch);) {
         ret += ch;
     }
     return ret;
 }
 
-template <>
-inline Result<std::wstring> read_file_by_name(std::string_view const& file_name)
+template<>
+inline Result<std::wstring> read_file_by_name(std::string_view const &file_name)
 {
-    std::ifstream is(file_name);
+    std::ifstream is(std::string { file_name });
     if (!is) {
         return LibCError();
     }
     return read_utf8(is);
 }
 
-template<typename T=char>
+template<typename T = char>
 Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::basic_string_view<T> const &contents)
 {
-    std::basic_fstream<T> os(file_name);
+    std::basic_fstream<T> os(std::string { file_name });
     if (!os) {
         return LibCError();
     }
@@ -85,17 +84,17 @@ Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::basic
 template<>
 inline Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::wstring_view const &contents)
 {
-    std::ofstream os(file_name);
+    std::ofstream os(std::string { file_name });
     if (!os) {
         return LibCError();
     }
     return write_utf8(os, contents);
 }
 
-template<typename T=char>
+template<typename T = char>
 Result<ssize_t> write_file_by_name(std::string_view const &file_name, std::basic_string<T> const &contents)
 {
-    return write_file_by_name(file_name, std::basic_string_view<T> {contents});
+    return write_file_by_name(file_name, std::basic_string_view<T> { contents });
 }
 
 }

@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include <print>
+#include <sys/wait.h>
+
 #include <LibCore/Error.h>
 #include <LibCore/Pipe.h>
 #include <LibCore/Result.h>
