@@ -89,9 +89,9 @@ void Aragorn::on_resize()
 
     auto const &appearance = settings.get("appearance").value_or(JSONValue(JSONType::Object));
     MUST(settings.get("line_height").value_or(JSONValue { 1.5 }).convert<float>(line_height));
-    auto lines = static_cast<int>(viewport.height) / static_cast<int>(cell.y * line_height);
+    auto lines = static_cast<int>(viewport.height) / static_cast<int>(char_size.y * line_height);
     cell.y = viewport.height / static_cast<float>(lines);
-    auto cols = static_cast<int>(viewport.width) / static_cast<int>(cell.x);
+    auto cols = static_cast<int>(viewport.width) / static_cast<int>(char_size.x);
     cell.x = viewport.width / static_cast<float>(cols);
 }
 

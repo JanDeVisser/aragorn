@@ -37,7 +37,7 @@ struct App : public Layout {
     std::string               font_path {};
     int                       font_size { 20 };
     pWidget                   focus { nullptr };
-    Vector2                   cell { 20.0, 20.0 };
+    Vector2                   char_size { 20.0, 20.0 };
     std::string               last_key;
     bool                      quit { false };
     double                    time { 0.0 };

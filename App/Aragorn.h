@@ -123,6 +123,7 @@ struct Aragorn : public App {
     Texture2D            tab_char;
     Texture2D            eol_char;
     float                line_height { 1.5 };
+    Vector2              cell;
     std::vector<int>     guides {};
 
     Aragorn();

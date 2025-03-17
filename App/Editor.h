@@ -26,8 +26,9 @@ public:
     void        close_view();
     void        close_buffer();
 
-    size_t columns { 0 };
-    size_t lines { 0 };
+    size_t  columns { 0 };
+    size_t  lines { 0 };
+    Vector2 cell;
 
 private:
     std::vector<pBufferView> views {};

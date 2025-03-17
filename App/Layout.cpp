@@ -57,7 +57,7 @@ void Layout::resize()
             sz = (total * w->policy_size) / 100.0f;
         } break;
         case SizePolicy::Characters: {
-            sz = ceilf(1.2 * w->policy_size * ((orientation == ContainerOrientation::Vertical) ? App::the()->cell.y : App::the()->cell.x));
+            sz = ceilf(1.2 * w->policy_size * ((orientation == ContainerOrientation::Vertical) ? App::the()->char_size.y : App::the()->char_size.x));
         } break;
         case SizePolicy::Calculated: {
             fatal("SP_CALCULATED not yet supported");

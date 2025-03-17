@@ -46,9 +46,10 @@ void Gutter::draw()
     auto        buffer = view->buffer();
 
     auto offset = view->view_offset();
+    auto offset_y = (editor->cell.y - Aragorn::the()->char_size.y) / 2;
     for (auto row = 0; row < editor->lines && offset.line + row < buffer->lines.size(); ++row) {
         auto lineno = offset.line + row;
-        render_text(0, Aragorn::the()->cell.y * row,
+        render_text(0, editor->cell.y * row + offset_y,
             std::format("{:4}", lineno + 1),
             Aragorn::the()->font.value(),
             RAYWHITE /*colour_to_color(Aragorn::the()->theme.gutter.fg)*/);

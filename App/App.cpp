@@ -43,7 +43,7 @@ void App::set_font(std::string_view const &path, int sz)
 {
     sz = clamp(sz, 4, 48);
     std::string p { path };
-    info(App, "Loading font '{:}', size {:}", p, sz);
+    std::println("Loading font '{:}', size {:}", p, sz);
     if (codepoints[0] != 32) {
         for (auto ix = 0; ix < 992; ++ix) {
             codepoints[ix] = ix + 32;
@@ -70,8 +70,8 @@ void App::on_resize()
     auto const measurements = MeasureTextEx(*font,
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
         static_cast<float>(font_size), 2);
-    cell.x = measurements.x / 52.0f;
-    cell.y = measurements.y;
+    char_size.x = measurements.x / 52.0f;
+    char_size.y = measurements.y;
     viewport.x = 0;
     viewport.y = 0;
     viewport.width = static_cast<float>(GetScreenWidth());

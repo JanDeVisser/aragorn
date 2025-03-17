@@ -656,6 +656,8 @@ void BufferView::draw()
     static size_t frame { 1 };
     draw_rectangle(0, 0, 0, 0, Theme::the().bg());
 
+    auto const &ed = std::dynamic_pointer_cast<Editor>(parent);
+    auto        y_offset = (ed->cell.y - Aragorn::the()->char_size.y) / 2;
     DrawText(TextFormat("cursor: %d", cursor), 700, 50, 20, RAYWHITE);
     DrawText(TextFormat("cursor line: %d", cursor_line), 700, 75, 20, RAYWHITE);
     DrawText(TextFormat("cursor col: %d", cursor_col), 700, 100, 20, RAYWHITE);
@@ -681,10 +683,10 @@ void BufferView::draw()
                     width = columns() - selection_offset;
                 }
                 draw_rectangle(
-                    Aragorn::the()->cell.x * selection_offset,
-                    Aragorn::the()->cell.y * row,
-                    width * Aragorn::the()->cell.x,
-                    Aragorn::the()->cell.y + 5.0f,
+                    ed->cell.x * selection_offset,
+                    ed->cell.y * row,
+                    width * ed->cell.x,
+                    ed->cell.y + 5.0f,
                     Theme::the().selection_bg());
             }
         }
@@ -717,8 +719,8 @@ void BufferView::draw()
                 auto const ch_ix = start_ix + col_ix;
                 auto const col = start_col + col_ix;
                 auto const screen_pos = Vector2 {
-                    Aragorn::the()->cell.x * static_cast<float>(col - left_column),
-                    Aragorn::the()->cell.y * static_cast<float>(row),
+                    ed->cell.x * static_cast<float>(col - left_column),
+                    ed->cell.y * static_cast<float>(row) + y_offset,
                 };
 
                 if (!cursor_drawn && (ch_ix >= cursor || (cursor_line == lineno && token.kind() == TokenKind::EndOfLine))) {
@@ -728,7 +730,7 @@ void BufferView::draw()
                             screen_pos.x,
                             screen_pos.y,
                             2,
-                            Aragorn::the()->cell.y + 1,
+                            ed->cell.y + 1,
                             Theme::the().fg());
                     }
                     cursor_drawn = true;
@@ -758,12 +760,14 @@ void BufferView::draw()
     }
 
     for (auto const g : Aragorn::the()->guides) {
-        draw_line(
-            static_cast<float>(g) * Aragorn::the()->cell.x,
-            0,
-            static_cast<float>(g) * Aragorn::the()->cell.x,
-            static_cast<int>(viewport.height),
-            Theme::the().fg());
+        if (g > left_column && g < left_column + columns()) {
+            draw_line(
+                static_cast<float>(g) * ed->cell.x,
+                0,
+                static_cast<float>(g) * ed->cell.x,
+                static_cast<int>(viewport.height),
+                Theme::the().fg());
+        }
     }
     ++frame;
 }

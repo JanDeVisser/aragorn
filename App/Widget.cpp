@@ -82,7 +82,7 @@ void Widget::WidgetCommand::execute(JSONValue const &args) const
     handler(owner, args);
 }
 
-Widget::WidgetCommand& Widget::WidgetCommand::bind(KeyCombo combo)
+Widget::WidgetCommand &Widget::WidgetCommand::bind(KeyCombo combo)
 {
     bindings.push_back(combo);
     return *this;
@@ -146,7 +146,7 @@ void Widget::render_sized_text_(float x, float y, rune_view const &text, Font fo
     }
     Vector2 pos { viewport.x + x, viewport.y + y };
     assert(sizeof(rune) == sizeof(int));
-    DrawTextCodepoints(font, reinterpret_cast<int const*>(t.c_str()), t.length(), pos, (float) font.baseSize * size, 2, color);
+    DrawTextCodepoints(font, reinterpret_cast<int const *>(t.c_str()), t.length(), pos, (float) font.baseSize * size, 2, color);
 }
 
 void Widget::render_text_bitmap_(float x, float y, std::string_view const &text, Color color) const
@@ -213,11 +213,11 @@ void Widget::draw_outline_no_normalize_(float x, float y, float width, float hei
     DrawRectangleLinesEx(r, 1, color);
 }
 
-void Widget::draw_hover_panel_(float x, float y, StringList const& text, Color bgcolor, Color textcolor) const
+void Widget::draw_hover_panel_(float x, float y, StringList const &text, Color bgcolor, Color textcolor) const
 {
     assert(!text.empty());
-    size_t longest_line {0};
-    size_t maxlen {0};
+    size_t longest_line { 0 };
+    size_t maxlen { 0 };
     for (auto ix = 0; ix < text.size(); ++ix) {
         auto const &line = text.at(ix);
         if (line.length() > maxlen) {
@@ -227,11 +227,11 @@ void Widget::draw_hover_panel_(float x, float y, StringList const& text, Color b
     }
     auto text_size { MeasureTextEx(App::the()->font.value(), text.at(longest_line).c_str(), App::the()->font.value().baseSize, 2) };
     auto width { static_cast<float>(text_size.x + 12) };
-    auto height { static_cast<float>(App::the()->cell.y + 2) * text.size() + 12 };
+    auto height { (text_size.y + 2) * text.size() + 12 };
     draw_rectangle_no_normalize(x, y, width, height, bgcolor);
     draw_outline_no_normalize(x + 2, y + 2, width - 4, height - 4, textcolor);
     for (size_t ix = 0; ix < text.size(); ++ix) {
-        render_text(x + 6, y + (App::the()->cell.y + 2) * ix + 6, text[ix], App::the()->font.value(), textcolor);
+        render_text(x + 6, y + (text_size.y + 2) * ix + 6, text[ix], App::the()->font.value(), textcolor);
     }
 }
 
@@ -270,7 +270,7 @@ void Label::draw()
 {
     auto app = App::the();
     if (!text.empty()) {
-        render_text(app->padding.x, (app->cell.y - app->font_size) / 2, text, app->font.value(), color);
+        render_text(app->padding.x, (app->char_size.y - app->font_size) / 2, text, app->font.value(), color);
     }
 }
 

@@ -160,8 +160,8 @@ void cmd_find_file(pEditor const &editor, JSONValue const &)
             , editor(std::move(editor))
         {
             std::vector<fs::directory_entry> directories {};
-            auto add_files = [this, &directories](fs::path dir) -> void {
-                for (auto e : fs::directory_iterator{dir}) {
+            auto                             add_files = [this, &directories](fs::path dir) -> void {
+                for (auto e : fs::directory_iterator { dir }) {
                     auto &p = e.path();
                     if (e.is_directory()) {
                         directories.emplace_back(e);
@@ -172,7 +172,7 @@ void cmd_find_file(pEditor const &editor, JSONValue const &)
             };
             auto &p = Aragorn::the()->project;
             for (auto &d : p->source_dirs) {
-                directories.emplace_back(fs::path{ p->project_dir } / d);
+                directories.emplace_back(fs::path { p->project_dir } / d);
             }
             while (!directories.empty()) {
                 add_files(directories.back());
@@ -262,8 +262,11 @@ void Editor::initialize()
 
 void Editor::resize()
 {
-    columns = (int) ((viewport.width - 2 * PADDING) / Aragorn::the()->cell.x);
     lines = (int) ((viewport.height - 2 * PADDING) / Aragorn::the()->cell.y);
+    cell.y = (viewport.height - 2 * PADDING) / static_cast<float>(lines);
+    columns = (int) ((viewport.width - 2 * PADDING) / Aragorn::the()->cell.x);
+    cell.x = (viewport.width - 2 * PADDING) / static_cast<float>(columns);
+
     for (auto &view : views) {
         view->viewport = viewport;
     }
