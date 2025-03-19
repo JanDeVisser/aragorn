@@ -15,9 +15,9 @@
 #include <thread>
 #include <unistd.h>
 
+#include <LibCore/Defer.h>
 #include <LibCore/Logging.h>
 #include <LibCore/Result.h>
-#include <LibCore/ScopeGuard.h>
 
 namespace LibCore {
 
@@ -107,7 +107,7 @@ public:
         std::string ret;
         {
             std::unique_lock lk(m_mutex);
-            ScopeGuard       sg { [&lk]() {
+            Defer       sg { [&lk]() {
                 lk.unlock();
             } };
             if (m_fd >= 0 && m_current.empty()) {
@@ -159,7 +159,7 @@ private:
     {
         {
             std::unique_lock lk(m_mutex);
-            ScopeGuard       guard { [&lk]() {
+            Defer       guard { [&lk]() {
                 lk.unlock();
             } };
             char buffer[DRAIN_SIZE];

@@ -8,11 +8,13 @@
 #include <codecvt>
 #include <print>
 
+#include <LibCore/Defer.h>
 #include <LibCore/IO.h>
-#include <LibCore/ScopeGuard.h>
+#include <LibCore/Utf8.h>
 
 #include <App/Aragorn.h>
 #include <App/Buffer.h>
+#include <App/LexerMode.h>
 #include <LSP/LSP.h>
 #include <LSP/Schema/SemanticTokens.h>
 
@@ -58,6 +60,7 @@ Result<pBuffer> Buffer::open(std::string_view const &name)
 pBuffer Buffer::new_buffer()
 {
     auto buffer = Widget::make<Buffer>(Aragorn::the());
+    buffer->m_mode = Widget::make<LexerMode<PlainTextLexer>>(buffer);
     buffer->lex();
     //    mode = aragorn_get_mode_for_buffer(&aragorn, name);
     //    if (mode) {
@@ -86,7 +89,7 @@ bool Buffer::lex()
 
     mode()->initialize_source();
     lock();
-    ScopeGuard sg { [this]() {
+    Defer sg { [this]() {
         unlock();
     } };
     // std::println("Lexing...");
@@ -104,9 +107,6 @@ bool Buffer::lex()
         // switch (t.kind()) {
         // case TokenKind::EndOfLine:
         //     std::println("\\n");
-        //     break;
-        // case TokenKind::Symbol:
-        //     std::print("{} [{}] ", t.kind(), at(t.index()));
         //     break;
         // default:
         //     std::print("{} ", t.kind());
@@ -126,7 +126,6 @@ bool Buffer::lex()
         default:
             break;
         }
-        assert(lineno < 200);
     } while (!done);
     // std::println("Lexed...");
     indexed_version = version;
@@ -230,7 +229,7 @@ void Buffer::set(size_t pos)
 
 void Buffer::insert_rune(size_t pos, rune r)
 {
-    assert(pos < text_size);
+    assert(pos <= text_size);
     set(pos);
     m_text[cursor] = r;
     cursor += 1;
@@ -239,7 +238,7 @@ void Buffer::insert_rune(size_t pos, rune r)
 
 void Buffer::ensure_capacity(size_t num)
 {
-    auto new_cap = m_text.size();
+    auto new_cap = (m_text.size() > 0) ? m_text.size() : 1.2 * num;
     while (text_size + num > static_cast<int>(static_cast<float>(new_cap) * 0.9)) {
         new_cap = static_cast<int>(static_cast<float>(new_cap) * 1.2);
     }
@@ -353,6 +352,7 @@ void Buffer::apply(BufferEvent const &event)
         auto const &filename = event.filename();
         if (filename.has_value()) {
             name = filename.value();
+            read_only = false;
         }
         if (name.empty() || saved_version == version) {
             return;
@@ -413,15 +413,20 @@ void Buffer::redo()
     apply(edit);
 }
 
-void Buffer::insert(size_t pos, rune_string insert)
+void Buffer::insert(size_t pos, std::string_view str)
 {
-    if (insert.empty()) {
+    insert(pos, MUST_EVAL(to_wstring(str)));
+}
+
+void Buffer::insert(size_t pos, rune_string str)
+{
+    if (str.empty()) {
         return;
     }
     pos = clamp(pos, 0, text_size);
     EventRange range;
     range.start = range.end = index_to_position(static_cast<int>(pos));
-    edit(BufferEvent::make_insert(range, pos, std::move(insert)));
+    edit(BufferEvent::make_insert(range, pos, std::move(str)));
 }
 
 void Buffer::del(size_t pos, size_t count)

@@ -54,6 +54,7 @@ using pBuffer = std::shared_ptr<Buffer>;
 
 struct Buffer : public Widget {
     std::string                      name {};
+    bool                             read_only { false };
     int                              buffer_ix { -1 };
     std::vector<BufferEvent>         undo_stack {};
     std::vector<Line>                lines {};
@@ -78,6 +79,7 @@ struct Buffer : public Widget {
     void                              undo();
     void                              redo();
     void                              insert(size_t pos, rune_string text);
+    void                              insert(size_t pos, std::string_view text);
     void                              del(size_t pos, size_t count);
     void                              replace(size_t pos, size_t num, rune_string replacement);
     size_t                            line_for_index(size_t index, std::optional<Vec<size_t>> const &hint = {}) const;

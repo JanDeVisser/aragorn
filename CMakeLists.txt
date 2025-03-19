@@ -104,7 +104,7 @@ add_library(
         LibCore/Pipe.h
         LibCore/Process.h
         LibCore/Result.h
-        LibCore/ScopeGuard.h
+        LibCore/Defer.h
         LibCore/StringScanner.h
         LibCore/StringUtil.cpp
         LibCore/Token.cpp

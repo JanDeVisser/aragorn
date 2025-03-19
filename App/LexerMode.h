@@ -67,8 +67,8 @@ private:
     Lexer m_lexer {};
 };
 
-template<typename KeywordCodes = NoKeywordCode, typename KeywordCategories = NoKeywordCategory>
-struct SimpleLexer : ModeLexer<EnumKeywords<BufferSource, KeywordCategories, KeywordCodes>> {
+template<typename Buffer, typename KeywordCodes = NoKeywordCode, typename KeywordCategories = NoKeywordCategory>
+struct SimpleLexer : ModeLexer<EnumKeywords<Buffer, KeywordCategories, KeywordCodes>> {
     using Keywords = KeywordCodes;
     using Categories = KeywordCategories;
 

@@ -52,7 +52,7 @@ CError LSP::message(pWidget const &sender, std::string_view method, std::optiona
 {
     if (!m_ready) {
         std::unique_lock lk(mutex);
-        ScopeGuard       sg { [&lk] { lk.unlock(); } };
+        Defer            sg { [&lk] { lk.unlock(); } };
         init_condition.wait(lk, [this]() { return m_ready; });
     }
     return private_message(sender, method, params);
@@ -64,7 +64,7 @@ CError LSP::private_message(pWidget const &sender, std::string_view method, std:
     req.sender = sender;
     req.method = method;
     req.params = params;
-    std::println("Sending LSP message: {}... ", method);
+    log->insert(log->length(), std::format("Sending LSP message: {} ({})...\n", method, req.id));
     request_queue.push_back(req);
     auto encoded { req.encode() };
     auto json { encoded.serialize() };
@@ -79,7 +79,7 @@ CError LSP::notification(std::string_view method, std::optional<JSONValue> param
 {
     if (!m_ready) {
         std::unique_lock lk(mutex);
-        ScopeGuard       sg { [&lk] { lk.unlock(); } };
+        Defer            defer { [&lk] { lk.unlock(); } };
         init_condition.wait(lk, [this]() { return m_ready; });
     }
     return private_notification(method, params);
@@ -88,7 +88,7 @@ CError LSP::notification(std::string_view method, std::optional<JSONValue> param
 CError LSP::private_notification(std::string_view method, std::optional<JSONValue> params)
 {
     Notification notification;
-    std::println("Sending LSP notification: {}... ", method);
+    log->insert(log->length(), std::format("Sending LSP notification: {}...\n", method));
     notification.method = method;
     notification.params = params;
     auto json = notification.encode().serialize();
@@ -109,15 +109,15 @@ void LSP::on_initialize_response(JSONValue const &response_json)
     assert(!m_ready);
     {
         std::unique_lock lk(mutex);
-        ScopeGuard       sg { [&lk] { lk.unlock(); } };
+        Defer            sg { [&lk] { lk.unlock(); } };
         auto             response = Response::decode(response_json);
         assert(!response.is_error());
         auto  result = make_response_result<InitializeResult>(response.value());
         auto &res = result.value();
         if (res.serverInfo) {
-            std::println("LSP server name: {}", res.serverInfo->name);
+            log->insert(log->length(), std::format("LSP server name: {}\n", res.serverInfo->name));
             if (res.serverInfo->version) {
-                std::println("LSP server version: {}", *(res.serverInfo->version));
+                log->insert(log->length(), std::format("LSP server version: {}\n", *(res.serverInfo->version)));
             }
         }
         server_capabilities = res.capabilities;
@@ -168,11 +168,12 @@ void LSP::read(ReadPipe<LSP *> &pipe)
             ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", response_maybe.error().description));
             return;
         }
-        std::print("Received response id {}", response_maybe.value().id);
+
+        log->insert(log->length(), std::format("Received response id {}", response_maybe.value().id));
         auto const &response = response_maybe.value();
         for (auto ix = 0; ix < request_queue.size(); ++ix) {
             Request const &req = request_queue[ix];
-            std::println(" for request '{}'", req.method);
+            log->insert(log->length(), std::format(" for request '{}'\n", req.method));
             if (req.id == response.id) {
                 if (req.method == "initialize") {
                     handle_initialize_response(req.sender, ret);
@@ -183,11 +184,11 @@ void LSP::read(ReadPipe<LSP *> &pipe)
                 return;
             }
         }
-        std::println(" which was not pending");
+        log->insert(log->length(), " which was not pending\n");
         return;
     }
     assert(ret.has("method"));
-    std::println("Received notification '{}'", ret["method"].to_string());
+    log->insert(log->length(), std::format("Received notification '{}'", ret["method"].to_string()));
     auto notification_maybe = Notification::decode(ret);
     if (notification_maybe.is_error()) {
         ::Aragorn::Aragorn::the()->set_message(std::format("LSP: {}", notification_maybe.error().description));
@@ -226,6 +227,8 @@ void LSP::initialize()
         assert(m_ready);
         return;
     }
+
+    log = ::Aragorn::Aragorn::the()->create_system_buffer("LSP Log");
 
     lsp.emplace("clangd", "--use-dirty-headers", "--background-index");
     lsp->stderr_file = "/tmp/clangd.log";

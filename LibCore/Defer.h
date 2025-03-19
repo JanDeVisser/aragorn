@@ -9,20 +9,20 @@
 namespace LibCore {
 
 template<typename Callback>
-class ScopeGuard {
+class Defer {
 public:
-    explicit ScopeGuard(Callback const& callback)
+    explicit Defer(Callback const &callback)
         : m_callback(callback)
     {
     }
 
-    ~ScopeGuard()
+    ~Defer()
     {
         m_callback();
     }
 
 private:
-    Callback const& m_callback;
+    Callback const &m_callback;
 };
 
 }

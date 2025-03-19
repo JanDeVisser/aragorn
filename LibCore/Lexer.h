@@ -445,23 +445,21 @@ private:
                     ix = m_index + 2;
                 }
             }
-
             while (ix < m_buffer.length()) {
                 Char const ch = m_buffer[ix];
                 if (!predicate(ch) && ((ch != '.') || (type == NumberType::Decimal))) {
                     // FIXME lex '1..10' as '1', '..', '10'. It will now lex as '1.', '.', '10'
-                    m_index = ix;
-                    return Token::number(type);
+                    break;
                 }
                 if (ch == '.') {
                     if (type != NumberType::Integer) {
-                        m_index = ix;
-                        return Token::number(type);
+                        break;
                     }
                     type = NumberType::Decimal;
                 }
                 ++ix;
             }
+            m_index = ix;
             return Token::number(type);
         }
 

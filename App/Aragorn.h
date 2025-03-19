@@ -137,6 +137,7 @@ struct Aragorn : public App {
     void            process_input() override;
     void            on_terminate() override;
     pBuffer         new_buffer();
+    pBuffer         create_system_buffer(std::string_view name);
     Result<pBuffer> open_buffer(std::string_view const &file);
     void            close_buffer(int buffer_num);
     EError          read_settings();

@@ -248,6 +248,10 @@ void cmd_run_command(pAragorn const &aragorn, JSONValue const &)
     commands->show();
 }
 
+void cmd_lsp_log(pAragorn const &aragorn, JSONValue const &)
+{
+}
+
 void Aragorn::initialize()
 {
     auto res = read_settings();
@@ -286,8 +290,11 @@ void Aragorn::initialize()
 
     auto editor_pane = Widget::make<Layout>(self(), ContainerOrientation::Horizontal);
     editor_pane->policy = SizePolicy::Stretch;
-    auto editor = editor_pane->add_widget<Editor>();
-    editor->select_buffer(buffers[0]);
+    auto   editor = editor_pane->add_widget<Editor>();
+    size_t ix = 0;
+    while (ix < buffers.size() && !buffers[ix]->name.empty() && buffers[ix]->name[0] == '*')
+        ++ix;
+    editor->select_buffer(buffers[ix]);
     editor_pane->insert_widget<Gutter>(0, editor);
     auto main_area = Widget::make<Layout>(Aragorn::the(), ContainerOrientation::Vertical);
     main_area->policy = SizePolicy::Stretch;
@@ -340,6 +347,15 @@ pBuffer Aragorn::new_buffer()
     }
     pBuffer b = Buffer::new_buffer();
     buffers.push_back(b);
+    return b;
+}
+
+pBuffer Aragorn::create_system_buffer(std::string_view name)
+{
+    pBuffer b = Buffer::new_buffer();
+    buffers.push_back(b);
+    b->name = std::format("*{}", name);
+    b->read_only = true;
     return b;
 }
 

@@ -294,6 +294,9 @@ void do_find_query(pBufferView const &view, rune_string const &query)
 
 void cmd_find_replace(pBufferView const &view, JSONValue const &)
 {
+    if (view->buffer()->read_only) {
+        return;
+    }
     MiniBuffer::query(view, L"Find", do_find_query);
 }
 
@@ -344,6 +347,9 @@ void cmd_save_as(pBufferView const &view, JSONValue const &)
 
 void cmd_save(pBufferView const &view, JSONValue const &dummy)
 {
+    if (view->buffer()->read_only) {
+        return;
+    }
     auto const &buffer = view->buffer();
     if (buffer->name.empty()) {
         cmd_save_as(view, dummy);
@@ -549,12 +555,18 @@ void BufferView::select_word()
 
 void BufferView::insert(size_t at, rune_view const &text)
 {
+    if (m_buf->read_only) {
+        return;
+    }
     m_buf->insert(at, rune_string { text });
     move_cursor(CursorMovement::by_index(at + text.length()));
 }
 
 void BufferView::del(size_t at, size_t count)
 {
+    if (m_buf->read_only) {
+        return;
+    }
     m_buf->del(at, count);
     move_cursor(CursorMovement::by_index(at));
 }
@@ -564,7 +576,6 @@ void BufferView::delete_selection()
     assert(has_selection());
     auto sel = selection();
     del(sel->coords[0], sel->coords[1] - sel->coords[0]);
-    move_cursor(CursorMovement::by_index(sel->coords[0]));
 }
 
 void BufferView::backspace()
@@ -601,6 +612,9 @@ int get_closing_brace_code(int brace)
 
 bool BufferView::character(int ch)
 {
+    if (m_buf->read_only) {
+        return false;
+    }
     size_t at = cursor;
     if (auto sel = selection(); sel.has_value()) {
         switch (ch) {
@@ -622,7 +636,7 @@ bool BufferView::character(int ch)
         }
         default:
             delete_selection();
-            return true;
+            break;
         }
     }
     insert(at, rune_string { (wchar_t const *) &ch, 1 });
@@ -631,6 +645,9 @@ bool BufferView::character(int ch)
 
 void BufferView::insert_string(rune_view const &sv)
 {
+    if (m_buf->read_only) {
+        return;
+    }
     auto at = cursor;
     if (has_selection()) {
         delete_selection();
@@ -835,12 +852,18 @@ void BufferView::copy()
 
 void BufferView::cut()
 {
+    if (m_buf->read_only) {
+        return;
+    }
     copy();
     delete_selection();
 }
 
 void BufferView::paste()
 {
+    if (m_buf->read_only) {
+        return;
+    }
     auto text = GetClipboardText();
     insert_string(MUST_EVAL(to_wstring(GetClipboardText())));
 }
@@ -1050,6 +1073,7 @@ void BufferView::clear_replacement()
 
 void BufferView::replace()
 {
+    assert(!m_buf->read_only);
     assert(!m_replacement.empty());
     delete_selection();
     insert(cursor, m_replacement);

@@ -125,6 +125,7 @@ struct LSP : Widget {
     Requests                      request_queue;
     std::string                   read_buffer;
     LSPScanner                    scanner;
+    pBuffer                       log;
 
     LSP()
         : Widget(::Aragorn::Aragorn::the())
